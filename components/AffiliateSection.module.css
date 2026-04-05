@@ -1,0 +1,294 @@
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 6rem auto;
+  position: relative;
+  z-index: 50;
+}
+
+.card {
+  background: var(--background);
+  border: 1px solid var(--outline-color);
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+/* Info Side (Left) */
+.infoContent {
+  flex: 1.2;
+  padding: 4rem;
+  border-right: 1px solid var(--outline-color);
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.badge {
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.1);
+  color: var(--primary);
+  padding: 0.5rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 50px;
+  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2);
+  width: fit-content;
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--foreground);
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+}
+
+.highlight {
+  color: var(--primary);
+}
+
+.description {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 500px;
+}
+
+.referralBox {
+  display: flex;
+  gap: 1rem;
+}
+
+.linkWrapper {
+  flex: 1;
+  display: flex;
+  background: var(--outline-color);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.5rem;
+  border-radius: 8px;
+  align-items: center;
+}
+
+.linkInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-family: monospace;
+  outline: none;
+}
+
+.copyBtn {
+  background: var(--background);
+  border: 1px solid var(--outline-color);
+  color: var(--foreground);
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copyBtn:hover {
+  background: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+}
+
+.inviteBtn {
+  background: var(--primary);
+  color: #000;
+  border: none;
+  padding: 0 2rem;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.inviteBtn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.statsRow {
+  display: flex;
+  gap: 3rem;
+}
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+/* Progress Side (Right) */
+.progressVisual {
+  flex: 0.8;
+  padding: 4rem;
+  background: rgba(255, 255, 255, 0.015);
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.progHeader {
+  border-bottom: 1px solid var(--outline-color);
+  padding-bottom: 1.5rem;
+}
+
+.progTitle {
+  font-size: 1.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--foreground);
+}
+
+.progSubtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.milestoneList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.milestoneItem {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem;
+  /* background: var(--outline-color); */
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.activeItem {
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.05);
+  border-color: rgba(var(--primary-rgb, 254, 182, 12), 0.2);
+}
+
+.iconCircle {
+  width: 32px;
+  height: 32px;
+  background: var(--background);
+  border-radius: 50%;
+  border: 1px solid var(--outline-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.activeItem .iconCircle {
+  background: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+}
+
+.mLabel {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--foreground);
+}
+
+.mDesc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.progressBar {
+  height: 8px;
+  background: var(--outline-color);
+  border-radius: 50px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 50px;
+  box-shadow: 0 0 15px var(--primary);
+}
+
+.applyAllBtn {
+  background: var(--background);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 1.1rem;
+  border-radius: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.applyAllBtn:hover {
+  background: var(--primary);
+  color: #000;
+  box-shadow: 0 0 20px rgba(var(--primary-rgb, 254, 182, 12), 0.3);
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .card { flex-direction: column; }
+  .infoContent { border-right: none; border-bottom: 1px solid var(--outline-color); padding: 3rem; }
+  .progressVisual { padding: 3rem; }
+}
+
+@media (max-width: 768px) {
+  .title { font-size: 2.25rem; }
+  .statValue { font-size: 2.25rem; }
+  .infoContent, .progressVisual { padding: 2rem; }
+  .statsRow { flex-wrap: wrap; gap: 1.5rem; }
+  .referralBox { flex-direction: column; }
+  .inviteBtn { padding: 1.1rem; }
+}

@@ -1,0 +1,711 @@
+.main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 5%;
+  position: relative;
+  z-index: 10;
+}
+
+/* Electric Vibe Background */
+.backgroundAnimation {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-color: var(--background);
+}
+
+.backgroundAnimation::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(254, 182, 12, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(254, 182, 12, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridPulse 8s infinite alternate;
+}
+
+.backgroundAnimation::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, transparent 0%, var(--background) 80%);
+}
+
+@keyframes gridPulse {
+  0% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 0.8;
+  }
+}
+
+/* Splash Screen */
+.splashScreen {
+  position: fixed;
+  inset: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeOutSplash 0.5s ease 1.5s forwards;
+  pointer-events: auto;
+}
+
+.splashText {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  animation: scaleIn 0.8s ease forwards;
+}
+
+.splashText span {
+  color: var(--primary);
+}
+
+@keyframes fadeOutSplash {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- Header --- */
+.header {
+  width: 100%;
+  max-width: 1400px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--outline-color);
+  font-weight: 700;
+  font-size: 0.95rem;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: var(--background);
+}
+
+.navLinks {
+  display: flex;
+  gap: 2.5rem;
+}
+
+.link {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--primary);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: inherit;
+}
+
+.logoIcon {
+  background-color: var(--primary);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  font-size: 14px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.pagesDropdown {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+.pagesDropdown:hover {
+  color: var(--foreground);
+}
+
+.authLoading {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--outline-color);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: authSpin 0.8s linear infinite;
+}
+
+@keyframes authSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Status Badge --- */
+.subHeader {
+  width: 100%;
+  max-width: 1400px;
+  display: flex;
+  justify-content: space-between;
+  padding: 1.5rem 0;
+  position: relative;
+  z-index: 50;
+}
+
+.badge {
+  border: 1px solid var(--outline-color);
+  background-color: var(--background);
+  padding: 0.5rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  background-color: #22c55e;
+  animation: pulseStatus 1.5s infinite;
+}
+
+@keyframes pulseStatus {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.typingText {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--primary);
+  animation: typewriter 3s steps(30) 0.5s forwards, blinkCursor 0.75s step-end infinite;
+  width: 0;
+}
+
+@keyframes typewriter {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blinkCursor {
+
+  0%,
+  100% {
+    border-color: var(--primary);
+  }
+
+  50% {
+    border-color: transparent;
+  }
+}
+
+.badgeRight {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #000;
+}
+
+/* --- Hero Section --- */
+.hero {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rem 0 7rem;
+  text-align: center;
+  max-width: 1000px;
+  position: relative;
+  z-index: 100;
+}
+
+.avatarWrapper {
+  margin-bottom: 2.5rem;
+}
+
+.avatarShape {
+  background-color: var(--primary);
+  width: 80px;
+  height: 80px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.4s ease;
+}
+
+.controllerAnim {
+  animation: floatController 4s ease-in-out infinite;
+}
+
+@keyframes floatController {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+/* Floating Game Theme Icons (Replacing boxes) */
+.floatingBox {
+  position: absolute;
+  color: var(--primary);
+  opacity: 0.25;
+  z-index: -1;
+  animation: floatAround 10s infinite ease-in-out alternate;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(254, 182, 12, 0.5));
+}
+
+@keyframes floatAround {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate(20px, -30px) rotate(45deg) scale(1.1);
+  }
+
+  100% {
+    transform: translate(-20px, -60px) rotate(-45deg) scale(0.9);
+  }
+}
+
+.box1 {
+  top: 10%;
+  left: 0%;
+  animation-duration: 12s;
+}
+
+.box2 {
+  top: 20%;
+  right: 2%;
+  animation-duration: 8s;
+}
+
+.box3 {
+  bottom: 25%;
+  left: 5%;
+  animation-duration: 15s;
+}
+
+.box4 {
+  bottom: 15%;
+  right: 5%;
+  animation-duration: 10s;
+}
+
+.box5 {
+  top: 40%;
+  left: -10%;
+  animation-duration: 18s;
+}
+
+.box6 {
+  top: 50%;
+  right: -10%;
+  animation-duration: 14s;
+}
+
+.title {
+  font-size: 4.5rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  margin-bottom: 2.5rem;
+  text-transform: uppercase;
+}
+
+.highlight {
+  color: var(--primary);
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  margin-bottom: 3rem;
+  max-width: 800px;
+  font-weight: 500;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 1.25rem;
+  justify-content: center;
+  margin-bottom: 4rem;
+  position: relative;
+  z-index: 101;
+}
+
+.btnLarge {
+  padding: 1.2rem 2.8rem;
+  font-size: 0.85rem;
+}
+
+/* Email Input Row */
+.subscribeRow {
+  display: flex;
+  gap: 0;
+  width: 100%;
+  max-width: 500px;
+  border: 1px solid var(--outline-color);
+  background-color: var(--background);
+  transition: border-color 0.4s ease;
+  position: relative;
+  z-index: 101;
+}
+
+.subscribeRow:focus-within {
+  border-color: var(--primary);
+}
+
+.emailInput {
+  flex: 1;
+  padding: 1.2rem 1.5rem;
+  border: none;
+  background-color: transparent;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.emailInput::placeholder {
+  color: var(--text-muted);
+}
+
+/* --- Stats Bar --- */
+.statsBar {
+  width: 100%;
+  max-width: 1400px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 4rem 0;
+  margin-bottom: 2rem;
+  border-top: 1px solid var(--outline-color);
+  border-bottom: 1px solid var(--outline-color);
+  position: relative;
+  z-index: 50;
+}
+
+.statItem {
+  text-align: center;
+}
+
+.statNumber {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 0.75rem;
+  color: var(--foreground);
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15rem;
+}
+
+/* --- Features --- */
+.featuresWrapper {
+  width: 100%;
+  max-width: 1400px;
+  margin-bottom: 4rem;
+  border: 1px solid var(--outline-color);
+  display: flex;
+  background-color: var(--background);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s ease;
+  z-index: 50;
+}
+
+.featuresWrapper::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  background: linear-gradient(var(--border-angle, 0deg), #feb60c, #FF69B4, #feb60c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  animation: rotateBorder 4s linear infinite;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.featuresWrapper:hover::before {
+  opacity: 1;
+}
+
+.featuresWrapper:hover {
+  border-color: transparent;
+}
+
+.featureItem {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  font-weight: 800;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background-color 0.3s ease;
+  position: relative;
+  z-index: 20;
+  text-decoration: none;
+  color: inherit;
+}
+
+.featureItem:hover {
+  background-color: rgba(254, 182, 12, 0.03);
+}
+
+.featureItem:not(:last-child) {
+  border-right: 1px solid var(--outline-color);
+}
+
+.featureIcon {
+  color: var(--primary);
+}
+
+/* --- Section Divider --- */
+.sectionDivider {
+  width: 100%;
+  max-width: 1400px;
+  height: 1px;
+  background: var(--outline-color);
+  margin: 4rem 0;
+}
+
+/* --- Footer --- */
+.footer {
+  width: 100%;
+  max-width: 1400px;
+  padding: 5rem 0;
+  border-top: 1px solid var(--outline-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5rem;
+  position: relative;
+  z-index: 50;
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-transform: uppercase;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 3.5rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12rem;
+}
+
+.footerLinks a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.3s ease;
+}
+
+.footerLinks a:hover {
+  color: var(--primary);
+}
+
+.footerRight {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+@media (max-width: 1024px) {
+  .title {
+    font-size: 3.5rem;
+  }
+
+  .statsBar {
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .navLinks {
+    display: none;
+  }
+
+  .subHeader {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+  }
+
+  .featuresWrapper {
+    flex-direction: column;
+  }
+
+  .featureItem:not(:last-child) {
+    border-right: none;
+    border-bottom: 1px solid var(--outline-color);
+  }
+
+  .actionButtons {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .heroBoxes {
+    display: none;
+  }
+
+  .title {
+    font-size: 2.75rem;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 2.5rem;
+    text-align: center;
+  }
+
+  .footerLinks {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+
+  .statsBar {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .connectText {
+    display: none;
+  }
+
+  .headerActions {
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 2.25rem;
+  }
+
+  .logo span {
+    display: none;
+  }
+}
+
+/* Admin UI Theme Sync */
+.adminInput {
+  background: var(--background);
+  border: 1px solid var(--outline-color);
+  padding: 1rem;
+  border-radius: 8px;
+  color: var(--foreground);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  outline: none;
+  width: 100%;
+}
+
+.adminInput:focus {
+  border-color: var(--primary);
+}
+
+.adminInput::placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+  opacity: 0.6;
+}

@@ -1,0 +1,271 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
+
+:root {
+  --background: #ffffff;
+  --foreground: #111111;
+  --primary: #feb60c;
+  --primary-hover: #e5a30b;
+  --outline-color: #e2e8f0;
+  --text-muted: #64748b;
+  --font-main: 'Roboto', sans-serif;
+  --border-width: 1px;
+}
+
+.dark-theme {
+  --background: #0a0a0f;
+  --foreground: #f8fafc;
+  --outline-color: #1e1e2e;
+  --text-muted: #94a3b8;
+  --primary: #feb60c; /* Sharper yellow */
+  --highlight-glow: rgba(254, 182, 12, 0.2);
+}
+
+.light-theme {
+  --background: #ffffff;
+  --foreground: #111111;
+  --outline-color: #e2e8f0;
+  --text-muted: #64748b;
+  --highlight-glow: rgba(254, 182, 12, 0.1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-main);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  /* Cursor: Reset to default as per user request */
+  cursor: default;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0 !important;
+}
+
+/* Ensure interactive elements show the standard pointer cursor */
+a, button, [role="button"], input[type="submit"] {
+  cursor: pointer !important;
+}
+
+/* --- Global Button Classes --- */
+.btnSolid {
+  background-color: var(--primary) !important;
+  color: #000 !important;
+  border: 1px solid var(--primary) !important;
+  padding: 0.75rem 1.75rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.btnSolid:hover {
+  background-color: transparent !important;
+  color: var(--foreground) !important;
+  transform: translateY(-4px);
+}
+
+.btnSolid:disabled {
+  background: var(--outline-color) !important;
+  border-color: var(--outline-color) !important;
+  color: var(--text-muted) !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  opacity: 0.7;
+}
+
+.btnOutline {
+  background-color: transparent !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--foreground) !important;
+  padding: 0.75rem 1.75rem;
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.btnOutline:hover {
+  background-color: var(--primary) !important;
+  color: #000 !important;
+  border-color: var(--primary) !important;
+  transform: translateY(-4px);
+}
+
+/* --- Buy Now Special Button --- */
+.btnBuyNow {
+  background: linear-gradient(135deg, #feb60c, #ff6b6b, #feb60c);
+  background-size: 200% auto;
+  color: #fff !important;
+  border: none !important;
+  padding: 0.85rem 2rem;
+  font-weight: 900;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  transition: all 0.4s ease;
+  animation: shineGradient 3s linear infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.btnBuyNow::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transition: 0.5s;
+}
+
+.btnBuyNow:hover {
+  transform: translateY(-3px) scale(1.05);
+}
+
+.btnBuyNow:hover::before {
+  left: 100%;
+}
+
+.btnBuyNow:disabled {
+  background: #2e2e2e !important;
+  color: #666 !important;
+  cursor: not-allowed !important;
+  animation: none !important;
+  transform: none !important;
+  opacity: 0.7;
+  filter: grayscale(1);
+}
+
+@keyframes shineGradient {
+  to { background-position: 200% center; }
+}
+
+/* --- Theme Toggle --- */
+.themeToggle {
+  display: flex;
+  background: var(--outline-color);
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--outline-color);
+}
+
+.toggleBtn {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.toggleBtn:hover {
+  color: var(--foreground);
+}
+
+.toggleBtnActive {
+  background: var(--background);
+  color: var(--primary) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* --- Draggable Utilities --- */
+.draggable {
+  cursor: grab;
+  user-select: none;
+}
+.draggable:active {
+  cursor: grabbing;
+}
+
+/* --- Dark Theme Content Highlighting fixes --- */
+.dark-theme .highlight {
+  text-shadow: 0 0 20px var(--highlight-glow);
+  color: var(--primary);
+  filter: brightness(1.1);
+}
+
+.dark-theme .sectionTitle {
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+/* Fix light mode buttons visibility */
+.light-theme .btnOutline {
+  border-color: #111;
+  color: #111;
+}
+
+.light-theme .btnSolid {
+  color: #000;
+  border-color: var(--primary);
+}
+
+/* --- Animated border angle --- */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rotateBorder {
+  to { --border-angle: 360deg; }
+}
+
+/* --- Text Reveal --- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animateText {
+  animation: fadeInUp 0.6s ease-out forwards;
+  opacity: 0;
+}
+.animateText1 { animation-delay: 0.1s; }
+.animateText2 { animation-delay: 0.2s; }
+.animateText3 { animation-delay: 0.3s; }
+.animateText4 { animation-delay: 0.4s; }
+.animateText5 { animation-delay: 0.5s; }
+
+/* Section Label Utility */
+.sectionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  margin-bottom: 1.5rem;
+}
+.sectionLabel::before {
+  content: ''; display: block;
+  width: 24px; height: 2px;
+  background-color: var(--primary);
+}

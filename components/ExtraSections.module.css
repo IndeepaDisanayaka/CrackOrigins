@@ -1,0 +1,327 @@
+.container {
+  width: 100%; max-width: 1400px;
+  margin: 0 auto; padding: 3rem 0;
+  display: flex; flex-direction: column; gap: 6rem;
+  position: relative; z-index: 50;
+}
+
+.section { display: flex; flex-direction: column; }
+
+.sectionTitle {
+  font-size: 2.75rem; font-weight: 800;
+  margin-bottom: 2rem; line-height: 1.1;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.sectionSubtext {
+  font-size: 1.1rem; color: var(--text-muted);
+  max-width: 700px; margin-bottom: 3rem;
+  line-height: 1.6; font-weight: 500;
+}
+
+/* --- About Section --- */
+.aboutContent { max-width: 750px; margin-bottom: 3.5rem; }
+.aboutText {
+  font-size: 1.1rem; color: var(--text-muted);
+  line-height: 1.8; margin-bottom: 1.5rem;
+}
+.aboutMission { font-size: 1.2rem; color: var(--text-muted); font-weight: 500; line-height: 1.8; }
+.aboutMission strong { color: var(--primary); font-size: 1.3rem; font-weight: 800; }
+
+.valuesGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+
+.valueCard {
+  border: 1px solid var(--outline-color);
+  padding: 2.5rem;
+  background-color: var(--background);
+  position: relative; overflow: hidden;
+  transition: all 0.4s ease;
+}
+
+.valueCard::before {
+  content: '';
+  position: absolute; inset: -1px;
+  padding: 1px;
+  background: conic-gradient(from var(--border-angle, 0deg), #feb60c, #FF00FF, #feb60c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity 0.4s ease;
+  animation: rotateBorder 4s linear infinite;
+  z-index: 10;
+  pointer-events: none; /* Fixed: allows clicks through */
+}
+.valueCard:hover::before { opacity: 1; }
+.valueCard:hover { border-color: transparent; transform: scale(1.02); }
+
+.valueIcon { margin-bottom: 1.5rem; color: var(--primary); font-size: 0; }
+.valueTitle { font-size: 1.1rem; font-weight: 800; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.valueDesc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; font-weight: 500; }
+
+/* --- Invest Section --- */
+.investGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+
+.investCard {
+  padding: 2.5rem;
+  border: 1px solid var(--outline-color);
+  background-color: var(--background);
+  position: relative; overflow: hidden;
+  transition: all 0.4s ease;
+}
+.investCard::before {
+  content: '';
+  position: absolute; inset: -1px;
+  padding: 1px;
+  background: conic-gradient(from var(--border-angle, 0deg), #feb60c, #4DFFFF, #feb60c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity 0.4s ease;
+  animation: rotateBorder 4s linear infinite;
+  z-index: 10;
+  pointer-events: none; /* Fixed: allows clicks through */
+}
+.investCard:hover::before { opacity: 1; }
+.investCard:hover { border-color: transparent; transform: scale(1.02); }
+
+.investIcon { margin-bottom: 1.5rem; color: var(--primary); font-size: 0; }
+.investTitle { font-size: 1.1rem; font-weight: 800; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.investDesc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; font-weight: 500; }
+
+.investCta { margin-top: 3rem; display: flex; justify-content: center; }
+
+/* --- Join Careers Section --- */
+.rolesGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+
+.roleCard {
+  border: 1px solid var(--outline-color);
+  padding: 2rem; background-color: var(--background);
+  position: relative; overflow: hidden;
+  transition: all 0.4s ease;
+  display: flex; flex-direction: column;
+}
+.roleCard::before {
+  content: '';
+  position: absolute; inset: -1px;
+  padding: 1px;
+  background: conic-gradient(from var(--border-angle, 0deg), #feb60c, #FF00FF, #feb60c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity 0.4s ease;
+  animation: rotateBorder 4s linear infinite;
+  z-index: 10;
+  pointer-events: none; /* Fixed: allows clicks through */
+}
+.roleCard:hover::before { opacity: 1; }
+.roleCard:hover { border-color: transparent; transform: scale(1.02); }
+
+.roleHeader { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+.roleIcon { color: var(--primary); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--primary); flex-shrink: 0; }
+.roleTitle { font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.roleType { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-top: 4px; }
+.roleDesc { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem; flex: 1; }
+
+.applyBtnWrapper { position: relative; z-index: 20; }
+
+/* --- Projects Section --- */
+.projectsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+.projectCard {
+  border: 1px solid var(--outline-color);
+  background-color: var(--background);
+  position: relative; overflow: hidden;
+  transition: all 0.4s ease;
+}
+.projectCard::before {
+  content: '';
+  position: absolute; inset: -1px;
+  padding: 1px;
+  background: conic-gradient(from var(--border-angle, 0deg), #feb60c, #FF00FF, #feb60c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity 0.4s ease;
+  animation: rotateBorder 4s linear infinite;
+  z-index: 10;
+  pointer-events: none; /* Fixed: allows clicks through */
+}
+.projectCard:hover::before { opacity: 1; }
+.projectCard:hover { border-color: transparent; transform: scale(1.02); }
+
+.projectImageWrapper { position: relative; height: 220px; overflow: hidden; }
+.projectImage { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; pointer-events: none; }
+.projectCard:hover .projectImage { transform: scale(1.08); }
+.projectBadge {
+  position: absolute; top: 1rem; right: 1rem;
+  background-color: var(--primary); color: #000;
+  padding: 0.4rem 0.75rem; font-size: 0.7rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  z-index: 20;
+}
+.projectInfo { padding: 2rem; position: relative; z-index: 20; }
+.projectDate { font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 0.5rem; }
+.projectTitle { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.projectDesc { font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem; }
+
+.readMoreBtn {
+  background: transparent; border: none; font-family: inherit;
+  color: var(--primary); font-weight: 800; font-size: 0.8rem;
+  text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem;
+  cursor: pointer; transition: gap 0.3s ease;
+}
+.readMoreBtn:hover { gap: 0.85rem; }
+
+/* --- Bottom Socials/Contact --- */
+.bottomWrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+
+.socialsGrid { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.socialCard {
+  flex: 1; min-width: 140px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1rem; padding: 2.5rem 1.5rem;
+  border: 1px solid var(--outline-color); background-color: var(--background);
+  transition: all 0.4s ease; position: relative; overflow: hidden;
+  text-decoration: none; color: inherit;
+}
+.socialCard::before {
+  content: '';
+  position: absolute; inset: -1px;
+  padding: 1px;
+  background: conic-gradient(from var(--border-angle, 0deg), #feb60c, #FF00FF, #feb60c);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity 0.4s ease;
+  animation: rotateBorder 4s linear infinite;
+  z-index: 10;
+  pointer-events: none; /* Fixed: allows clicks through */
+}
+.socialCard:hover::before { opacity: 1; }
+.socialCard:hover { border-color: transparent; transform: translateY(-6px); }
+
+.socialName { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.socialHandle { font-weight: 700; color: var(--text-muted); font-size: 0.75rem; }
+.discordCard { background-color: #5865F2; border-color: #5865F2; color: #fff; }
+.discordCard .socialHandle { color: rgba(255,255,255,0.73); }
+.discordCard:hover { color: #fff; border-color: #5865F2; }
+
+.contactCard { padding: 3rem; background-color: var(--background); color: var(--foreground); position: relative; overflow: hidden; border: 1px solid var(--outline-color); transition: all 0.4s ease; }
+.contactDesc { color: var(--text-muted); line-height: 1.8; font-size: 1.05rem; margin-bottom: 2rem; }
+.contactForm { display: flex; gap: 0; border: 1px solid var(--outline-color); position: relative; z-index: 20; transition: border-color 0.4s ease; }
+.contactForm:focus-within { border-color: var(--primary); }
+.emailInput {
+  flex: 1; padding: 1.1rem 1.5rem; border: none; background: transparent;
+  color: var(--foreground); font-size: 1rem; font-family: inherit; outline: none;
+}
+.emailInput::placeholder { color: var(--text-muted); }
+
+/* Draggable / Scroll Snapping logic */
+.draggablescroll {
+  display: flex !important; 
+  flex-direction: row !important;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 24px;
+  gap: 16px; 
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+.draggablescroll::-webkit-scrollbar {
+  height: 6px;
+}
+.draggablescroll::-webkit-scrollbar-thumb {
+  background-color: var(--primary);
+}
+
+/* --- Donate Section --- */
+.donateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.donateCard {
+  background: var(--background);
+  border: 1px solid var(--outline-color);
+  padding: 3rem;
+  text-align: center;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.donateCard:hover {
+  transform: translateY(-8px);
+  border-color: var(--primary);
+}
+
+.donateIcon {
+  width: 60px;
+  height: 60px;
+  background: var(--primary);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 2rem;
+  border-radius: 50%;
+}
+
+.donateTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.donateDesc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+}
+
+/* --- Projects Draggable Section --- */
+.projectsContainer {
+  position: relative;
+}
+
+.projectsDraggable {
+  display: flex;
+  gap: 2rem;
+  overflow-x: auto;
+  padding: 1rem 0 3rem;
+  cursor: grab;
+  scrollbar-width: none; /* Hide scrollbar for cleaner look */
+  -ms-overflow-style: none; /* Hide for IE/Edge */
+}
+
+.projectsDraggable::-webkit-scrollbar {
+  display: none; /* Hide for Chrome/Safari/Brave */
+}
+
+.projectsDraggable:active {
+  cursor: grabbing;
+}
+
+.projectCardWrapper {
+  flex: 0 0 400px;
+  scroll-snap-align: start;
+}
+
+@media (max-width: 1024px) {
+  .bottomWrapper { grid-template-columns: 1fr; gap: 4rem; }
+  .valuesGrid, .investGrid { grid-template-columns: 1fr 1fr; }
+  .projectCardWrapper { flex: 0 0 350px; }
+}
+
+@media (max-width: 768px) {
+  .sectionTitle { font-size: 2.25rem; }
+  .valuesGrid, .investGrid { grid-template-columns: 1fr; }
+  .contactForm { flex-direction: column; }
+  .projectCardWrapper { flex: 0 0 85%; }
+  .projectsDraggable { gap: 1.5rem; padding-bottom: 2rem; }
+}
