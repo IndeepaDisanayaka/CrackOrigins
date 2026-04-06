@@ -125,52 +125,255 @@
 
 .applyBtnWrapper { position: relative; z-index: 20; }
 
-/* --- Projects Section --- */
-.projectsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
-.projectCard {
+/* --- Steam Games Storefront --- */
+.steamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.steamCard {
+  background: var(--background);
   border: 1px solid var(--outline-color);
-  background-color: var(--background);
-  position: relative; overflow: hidden;
-  transition: all 0.4s ease;
+  border-radius: 12px; /* Affiliate section style */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: none;
 }
-.projectCard::before {
-  content: '';
-  position: absolute; inset: -1px;
-  padding: 1px;
-  background: conic-gradient(from var(--border-angle, 0deg), #feb60c, #FF00FF, #feb60c);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  opacity: 0; transition: opacity 0.4s ease;
-  animation: rotateBorder 4s linear infinite;
+
+.steamCard:hover {
+  border-color: var(--primary);
+  transform: translateY(-8px) scale(1.02);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.02);
+}
+
+.cardImage {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 7.5;
+  object-fit: cover;
+  border-bottom: 1px solid var(--outline-color);
+  transition: transform 0.4s ease;
+}
+
+.steamCard:hover .cardImage {
+  transform: scale(1.03);
+}
+
+.platformRow {
+  padding: 1.25rem 1.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* border-bottom: 1px solid var(--outline-color); */
+  background: rgba(255, 255, 255, 0.02);
+  position: relative;
   z-index: 10;
-  pointer-events: none; /* Fixed: allows clicks through */
 }
-.projectCard:hover::before { opacity: 1; }
-.projectCard:hover { border-color: transparent; transform: scale(1.02); }
 
-.projectImageWrapper { position: relative; height: 220px; overflow: hidden; }
-.projectImage { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; pointer-events: none; }
-.projectCard:hover .projectImage { transform: scale(1.08); }
-.projectBadge {
-  position: absolute; top: 1rem; right: 1rem;
-  background-color: var(--primary); color: #000;
-  padding: 0.4rem 0.75rem; font-size: 0.7rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.05em;
-  z-index: 20;
+.platformIcons {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 }
-.projectInfo { padding: 2rem; position: relative; z-index: 20; }
-.projectDate { font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 0.5rem; }
-.projectTitle { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.02em; }
-.projectDesc { font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem; }
 
-.readMoreBtn {
-  background: transparent; border: none; font-family: inherit;
-  color: var(--primary); font-weight: 800; font-size: 0.8rem;
-  text-transform: uppercase; display: flex; align-items: center; gap: 0.5rem;
-  cursor: pointer; transition: gap 0.3s ease;
+.activeIcon {
+  color: var(--foreground);
+  opacity: 1;
 }
-.readMoreBtn:hover { gap: 0.85rem; }
+
+.inactiveIcon {
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+.steamTag {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  padding-left: 0.8rem;
+  border-left: 1px solid var(--outline-color);
+}
+
+.discountBadge {
+  background: var(--primary);
+  color: #000;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 50px;
+  border: 1px solid var(--primary);
+}
+
+.steamInfo {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  flex-grow: 1;
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.steamTitle {
+  font-size: 1.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--primary);
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  width: fit-content;
+  animation: timerPulse 2s ease-in-out infinite;
+}
+
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+.timerVal {
+  font-weight: 900;
+  color: #000;
+  font-size: 0.9rem;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+.timerLabel {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  font-weight: 900;
+  color: #000;
+  opacity: 0.8;
+}
+
+.priceContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--outline-color);
+}
+
+.priceLabel {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.1em; /* statLabel style */
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.discountPrice {
+  font-size: 2.25rem; /* statValue style */
+  font-weight: 900;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+.originalPrice {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.steamActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.keyContainer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.hiddenKey {
+  flex: 1;
+  padding: 0.8rem 1rem;
+  background: var(--background);
+  border: 1px solid var(--outline-color);
+  font-family: monospace;
+  font-size: 1rem;
+  color: var(--primary);
+  letter-spacing: 2px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.btnUnlock {
+  background: linear-gradient(135deg, #feb60c, #ffe066, #feb60c);
+  background-size: 200% auto;
+  color: #000 !important;
+  border: none !important;
+  padding: 0.85rem 1.5rem;
+  font-weight: 900;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  animation: shineGradient 3s linear infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.btnUnlock::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+  transition: 0.5s;
+}
+
+.btnUnlock:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 10px 20px rgba(254, 182, 12, 0.3);
+}
+
+.btnUnlock:hover::before {
+  left: 100%;
+}
 
 /* --- Bottom Socials/Contact --- */
 .bottomWrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
@@ -216,112 +419,164 @@
 }
 .emailInput::placeholder { color: var(--text-muted); }
 
-/* Draggable / Scroll Snapping logic */
-.draggablescroll {
-  display: flex !important; 
-  flex-direction: row !important;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-bottom: 24px;
-  gap: 16px; 
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary) transparent;
-}
-.draggablescroll::-webkit-scrollbar {
-  height: 6px;
-}
-.draggablescroll::-webkit-scrollbar-thumb {
-  background-color: var(--primary);
-}
-
-/* --- Donate Section --- */
-.donateGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  margin-top: 2rem;
-}
-
-.donateCard {
-  background: var(--background);
-  border: 1px solid var(--outline-color);
-  padding: 3rem;
-  text-align: center;
-  transition: all 0.4s ease;
-  position: relative;
+/* --- Skeleton Loading Styles --- */
+.skeletonCard {
+  pointer-events: none;
   overflow: hidden;
 }
 
-.donateCard:hover {
-  transform: translateY(-8px);
-  border-color: var(--primary);
+.skeletonPlatformRow {
+  padding: 1.25rem 1.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--outline-color);
 }
 
-.donateIcon {
-  width: 60px;
-  height: 60px;
-  background: var(--primary);
-  color: #000;
+.skeletonBody {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  flex-grow: 1;
+}
+
+.skeletonRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin: 0 auto 2rem;
-  border-radius: 50%;
+  gap: 0.8rem;
 }
 
-.donateTitle {
-  font-size: 1.5rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  margin-bottom: 1rem;
+.skeletonDivider {
+  width: 1px;
+  height: 16px;
+  background: var(--outline-color);
 }
 
-.donateDesc {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  line-height: 1.6;
-  margin-bottom: 2.5rem;
-}
-
-/* --- Projects Draggable Section --- */
-.projectsContainer {
+.skeletonBlock {
   position: relative;
+  overflow: hidden;
+  background: var(--outline-color);
 }
 
-.projectsDraggable {
+.skeletonBlock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(254, 182, 12, 0.08) 40%,
+    rgba(254, 182, 12, 0.15) 50%,
+    rgba(254, 182, 12, 0.08) 60%,
+    transparent 100%
+  );
+  animation: skeletonShimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Skeleton block sizes — mirror real card structure */
+.skeletonIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.skeletonTagBlock {
+  width: 70px;
+  height: 14px;
+}
+
+.skeletonBadge {
+  width: 60px;
+  height: 28px;
+  border-radius: 50px !important;
+}
+
+.skeletonTitleArea {
   display: flex;
-  gap: 2rem;
-  overflow-x: auto;
-  padding: 1rem 0 3rem;
-  cursor: grab;
-  scrollbar-width: none; /* Hide scrollbar for cleaner look */
-  -ms-overflow-style: none; /* Hide for IE/Edge */
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.projectsDraggable::-webkit-scrollbar {
-  display: none; /* Hide for Chrome/Safari/Brave */
+.skeletonTitle {
+  width: 85%;
+  height: 24px;
 }
 
-.projectsDraggable:active {
-  cursor: grabbing;
+.skeletonTitleShort {
+  width: 55%;
+  height: 24px;
 }
 
-.projectCardWrapper {
-  flex: 0 0 400px;
-  scroll-snap-align: start;
+.skeletonTimer {
+  width: 160px;
+  height: 32px;
+  margin-top: 0.4rem;
+}
+
+.skeletonPriceArea {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--outline-color);
+}
+
+.skeletonPriceLabel {
+  width: 90px;
+  height: 12px;
+}
+
+.skeletonBigPrice {
+  width: 100px;
+  height: 36px;
+}
+
+.skeletonOldPrice {
+  width: 55px;
+  height: 16px;
+}
+
+.skeletonNote {
+  width: 150px;
+  height: 14px;
+}
+
+.skeletonActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeletonKeyInput {
+  flex: 1;
+  height: 44px;
+}
+
+.skeletonBtn {
+  width: 120px;
+  height: 44px;
+}
+
+.skeletonBtnFull {
+  width: 100%;
+  height: 44px;
 }
 
 @media (max-width: 1024px) {
   .bottomWrapper { grid-template-columns: 1fr; gap: 4rem; }
   .valuesGrid, .investGrid { grid-template-columns: 1fr 1fr; }
-  .projectCardWrapper { flex: 0 0 350px; }
+  .steamGrid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 768px) {
   .sectionTitle { font-size: 2.25rem; }
   .valuesGrid, .investGrid { grid-template-columns: 1fr; }
   .contactForm { flex-direction: column; }
-  .projectCardWrapper { flex: 0 0 85%; }
-  .projectsDraggable { gap: 1.5rem; padding-bottom: 2rem; }
+  .steamGrid { grid-template-columns: 1fr; }
 }

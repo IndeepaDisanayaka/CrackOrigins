@@ -2,6 +2,7 @@
 
 :root {
   --background: #ffffff;
+  --background-rgb: 255, 255, 255;
   --foreground: #111111;
   --primary: #feb60c;
   --primary-hover: #e5a30b;
@@ -13,6 +14,7 @@
 
 .dark-theme {
   --background: #0a0a0f;
+  --background-rgb: 10, 10, 15;
   --foreground: #f8fafc;
   --outline-color: #1e1e2e;
   --text-muted: #94a3b8;
@@ -22,6 +24,7 @@
 
 .light-theme {
   --background: #ffffff;
+  --background-rgb: 255, 255, 255;
   --foreground: #111111;
   --outline-color: #e2e8f0;
   --text-muted: #64748b;
@@ -240,6 +243,11 @@ a, button, [role="button"], input[type="submit"] {
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.3; }
 }
 
 .animateText {

@@ -240,18 +240,79 @@
   color: var(--text-muted);
 }
 
+.progressBarWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.5rem;
+  position: relative;
+  height: 12px;
+}
+
+.progLabel {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
 .progressBar {
-  height: 8px;
+  height: 12px;
   background: var(--outline-color);
   border-radius: 50px;
-  overflow: hidden;
+  position: relative;
+  overflow: visible;
 }
 
 .progressFill {
   height: 100%;
   background: var(--primary);
   border-radius: 50px;
-  box-shadow: 0 0 15px var(--primary);
+  position: relative;
+  z-index: 2;
+  transition: width 1.5s ease-out;
+}
+
+.glowEffect {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: glowMove 2s infinite linear;
+  border-radius: 50px;
+}
+
+@keyframes glowMove {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: var(--background);
+  border: 2px solid var(--outline-color);
+  border-radius: 50%;
+  z-index: 5;
+  transition: all 0.3s cubic-bezier(1, 0, 0, 1);
+}
+
+.activeMarker {
+  background: var(--primary);
+  border-color: #000;
+  scale: 1.2;
 }
 
 .applyAllBtn {
@@ -269,12 +330,34 @@
   gap: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.buttonHoldFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--primary);
+  opacity: 0.3;
+  transition: width 0.1s linear;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.buttonText {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .applyAllBtn:hover {
   background: var(--primary);
   color: #000;
-  box-shadow: 0 0 20px rgba(var(--primary-rgb, 254, 182, 12), 0.3);
 }
 
 /* Responsive */
@@ -291,4 +374,115 @@
   .statsRow { flex-wrap: wrap; gap: 1.5rem; }
   .referralBox { flex-direction: column; }
   .inviteBtn { padding: 1.1rem; }
+}
+
+.couponDetailCard {
+  background: var(--outline-color);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1.25rem;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  gap: 1rem;
+  overflow: hidden;
+  transition: transform 0.2s;
+  margin-bottom: 0.5rem;
+}
+
+.couponDetailCard:hover {
+  transform: scale(1.02);
+}
+
+.couponInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.couponName {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--foreground);
+  text-transform: uppercase;
+}
+
+.dimmedCoupon {
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+
+.statusBadge_used, .statusBadge_expired {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.statusBadge_used {
+  background: var(--outline-color);
+  color: var(--text-muted);
+}
+
+.statusBadge_expired {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.couponExpire {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.couponAction {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--background);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--outline-color);
+}
+
+.couponCodeText {
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--primary);
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.miniCopy {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  padding: 0;
+}
+
+.miniCopy:hover {
+  color: var(--primary);
+}
+
+.couponBadge {
+  background: var(--primary);
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.applyAllBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
 }

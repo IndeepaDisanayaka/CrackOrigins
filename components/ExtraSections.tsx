@@ -1,7 +1,17 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import styles from './ExtraSections.module.css';
-import { Mail, ArrowRight, Heart, Globe, Zap, DollarSign, TrendingUp, Shield, UserPlus, Briefcase, Code, Trophy } from 'lucide-react';
+import { Mail, ArrowRight, Heart, Globe, Zap, DollarSign, TrendingUp, Shield, UserPlus, Briefcase, Code, Trophy, Monitor, Apple, Clock, Eye, ShoppingCart, CheckCircle2, User } from 'lucide-react';
+import Modal from './Modal';
+import Checkout from '@/lib/paypal';
+import { auth, fireStore } from "../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, doc, onSnapshot, getDocs, query, where } from "firebase/firestore";
+import { getUserKey } from '@/lib/admin-actions';
+import { login } from '@/app/page';
+import { useSearchParams } from 'next/navigation';
+import { useToast } from './Toast';
+import carouselStyles from './GamesCarousel.module.css';
 
 import { motion } from 'framer-motion';
 
@@ -19,11 +29,62 @@ const DISCORD_SVG = (
   </svg>
 );
 
-const PROJECTS = [
-  { id: 1, title: 'Project Zenith', category: 'Alpha Access', description: 'Our most ambitious multiplayer arena brawler currently undergoing closed alpha testing.', image: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?q=80&w=600&auto=format&fit=crop', date: 'Mar 2026' },
-  { id: 2, title: 'Crimson Sky', category: 'Prototyping', description: 'A 2D action side-scroller featuring hand-drawn art and punishing combat mechanics.', image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop', date: 'Jan 2026' },
-  { id: 3, title: 'Neon Drift: Mobile', category: 'In Development', description: 'Bringing the high-speed thrills of Neon Drift to iOS and Android devices.', image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=600&auto=format&fit=crop', date: 'Dec 2025' }
-];
+const STEAM_SVG = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 .297c-6.63 0-12 5.373-12 12c0 1.258.204 2.474.57 3.593l5.51-2.1c.14-.145.31-.253.5-.32l.02-.008c.18-.083.39-.126.6-.126c.21 0 .42.043.6.126l.02.008c.51.22 1 .5 1.4.8c.11-.04.22-.07.34-.1l9.9-4.2c-.01-.13-.01-.26-.01-.4c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 .416.035.824.1 1.218l-5.6 2.148c-.06-.44-.1-.89-.1-1.35c0-6.63 5.373-12 12-12s12 5.373 12 12s-5.373 12-12 12a11.9 11.9 0 0 1-5.75-1.464l5.96-2.5c.2.08.41.13.62.13c.21 0 .42-.04.62-.13c.8-.35 1.4-1.1 1.55-1.95l8.65-3.66c-.01.12-.02.24-.02.37c0 3.313 2.687 6 6 6s6-2.687 6-6s-2.687-6-6-6c-1.356 0-2.603.45-3.6 1.213L9.61 14.88c-.14-.08-.29-.14-.45-.18a2.5 2.5 0 0 0-2.22.4l-5.02 2.1c1.33 1.95 3.34 3.42 5.68 4.09l.4-.17a2.5 2.5 0 0 1 4.2 1.8c0 .19-.02.38-.06.56A11.9 11.9 0 0 0 12 24c6.627 0 12-5.373 12-12s-5.373-12-12-12z" />
+  </svg>
+);
+
+const CountdownTimer = ({ endTime }: { endTime: string }) => {
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0, ms: 0 });
+
+  React.useEffect(() => {
+    const update = () => {
+      const distance = new Date(endTime).getTime() - Date.now();
+      if (distance < 0) {
+        setTimeLeft({ d: 0, h: 0, m: 0, s: 0, ms: 0 });
+        return;
+      }
+      setTimeLeft({
+        d: Math.floor(distance / (1000 * 60 * 60 * 24)),
+        h: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        m: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+        s: Math.floor((distance % (1000 * 60)) / 1000),
+        ms: Math.floor((distance % 1000) / 10)
+      });
+    };
+    update();
+    const timer = setInterval(update, 40); // Fast interval for MS
+    return () => clearInterval(timer);
+  }, [endTime]);
+
+  return (
+    <div className={styles.timer}>
+      <Clock size={12} color="#000" />
+      <span className={styles.timerVal}>
+        {timeLeft.d.toString().padStart(2, '0')}
+        <span style={{ fontSize: '0.6rem', opacity: 0.8, marginLeft: '1px' }}>D</span>
+      </span>
+      <span className={styles.timerVal}>
+        {timeLeft.h.toString().padStart(2, '0')}
+        <span style={{ fontSize: '0.6rem', opacity: 0.8, marginLeft: '1px' }}>H</span>
+      </span>
+      <span className={styles.timerVal}>
+        {timeLeft.m.toString().padStart(2, '0')}
+        <span style={{ fontSize: '0.6rem', opacity: 0.8, marginLeft: '1px' }}>M</span>
+      </span>
+      <span className={styles.timerVal}>
+        {timeLeft.s.toString().padStart(2, '0')}
+        <span style={{ fontSize: '0.6rem', opacity: 0.8, marginLeft: '1px' }}>S</span>
+      </span>
+      <span className={styles.timerVal} style={{ opacity: 0.6, fontSize: '0.75rem', width: '18px', textAlign: 'center' }}>
+        {timeLeft.ms.toString().padStart(2, '0')}
+      </span>
+      <span className={styles.timerLabel}>Left</span>
+    </div>
+  );
+};
+
 
 const VALUES = [
   { icon: <Heart size={22} />, title: 'Player First', description: 'Every design decision starts with the player experience.' },
@@ -59,35 +120,386 @@ const staggerContainer = {
 };
 
 export default function ExtraSections() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [isDown, setIsDown] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const [steamGames, setSteamGames] = useState<any[]>([]);
+  const [selectedSteamGame, setSelectedSteamGame] = useState<any | null>(null);
+  const [modalState, setModalState] = useState<'closed' | 'idle' | 'success'>('closed');
+  const [user, setUser] = useState<any>(null);
+  const [purchasedOffers, setPurchasedOffers] = useState<{[key: string]: any}>({});
+  const [showKeys, setShowKeys] = useState<{[key: string]: boolean}>({});
+  const [decryptedKeys, setDecryptedKeys] = useState<{[key: string]: string}>({});
+  const [isFetchingKey, setIsFetchingKey] = useState<{[key: string]: boolean}>({});
+  const [isLoadingOffers, setIsLoadingOffers] = useState(true);
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return;
-    setIsDown(true);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-  };
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('crack_origins_offers_cache');
+      if (cached) {
+        try { 
+          setSteamGames(JSON.parse(cached)); 
+          setIsLoadingOffers(false);
+        } catch (e) {}
+      }
+    }
 
-  const onMouseLeave = () => setIsDown(false);
-  const onMouseUp = () => setIsDown(false);
+    const unsubOffers = onSnapshot(collection(fireStore, 'offers'), (snap) => {
+      try {
+        const offers = snap.docs.map(d => {
+          try {
+            const data = d.data();
+            let discountPercent = 0;
+            if (typeof data.discount === 'string') {
+              discountPercent = Number(data.discount.replace('%', '').replace('-', ''));
+            } else if (typeof data.discount === 'number') {
+              discountPercent = data.discount;
+            }
+            const originalPrice = Number(data.originalPrice || 0);
+            const discountPrice = isNaN(discountPercent) ? originalPrice : originalPrice - (originalPrice * discountPercent / 100);
 
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDown || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // scroll-fast
-    scrollRef.current.scrollLeft = scrollLeft - walk;
+            let endTimeStr = new Date(Date.now() + 86400000).toISOString();
+            if (data.expire) {
+              if (typeof data.expire.toDate === 'function') {
+                endTimeStr = data.expire.toDate().toISOString();
+              } else {
+                endTimeStr = new Date(data.expire).toISOString();
+              }
+            }
+
+            return {
+              id: d.id,
+              title: data.title || 'Unknown Game',
+              originalPrice: `$${originalPrice.toFixed(2)}`,
+              discountPrice: `$${discountPrice.toFixed(2)}`,
+              discount: (typeof data.discount === 'string' && data.discount.includes('-')) ? data.discount : `-${discountPercent}%`,
+              image: `https://cdn.akamai.steamstatic.com/steam/apps/${d.id}/header.jpg`,
+              platforms: data.operatingSystem ? [data.operatingSystem.toLowerCase()] : ['windows'],
+              steamUrl: `https://store.steampowered.com/app/${d.id}/`,
+              endTime: endTimeStr,
+              quantity: Number(data.quantity || 0),
+            };
+          } catch (itemErr) {
+            console.error("Error parsing offer item:", d.id, itemErr);
+            return null;
+          }
+        }).filter(Boolean);
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('crack_origins_offers_cache', JSON.stringify(offers));
+        }
+        setSteamGames(offers);
+        setIsLoadingOffers(false);
+      } catch (err) {
+        console.error("Error setting offers: ", err);
+        setIsLoadingOffers(false);
+      }
+    }, (error) => {
+       console.error("Offers snapshot error:", error);
+       setIsLoadingOffers(false);
+    });
+
+    let unsubUserOffers: () => void;
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        unsubUserOffers = onSnapshot(collection(fireStore, 'accounts', u.uid, 'payments'), (snap) => {
+          const dict: {[key: string]: any} = {};
+          snap.forEach(d => {
+            const data = d.data();
+            if (data.offerId) {
+              dict[data.offerId] = data;
+            }
+          });
+          setPurchasedOffers(dict);
+        }, (error) => {
+          console.error("Firebase Rules Error on Snapshot: ", error);
+        });
+      } else {
+        setPurchasedOffers({});
+        if (unsubUserOffers) unsubUserOffers();
+      }
+    });
+
+    return () => {
+      unsubAuth();
+      unsubOffers();
+      if (unsubUserOffers) unsubUserOffers();
+    };
+  }, []);
+
+  const handleShowKey = async (offerId: string) => {
+    if (!user) return;
+    
+    // Toggle off if already showing
+    if (showKeys[offerId]) {
+      setShowKeys(prev => ({...prev, [offerId]: false}));
+      return;
+    }
+
+    // If already decrypted once, just show it
+    if (decryptedKeys[offerId]) {
+      setShowKeys(prev => ({...prev, [offerId]: true}));
+      return;
+    }
+
+    // Fetch and decrypt
+    setIsFetchingKey(prev => ({...prev, [offerId]: true}));
+    try {
+      const res = await getUserKey(user.uid, offerId);
+      if (res.success && res.steamKey) {
+        setDecryptedKeys(prev => ({...prev, [offerId]: res.steamKey!}));
+        setShowKeys(prev => ({...prev, [offerId]: true}));
+      } else {
+        showToast(res.error || "Failed to retrieve key.", "error");
+      }
+    } catch (e) {
+      showToast("Verification failed.", "error");
+    } finally {
+      setIsFetchingKey(prev => ({...prev, [offerId]: false}));
+    }
   };
 
   return (
     <div className={styles.container}>
 
+      {/* Steam Game Keys Marketplace */}
+      <motion.section
+        className={styles.section}
+        id="games-store"
+        initial="hidden"
+        animate="visible"
+        variants={revealVariants}
+      >
+        <motion.span
+          className="sectionLabel"
+        >
+          Limited Offers
+        </motion.span>
+        <h2 className={styles.sectionTitle}>Curated Steam Deals</h2>
+        <p className={styles.sectionSubtext}>
+          Grab official Steam keys at exclusive studio prices. These offers expire soon.
+        </p>
+
+        <motion.div
+  className={styles.steamGrid}
+  variants={staggerContainer}
+>
+  {isLoadingOffers && steamGames.length === 0 ? (
+    [1, 2, 3].map((i) => (
+      <div key={i} className={`${styles.steamCard} ${styles.skeletonCard}`}>
+        {/* Platform row skeleton */}
+        <div className={styles.skeletonPlatformRow}>
+          <div className={styles.skeletonRow}>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonIcon}`}></div>
+            <div className={styles.skeletonDivider}></div>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonTagBlock}`}></div>
+          </div>
+          <div className={`${styles.skeletonBlock} ${styles.skeletonBadge}`}></div>
+        </div>
+
+        <div className={styles.skeletonBody}>
+          {/* Title skeleton */}
+          <div className={styles.skeletonTitleArea}>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonTitle}`}></div>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonTitleShort}`}></div>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonTimer}`}></div>
+          </div>
+
+          {/* Price skeleton */}
+          <div className={styles.skeletonPriceArea}>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonPriceLabel}`}></div>
+            <div className={styles.skeletonRow}>
+              <div className={`${styles.skeletonBlock} ${styles.skeletonBigPrice}`}></div>
+              <div className={`${styles.skeletonBlock} ${styles.skeletonOldPrice}`}></div>
+            </div>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonNote}`}></div>
+          </div>
+
+          {/* Actions skeleton */}
+          <div className={styles.skeletonActions}>
+            <div className={styles.skeletonRow} style={{gap: '0.5rem'}}>
+              <div className={`${styles.skeletonBlock} ${styles.skeletonKeyInput}`}></div>
+              <div className={`${styles.skeletonBlock} ${styles.skeletonBtn}`}></div>
+            </div>
+            <div className={`${styles.skeletonBlock} ${styles.skeletonBtnFull}`}></div>
+          </div>
+        </div>
+      </div>
+    ))
+  ) : steamGames.length === 0 ? (
+    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7 }}>No active offers available right now.</div>
+  ) : (
+    steamGames.map((game) => (
+            <motion.div key={game.id} className={styles.steamCard} variants={revealVariants}>
+              {/* <img src={game.image} alt={game.title} className={styles.cardImage} /> */}
+              <div className={styles.platformRow}>
+                <div className={styles.platformIcons}>
+                  <Monitor size={14} className={game.platforms.includes('windows') ? styles.activeIcon : styles.inactiveIcon} />
+              <span className={styles.steamTag}>{STEAM_SVG} STEAM</span>
+                </div>
+                <motion.div
+                  className={styles.discountBadge}
+                  whileHover={{ scale: 1.1, rotate: 2 }}
+                >
+                  {game.discount}
+                </motion.div>
+              </div>
+
+              <div className={styles.steamInfo}>
+                <div className={styles.titleArea}>
+                  <h3 className={styles.steamTitle}>{game.title}</h3>
+                  <CountdownTimer endTime={game.endTime} />
+                </div>
+
+                <div className={styles.priceContainer}>
+                  <span className={styles.priceLabel}>Exclusive Price</span>
+                  <div className={styles.priceRow}>
+                    <span className={styles.discountPrice}>{game.discountPrice}</span>
+                    <span className={styles.originalPrice}>{game.originalPrice}</span>
+                  </div>
+                    <span className={styles.originalPrice} style={{textDecoration:"none", color: game.quantity > 0 ? 'inherit' : '#ff4d4d'}}>
+                          {game.quantity > 0 ? `${game.quantity} Steam Key${game.quantity === 1 ? '' : 's'} Left` : "Out of Stock"}
+                    </span>
+                </div>
+
+                <div className={styles.steamActions}>
+                  <div className={styles.keyContainer}>
+                      {(() => {
+                        const purchasedOffer = purchasedOffers[game.id];
+                        const hasPurchased = !!purchasedOffer;
+                        if (hasPurchased) {
+                          if (purchasedOffer.offerStatus) {
+                            return (
+                              <>
+                                <div className={styles.hiddenKey}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
+                                <button 
+                                  className={styles.btnUnlock} 
+                                  disabled={isFetchingKey[game.id]}
+                                  onClick={() => handleShowKey(game.id)}
+                                >
+                                  {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
+                                </button>
+                              </>
+                            );
+                          } else {
+                            return (
+                              <>
+                                <div className={styles.hiddenKey} style={{fontSize: '0.8rem'}}>PENDING VERIFICATION</div>
+                                <button className={styles.btnUnlock} disabled style={{opacity: 0.5, cursor: 'not-allowed'}}>
+                                  <Clock size={16} /> PENDING
+                                </button>
+                              </>
+                            );
+                          }
+                        } else {
+                          const isExpired = new Date(game.endTime).getTime() < Date.now();
+                          const isOutOfStock = game.quantity <= 0;
+                          
+                          if (isExpired || isOutOfStock) {
+                            return (
+                              <>
+                                <div className={styles.hiddenKey}>••••••••••</div>
+                                <button className={styles.btnUnlock} disabled style={{opacity: 0.5, cursor: 'not-allowed', background: '#ccc'}}>
+                                  <ShoppingCart size={16} /> {isExpired ? 'EXPIRED' : 'SOLD OUT'}
+                                </button>
+                              </>
+                            );
+                          }
+
+                          return (
+                            <>
+                              <div className={styles.hiddenKey}>••••••••••</div>
+                              <button className={styles.btnUnlock} onClick={() => { setSelectedSteamGame(game); setModalState('idle'); }}>
+                                <ShoppingCart size={16} /> PURCHASE
+                              </button>
+                            </>
+                          );
+                        }
+                      })()}
+                  </div>
+                  <a href={game.steamUrl} target="_blank" rel="noopener noreferrer" className="btnOutline" style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                    View on Steam
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          )))}
+        </motion.div>
+
+        {/* Purchase Modal - Matching GamesCarousel */}
+        <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">
+          {modalState === 'idle' && selectedSteamGame ? (
+            <div className={carouselStyles.checkoutModal} style={{ paddingTop: 0 }}>
+              <div className={carouselStyles.modalHeader}>
+                <img src={selectedSteamGame.image} className={carouselStyles.modalPreviewImg} alt="preview" style={{ width: '80px', height: '80px', objectFit: 'cover' }} />
+                <div className={carouselStyles.modalHeaderInfo}>
+                  <span className={carouselStyles.gameTitle}>{selectedSteamGame.title}</span>
+                  <span className={carouselStyles.gamePrice}>
+                    {selectedSteamGame.discountPrice}
+                  </span>
+                </div>
+              </div>
+
+              <div className={carouselStyles.requirementsSection}>
+                <div className={carouselStyles.reqBlock}>
+                  <span className={carouselStyles.reqLabel}>Promotion Details</span>
+                  <p className={carouselStyles.reqText}>Original Price: {selectedSteamGame.originalPrice}</p>
+                </div>
+                <div className={carouselStyles.reqBlock}>
+                  <span className={carouselStyles.reqLabel}>Platform</span>
+                  <p className={carouselStyles.reqText}>Steam Key ({selectedSteamGame.platforms.join(', ')})</p>
+                </div>
+              </div>
+
+              <div className={carouselStyles.modalFooter}>
+                {user ? (
+                  <Checkout
+                    amount={selectedSteamGame.discountPrice}
+                    game={selectedSteamGame.title}
+                    isOwned={false}
+                    offerId={selectedSteamGame.id}
+                    onSuccess={async () => {
+                      setModalState('success');
+                    }}
+                  />
+                ) : (
+                  <button className="btnSolid"
+                    onClick={async () => {
+                      let country = "Unknown";
+                      try {
+                        const lRes = await fetch("https://ipapi.co/json/");
+                        const lData = await lRes.json();
+                        country = lData.country_name || "Unknown";
+                      } catch (e) { }
+
+                      login(searchParams?.get('ref') || null, country);
+                    }}
+                    style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%", justifyContent: 'center' }}>
+                    <User size={14} /> <span className={carouselStyles.connectText}>Connect Google</span>
+                  </button>
+                )}
+                <button className={carouselStyles.laterBtn} onClick={() => setModalState('closed')}>Cancel</button>
+              </div>
+            </div>
+          ) : modalState === 'success' ? (
+            <div className={carouselStyles.successState}>
+              <div className={carouselStyles.successIcon}>
+                <CheckCircle2 size={32} />
+              </div>
+              <h2 className={carouselStyles.modalTitle}>Purchase Confirmed</h2>
+              <p className={carouselStyles.modalText}>{selectedSteamGame?.title} key has been generated. Check your email for the activation code.</p>
+              <button className="btnSolid" style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }} onClick={() => setModalState('closed')}>
+                Return to Store
+              </button>
+            </div>
+          ) : null}
+        </Modal>
+
+      </motion.section>
+
       {/* About */}
-      <motion.section 
-        className={styles.section} 
+      <motion.section
+        className={styles.section}
         id="about"
         initial="hidden"
         whileInView="visible"
@@ -104,9 +516,9 @@ export default function ExtraSections() {
             Our mission is simple: <strong>Create universes you never want to leave.</strong>
           </p>
         </div>
-        <motion.div 
-            className={styles.valuesGrid}
-            variants={staggerContainer}
+        <motion.div
+          className={styles.valuesGrid}
+          variants={staggerContainer}
         >
           {VALUES.map((val, i) => (
             <motion.div key={i} className={styles.valueCard} variants={revealVariants}>
@@ -121,8 +533,8 @@ export default function ExtraSections() {
 
 
       {/* Invest In Our Games */}
-      <motion.section 
-        className={styles.section} 
+      <motion.section
+        className={styles.section}
         id="invest"
         initial="hidden"
         whileInView="visible"
@@ -134,9 +546,9 @@ export default function ExtraSections() {
         <p className={styles.sectionSubtext}>
           Back the next generation of indie games. Join our investor program and grow with us.
         </p>
-        <motion.div 
-            className={styles.investGrid}
-            variants={staggerContainer}
+        <motion.div
+          className={styles.investGrid}
+          variants={staggerContainer}
         >
           {INVEST_PERKS.map((perk, i) => (
             <motion.div key={i} className={styles.investCard} variants={revealVariants}>
@@ -154,8 +566,8 @@ export default function ExtraSections() {
       </motion.section>
 
       {/* Join With Us */}
-      <motion.section 
-        className={styles.section} 
+      <motion.section
+        className={styles.section}
         id="join"
         initial="hidden"
         whileInView="visible"
@@ -167,9 +579,9 @@ export default function ExtraSections() {
         <p className={styles.sectionSubtext}>
           We&apos;re looking for talented individuals who share our passion for creating exceptional games.
         </p>
-        <motion.div 
-            className={styles.rolesGrid}
-            variants={staggerContainer}
+        <motion.div
+          className={styles.rolesGrid}
+          variants={staggerContainer}
         >
           {JOIN_ROLES.map((role, i) => (
             <motion.div key={i} className={styles.roleCard} variants={revealVariants}>
@@ -189,58 +601,17 @@ export default function ExtraSections() {
         </motion.div>
       </motion.section>
 
-      {/* Projects (Draggable) */}
-      <motion.section 
-        className={styles.section} 
-        id="projects" 
-        style={{ userSelect: "none" }}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        variants={revealVariants}
-      >
-        <span className="sectionLabel">What&apos;s Next</span>
-        <h2 className={styles.sectionTitle}>Incoming Projects</h2>
-        <div className={styles.projectsContainer}>
-          <div
-            className={styles.projectsDraggable}
-            ref={scrollRef}
-            onMouseDown={onMouseDown}
-            onMouseLeave={onMouseLeave}
-            onMouseUp={onMouseUp}
-            onMouseMove={onMouseMove}
-          >
-            {PROJECTS.map(proj => (
-              <div key={proj.id} className={styles.projectCardWrapper}>
-                <div className={styles.projectCard}>
-                  <div className={styles.projectImageWrapper}>
-                    <img src={proj.image} alt={proj.title} className={styles.projectImage} />
-                    <span className={styles.projectBadge}>{proj.category}</span>
-                  </div>
-                  <div className={styles.projectInfo}>
-                    <span className={styles.projectDate}>{proj.date}</span>
-                    <h3 className={styles.projectTitle}>{proj.title}</h3>
-                    <p className={styles.projectDesc}>{proj.description}</p>
-                    <button className={styles.readMoreBtn}>
-                      Read Devlog <ArrowRight size={14} style={{ transition: 'transform 0.3s' }} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
+
 
       {/* Socials + Contact */}
       <div className={styles.bottomWrapper}>
-        <motion.section 
-            className={styles.section} 
-            id="teams"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={revealVariants}
+        <motion.section
+          className={styles.section}
+          id="teams"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={revealVariants}
         >
           <span className="sectionLabel">Stay Connected</span>
           <h2 className={styles.sectionTitle}>Join the Community</h2>
@@ -263,13 +634,13 @@ export default function ExtraSections() {
           </motion.div>
         </motion.section>
 
-        <motion.section 
-            className={styles.section} 
-            id="contact"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={revealVariants}
+        <motion.section
+          className={styles.section}
+          id="contact"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={revealVariants}
         >
           <span className="sectionLabel">Let&apos;s Talk</span>
           <h2 className={styles.sectionTitle}>Work With Us</h2>

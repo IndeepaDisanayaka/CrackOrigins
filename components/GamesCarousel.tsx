@@ -7,9 +7,10 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { login } from '@/app/page';
 import Checkout from '@/lib/paypal';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getOwnedGames } from '@/lib/paypal-server';
+import { getOwnedGames } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
+import { useSearchParams } from 'next/navigation';
 
 
 const GAMES = [
@@ -69,6 +70,7 @@ const GAMES = [
 
 
 export default function GamesCarousel() {
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [purchasedTitles, setPurchasedTitles] = useState<string[]>([]);
   const [purchasedDetails, setPurchasedDetails] = useState<Record<string, any>>({});
@@ -124,7 +126,7 @@ export default function GamesCarousel() {
     setIsValidating(true);
     setCouponError("");
     try {
-      const { validateCoupon } = await import('@/lib/paypal-server');
+      const { validateCoupon } = await import('@/lib/admin-actions');
       const result = await validateCoupon(couponInput);
       if (result.success && result.coupon) {
         setAppliedCoupon(result.coupon);
@@ -390,7 +392,18 @@ export default function GamesCarousel() {
                   appliedCoupon={appliedCoupon}
                 />
               ) : (
-                <button className="btnSolid" onClick={login} style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%" }}>
+                <button className="btnSolid" 
+                    onClick={async () => {
+                        let country = "Unknown";
+                        try {
+                            const lRes = await fetch("https://ipapi.co/json/");
+                            const lData = await lRes.json();
+                            country = lData.country_name || "Unknown";
+                        } catch (e) {}
+                        
+                        login(searchParams?.get('ref'), country);
+                    }} 
+                    style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%" }}>
                   <User size={14} /> <span className={styles.connectText}>Connect Google</span>
                 </button>
               )}

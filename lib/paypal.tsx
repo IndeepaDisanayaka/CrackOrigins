@@ -6,7 +6,8 @@ import { auth } from "./firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { useToast } from "../components/Toast";
 
-import { capturePayPalOrder, validateCoupon } from "./paypal-server";
+import { capturePayPalOrder } from "./paypal-actions";
+import { validateCoupon } from "./admin-actions";
 
 interface CheckoutProps {
     amount: string;
@@ -14,9 +15,10 @@ interface CheckoutProps {
     isOwned?: boolean;
     onSuccess?: () => void;
     appliedCoupon?: any;
+    offerId?: string;
 }
 
-export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoupon }: CheckoutProps) {
+export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoupon, offerId }: CheckoutProps) {
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
     const { showToast } = useToast();
@@ -64,7 +66,7 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
                             return;
                         }
                         setStatus("processing");
-                        const result = await capturePayPalOrder("FREE_CLAIM_" + Date.now(), user.uid, game, "0.00", appliedCoupon?.code);
+                        const result = await capturePayPalOrder("FREE_CLAIM_" + Date.now(), user.uid, game, "0.00", appliedCoupon?.code, offerId);
                         if (result.success) {
                             setStatus("completed");
                             showToast(`Success! ${game} has been added to your library.`, "success");
@@ -127,7 +129,7 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
                             }
                             
                             setStatus("processing");
-                            const result = await capturePayPalOrder(data.orderID, user.uid, game, price.toFixed(2), appliedCoupon?.code);
+                            const result = await capturePayPalOrder(data.orderID, user.uid, game, price.toFixed(2), appliedCoupon?.code, offerId);
                             
                             if (result.success) {
                                 setStatus("completed");
