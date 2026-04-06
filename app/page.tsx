@@ -12,7 +12,7 @@ import AffiliateSection from '../components/AffiliateSection';
 import ThemeToggle from '../components/ThemeToggle';
 import { auth } from "../lib/firebase";
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Counter from '../components/Counter';
 import FlipWords from '../components/FlipWords';
@@ -45,7 +45,7 @@ export const login = (referralId?: string | null, country?: string) => signInWit
     return { success: false, error: "Authentication failed" };
   });
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -678,5 +678,12 @@ export default function Home() {
 
       </main>
     </>
+  );
+}
+export default function Home() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0a0f', color: '#fff' }}>Loading Crack Origins...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
