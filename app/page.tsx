@@ -21,6 +21,7 @@ import Modal from '../components/Modal';
 import { syncUserRecord, checkAdminStatus, createCoupon, createOffer } from '@/lib/admin-actions';
 import { useToast } from '../components/Toast';
 import { useSearchParams } from 'next/navigation';
+import LiveCursors from '../components/LiveCursors';
 
 const provider = new GoogleAuthProvider();
 
@@ -58,6 +59,7 @@ function HomeContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
+  const [userCountry, setUserCountry] = useState<{ name: string} | null>(null);
   const { showToast } = useToast();
 
   // Form states
@@ -107,6 +109,23 @@ function HomeContent() {
       }
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const getCountry = async () => {
+      try {
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+        if (data.country_name) {
+          setUserCountry({ 
+            name: data.country_name,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to fetch country:", e);
+      }
+    };
+    getCountry();
   }, []);
 
   const handleGenerateCoupon = async (e: React.FormEvent) => {
@@ -170,6 +189,7 @@ function HomeContent() {
         </div>
       </div>
 
+      <LiveCursors />
       <div className={styles.backgroundAnimation}></div>
 
       <main className={styles.main}>
@@ -520,7 +540,11 @@ function HomeContent() {
             <span className={styles.typingText}>Building the next hit</span>
           </div>
           <div className={`${styles.badge} ${styles.badgeRight}`}>
-            🇺🇸 United States
+            {userCountry ? (
+              userCountry.name
+            ) : (
+              "Tracking Space"
+            )}
           </div>
           <KoFi />
         </motion.div>
@@ -596,16 +620,16 @@ function HomeContent() {
             <div className={styles.statLabel}>Games Released</div>
           </div>
           <div className={styles.statItem}>
-            <div className={styles.statNumber}><Counter end={20} suffix="k+" /></div>
+            <div className={styles.statNumber}><Counter end={10} suffix="k+" /></div>
             <div className={styles.statLabel}>Active Players</div>
           </div>
           <div className={styles.statItem}>
-            <div className={styles.statNumber}><Counter end={12} /></div>
-            <div className={styles.statLabel}>Team Members</div>
+            <div className={styles.statNumber}><Counter end={5} suffix="k+"/></div>
+            <div className={styles.statLabel}>Games Sold</div>
           </div>
           <div className={styles.statItem}>
-            <div className={styles.statNumber}><Counter end={3} /></div>
-            <div className={styles.statLabel}>Years Active</div>
+            <div className={styles.statNumber}><Counter end={1} /></div>
+            <div className={styles.statLabel}>Upcomming</div>
           </div>
         </motion.div>
 

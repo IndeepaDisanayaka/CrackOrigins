@@ -497,7 +497,7 @@ export default function ExtraSections() {
 
       </motion.section>
 
-      {/* About */}
+      {/* About Section - Modernized */}
       <motion.section
         className={styles.section}
         id="about"
@@ -506,28 +506,49 @@ export default function ExtraSections() {
         viewport={{ once: true, margin: "-100px" }}
         variants={revealVariants}
       >
-        <span className="sectionLabel">Who We Are</span>
-        <h2 className={styles.sectionTitle}>About Crack Origins</h2>
-        <div className={styles.aboutContent}>
-          <p className={styles.aboutText}>
-            We are a collective of hardcore gamers turned developers. Operating out of California, Crack Origins was founded on the principle that indie games can compete with triple-A visuals while maintaining the soul, creativity, and player-first mentality that major studios often lose.
-          </p>
-          <p className={styles.aboutMission}>
-            Our mission is simple: <strong>Create universes you never want to leave.</strong>
-          </p>
+        <div className={styles.aboutGrid}>
+          {/* Left: Visual/Mission */}
+          <div className={styles.aboutVisual}>
+            <div className={styles.aboutCard}>
+              <div className={styles.aboutCardBg}></div>
+              <span className="sectionLabel">Our Creed</span>
+              <h2 className={styles.aboutHeroTitle}>Indie Soul.<br/><span>AAA Ambitions.</span></h2>
+              <p className={styles.aboutHeroDesc}>
+                Operative out of California, we are building universes that players never want to leave.
+              </p>
+              <div className={styles.aboutStats}>
+                <div className={styles.aboutStatItem}>
+                  <span className={styles.aboutStatVal}>2024</span>
+                  <span className={styles.aboutStatLabel}>Est. Year</span>
+                </div>
+                <div className={styles.aboutStatItem}>
+                  <span className={styles.aboutStatVal}>12+</span>
+                  <span className={styles.aboutStatLabel}>Creators</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Detailed Text & Values */}
+          <div className={styles.aboutDetails}>
+            <span className="sectionLabel">Who We Are</span>
+            <h2 className={styles.sectionTitle}>The Crack Origins Story</h2>
+            <p className={styles.aboutText}>
+              We are a collective of hardcore gamers turned developers. We believe that indie games can compete with triple-A visuals while maintaining the soul, creativity, and player-first mentality that major studios often lose.
+            </p>
+            <div className={styles.aboutValuesList}>
+              {VALUES.map((val, i) => (
+                <motion.div key={i} className={styles.valueRow} variants={revealVariants}>
+                  <div className={styles.valueIconSmall}>{val.icon}</div>
+                  <div className={styles.valueContent}>
+                    <h3 className={styles.valueTitleSmall}>{val.title}</h3>
+                    <p className={styles.valueDescSmall}>{val.description}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
-        <motion.div
-          className={styles.valuesGrid}
-          variants={staggerContainer}
-        >
-          {VALUES.map((val, i) => (
-            <motion.div key={i} className={styles.valueCard} variants={revealVariants}>
-              <div className={styles.valueIcon}>{val.icon}</div>
-              <h3 className={styles.valueTitle}>{val.title}</h3>
-              <p className={styles.valueDesc}>{val.description}</p>
-            </motion.div>
-          ))}
-        </motion.div>
       </motion.section>
 
 
