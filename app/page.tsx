@@ -570,7 +570,7 @@ function HomeContent() {
             <a href='#project' className={`btnSolid ${styles.btnLarge}`} style={{textDecoration:"none"}}>
               Play Our Games
             </a>
-            <a href='#about' className={`btnOutline ${styles.btnLarge}`}>
+            <a href='#about' className={`btnOutline ${styles.btnLarge}`} style={{textDecoration:"none"}}>
               See Portfolio
             </a>
           </div>
