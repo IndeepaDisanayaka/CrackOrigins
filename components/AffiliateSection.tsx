@@ -157,7 +157,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
                 onClick={handleCopy}
                 whileTap={{ scale: 0.8 }}
               >
-                {isCopied ? <Check size={18} color="#4ade80" /> : <Copy size={18} />}
+                {isCopied ? <Check size={18} /> : <Copy size={18} />}
               </motion.button>
             </div>
             <motion.button 

@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cursor-server": "node server/cursor-server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run cursor-server\""
   },
   "dependencies": {
     "@next/third-parties": "^16.2.2",
     "@paypal/react-paypal-js": "^9.1.0",
     "clsx": "^2.1.1",
+    "concurrently": "^9.2.1",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "firebase": "^12.11.0",
@@ -21,6 +24,8 @@
     "next": "16.2.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
