@@ -1,10 +1,10 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './LiveCursors.module.css';
 import { MousePointer2 } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { auth, rtdb } from '../lib/firebase';
+import { ref, onValue, set, onDisconnect, push, remove, update } from 'firebase/database';
 
 interface PresenceData {
   id: string;
@@ -13,6 +13,8 @@ interface PresenceData {
   name: string;
   color: string;
   message?: string;
+  partnerId?: string;
+  lastActive: number;
 }
 
 const COLORS = [
@@ -29,22 +31,17 @@ export default function LiveCursors() {
   const [typedMessage, setTypedMessage] = useState('');
   const [myPos, setMyPos] = useState({ x: 0, y: 0 });
   const [myMessage, setMyMessage] = useState<string | null>(null);
-  const [isWaiting, setIsWaiting] = useState(true);
   
-  const socketRef = useRef<Socket | null>(null);
+  const myIdRef = useRef<string | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+  const partnerIdRef = useRef<string | null>(null);
+  const partnerWatchUnsubRef = useRef<(() => void) | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const userNameRef = useRef(userName);
-  const lastUpdateRef = useRef<number>(0);
 
-  // Fix Hydration & OS-Based Detection
   useEffect(() => {
-    // 100% OS-based check: Avoid using screen width (max-width) to allow desktop resizing
     const mobileOS = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (mobileOS) {
-      setIsMobileOS(true);
-    }
-    
+    setIsMobileOS(mobileOS);
     setMounted(true);
     setUserColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
   }, []);
@@ -55,86 +52,99 @@ export default function LiveCursors() {
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
-      if (u?.displayName) {
-        setUserName(u.displayName.split(' ')[0]);
-      }
+      if (u?.displayName) setUserName(u.displayName.split(' ')[0]);
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
-    // Physically Disable for Mobile OS only
     if (!mounted || isMobileOS) return;
 
-    const serverUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3001' 
-        : `http://${window.location.hostname}:3001`;
+    const presenceRef = ref(rtdb, 'presence');
+    const myPresenceRef = push(presenceRef);
+    const myId = myPresenceRef.key as string;
+    myIdRef.current = myId;
 
-    const socket = io(serverUrl, {
-        reconnection: true,
-        transports: ['websocket']
+    const myData = {
+        id: myId,
+        x: 0,
+        y: 0,
+        name: userNameRef.current,
+        color: userColor,
+        lastActive: Date.now(),
+        partnerId: ''
+    };
+
+    set(myPresenceRef, myData);
+    onDisconnect(myPresenceRef).remove();
+
+    const discoveryUnsub = onValue(presenceRef, (snapshot) => {
+        const allUsers = snapshot.val() || {};
+        const entries = Object.entries(allUsers) as [string, PresenceData][];
+        const me = allUsers[myId];
+
+        if (me?.partnerId && me.partnerId !== partnerIdRef.current) {
+            setupPartnerWatch(me.partnerId);
+        } else if (!me?.partnerId) {
+            const potentialPartner = entries.find(([id, data]) => 
+                id !== myId && !data.partnerId && (Date.now() - data.lastActive < 8000)
+            );
+            if (potentialPartner) {
+                const [pid] = potentialPartner;
+                update(ref(rtdb, `presence/${myId}`), { partnerId: pid });
+                update(ref(rtdb, `presence/${pid}`), { partnerId: myId });
+                setupPartnerWatch(pid);
+            } else {
+                cleanupPartnerWatch();
+            }
+        }
     });
-    socketRef.current = socket;
 
-    socket.emit('profile', { name: userNameRef.current, color: userColor });
-
-    socket.on('waiting', () => {
-      setIsWaiting(true);
-      setPartner(null);
-    });
-
-    socket.on('paired', (partnerProfile: any) => {
-      setIsWaiting(false);
-      setPartner((prev) => ({
-        ...prev,
-        ...partnerProfile,
-        x: prev?.x ?? 0,
-        y: prev?.y ?? 0
-      }));
-    });
-
-    socket.on('user-moved', (data: PresenceData) => {
-      setPartner((prev) => ({
-        ...prev,
-        ...data,
-        message: prev?.message
-      }));
-    });
-
-    socket.on('user-chat', ({ message }: { message: string }) => {
-      setPartner((prev) => {
-        const base = prev || { id: 'unknown', x: 0, y: 0, name: 'Partner', color: '#fff' };
-        return { ...base, message };
-      });
-      setTimeout(() => {
-        setPartner((prev) => {
-          if (!prev) return null;
-          return { ...prev, message: undefined };
+    const setupPartnerWatch = (pid: string) => {
+        if (partnerIdRef.current === pid) return;
+        cleanupPartnerWatch();
+        partnerIdRef.current = pid;
+        const pRef = ref(rtdb, `presence/${pid}`);
+        
+        partnerWatchUnsubRef.current = onValue(pRef, (snap) => {
+            const data = snap.val();
+            if (data) {
+                setPartner((prev) => ({ ...prev, ...data }));
+            } else {
+                update(ref(rtdb, `presence/${myId}`), { partnerId: '' });
+                cleanupPartnerWatch();
+            }
         });
-      }, 5000);
-    });
+    };
 
-    socket.on('user-left', () => {
-      setPartner(null);
-      setIsWaiting(true);
-    });
+    const cleanupPartnerWatch = () => {
+        if (partnerWatchUnsubRef.current) {
+            partnerWatchUnsubRef.current();
+            partnerWatchUnsubRef.current = null;
+        }
+        partnerIdRef.current = null;
+        setPartner(null);
+    };
 
     const handleMouseMove = (e: MouseEvent) => {
       const now = Date.now();
-      const x = (e.clientX / window.innerWidth) * 100;
-      const y = (e.clientY / window.innerHeight) * 100;
+      const x = parseFloat(((e.clientX / window.innerWidth) * 100).toFixed(2));
+      const y = parseFloat(((e.clientY / window.innerHeight) * 100).toFixed(2));
       setMyPos({ x, y });
 
-      if (now - lastUpdateRef.current > 30) {
-        socket.emit('move', { x, y });
+      if (now - lastUpdateRef.current > 35) {
+        update(ref(rtdb, `presence/${myId}`), { x, y, lastActive: now });
         lastUpdateRef.current = now;
       }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      socket.disconnect();
+      discoveryUnsub();
+      cleanupPartnerWatch();
+      remove(myPresenceRef);
     };
   }, [mounted, userColor, isMobileOS]);
 
@@ -146,6 +156,9 @@ export default function LiveCursors() {
         setIsTyping(true);
         setTypedMessage('');
         setTimeout(() => inputRef.current?.focus(), 10);
+      } else if (e.key === 'Escape' && isTyping) {
+        setIsTyping(false);
+        setTypedMessage('');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -154,37 +167,41 @@ export default function LiveCursors() {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (typedMessage.trim() && socketRef.current) {
-      socketRef.current.emit('chat', typedMessage.trim());
-      setMyMessage(typedMessage.trim());
-      setIsTyping(false);
-      setTypedMessage('');
-      setTimeout(() => setMyMessage(null), 5000);
+    if (typedMessage.trim() && myIdRef.current) {
+        const msg = typedMessage.trim().substring(0, 50);
+        update(ref(rtdb, `presence/${myIdRef.current}`), { message: msg });
+        setMyMessage(msg);
+        setIsTyping(false);
+        setTypedMessage('');
+        setTimeout(() => {
+            if (myIdRef.current) update(ref(rtdb, `presence/${myIdRef.current}`), { message: null });
+            setMyMessage(null);
+        }, 5000);
     } else {
-      setIsTyping(false);
+        setIsTyping(false);
     }
   };
 
-  // 100% Disable for Mobile OS or unmounted
   if (!mounted || isMobileOS) return null;
 
   return (
     <div className={styles.cursorLayer}>
       <AnimatePresence>
-        {/* Remote Partner Cursor */}
         {partner && (
           <motion.div
             key={partner.id}
-            initial={{ opacity: 0 }}
+            className={styles.remoteCursor}
+            style={{ color: partner.color }}
             animate={{ 
-              opacity: 1, 
               left: `${partner.x}%`,
               top: `${partner.y}%`,
             }}
-            exit={{ opacity: 0 }}
-            transition={{ type: 'spring', damping: 45, stiffness: 400, mass: 0.5 }}
-            className={styles.remoteCursor}
-            style={{ color: partner.color }}
+            transition={{ 
+                type: 'spring', 
+                stiffness: 900, 
+                damping: 50, 
+                mass: 0.1 
+            }}
           >
             <MousePointer2 size={18} fill="currentColor" />
             <div className={styles.label} style={{ backgroundColor: partner.color }}>
@@ -194,7 +211,7 @@ export default function LiveCursors() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
-                  transition={{ duration: 0.15 }}
+                  transition={{ duration: 0.12 }}
                 >
                   {partner.message || partner.name}
                 </motion.span>
@@ -204,13 +221,12 @@ export default function LiveCursors() {
           </motion.div>
         )}
 
-        {/* My Cursor Chat Input */}
         {isTyping && (
           <motion.div 
             key="my-chat-input"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
             className={styles.myChatContainer}
             style={{ left: `${myPos.x}%`, top: `${myPos.y}%`, color: userColor }}
           >
@@ -219,7 +235,7 @@ export default function LiveCursors() {
                 ref={inputRef}
                 type="text"
                 className={styles.chatInput}
-                placeholder="Talk..."
+                placeholder="Type here..."
                 value={typedMessage}
                 onChange={(e) => setTypedMessage(e.target.value)}
                 onBlur={() => !typedMessage && setIsTyping(false)}
@@ -230,7 +246,6 @@ export default function LiveCursors() {
           </motion.div>
         )}
 
-        {/* My Own Cursor Message Display */}
         {!isTyping && myMessage && (
           <motion.div 
             key="my-cursor-bubble"
@@ -243,18 +258,6 @@ export default function LiveCursors() {
             <div className={styles.label} style={{ backgroundColor: userColor, transform: 'translate(15px, 15px)' }}>
                 {myMessage}
             </div>
-          </motion.div>
-        )}
-
-        {isWaiting && (
-          <motion.div 
-            key="waiting-status"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className={styles.systemNote}
-          >
-            Finding a gamer...
           </motion.div>
         )}
       </AnimatePresence>

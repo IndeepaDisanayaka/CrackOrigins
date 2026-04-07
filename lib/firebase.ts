@@ -15,7 +15,8 @@ const firebaseConfig = {
   storageBucket: "crack-origins.firebasestorage.app",
   messagingSenderId: "178075327686",
   appId: "1:178075327686:web:9e64074b6b70c9f1f6cbc7",
-  measurementId: "G-XHTJLCKKCY"
+  measurementId: "G-XHTJLCKKCY",
+  databaseURL: "https://crack-origins-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 // Initialize Firebase
