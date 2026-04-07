@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './GamesCarousel.module.css';
-import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon } from 'lucide-react';
+import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor } from 'lucide-react';
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { login } from '@/app/page';
@@ -20,12 +20,13 @@ const GAMES = [
     genre: 'Story & Survival Horror',
     description: 'A lonely road. A silent follower. Step into a dark story where an innocent girl becomes the target of a ruthless attacker.',
     image: 'silent-murder.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg?autoplay=1&mute=1&controls=0&modestbranding=1&loop=1&playlist=X-IM7Q9jY4s',
+    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
     price: '$0.99',
     requirements: {
       min: 'Intel i5-4460 / 8GB RAM / GTX 750 Ti',
       max: 'Intel i7-8700K / 16GB RAM / RTX 2060'
-    }
+    },
+    os: 'Windows'
   },
   {
     id: 2,
@@ -33,12 +34,13 @@ const GAMES = [
     genre: 'Survival Horror',
     description: 'Lost in a strange and isolated place after chasing desire, you must collect money to survive.',
     image: 'after-party.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg?autoplay=1&mute=1&controls=0&modestbranding=1&loop=1&playlist=X-IM7Q9jY4s',
+    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
     price: '$30.00',
     requirements: {
       min: 'Core i3 / 4GB RAM / GT 1030',
       max: 'Core i5 / 8GB RAM / GTX 1050 Ti'
-    }
+    },
+    os: 'Windows'
   },
   {
     id: 3,
@@ -46,12 +48,13 @@ const GAMES = [
     genre: '2D & Multiplayer',
     description: 'A competitive multiplayer challenge where two players face off in intense levels inspired by Level Devil.',
     image: 'revealed.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg?autoplay=1&mute=1&controls=0&modestbranding=1&loop=1&playlist=X-IM7Q9jY4s',
+    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
     price: '$5.00',
     requirements: {
       min: 'Dual Core CPU / 2GB RAM / Integrated Graphics',
       max: 'Quad Core CPU / 4GB RAM / Dedicated GPU'
-    }
+    },
+    os: 'Windows'
   },
   {
     id: 4,
@@ -59,12 +62,13 @@ const GAMES = [
     genre: 'Survival Horror',
     description: 'Ten minutes. One hunter. No escape. Stay alert and avoid being caught as a deadly creature chases you.',
     image: 'survive.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg?autoplay=1&mute=1&controls=0&modestbranding=1&loop=1&playlist=X-IM7Q9jY4s',
+    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
     price: 'Free',
     requirements: {
       min: 'Core i5 / 8GB RAM / GTX 960',
       max: 'Core i7 / 16GB RAM / RTX 2070'
-    }
+    },
+    os: 'Windows'
   },
 ];
 
@@ -77,13 +81,35 @@ export default function GamesCarousel() {
   const [isCheckingPurchases, setIsCheckingPurchases] = useState(false);
   const { showToast } = useToast();
 
-  // New States
+  // Dragging Ref
+  const constraintsRef = useRef<HTMLDivElement>(null);
+  const [dragWidth, setDragWidth] = useState(0);
+
+  // Component States
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [bugTitle, setBugTitle] = useState('');
   const [bugDesc, setBugDesc] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [modalState, setModalState] = useState<'closed' | 'idle' | 'loading' | 'success' | 'details'>('closed');
+  const [selectedGame, setSelectedGame] = useState<typeof GAMES[0] | null>(null);
+  const [isLocked, setIsLocked] = useState(false); 
+
+  // Coupon States
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Automatically calculate drag bounds
+  useEffect(() => {
+    if (constraintsRef.current) {
+      setDragWidth(constraintsRef.current.scrollWidth - constraintsRef.current.offsetWidth);
+    }
+  }, [GAMES.length]);
 
   const fetchPurchases = async (uid: string) => {
+    if (!uid) return;
     setIsCheckingPurchases(true);
     try {
       const res = await getOwnedGames(uid);
@@ -105,21 +131,11 @@ export default function GamesCarousel() {
         fetchPurchases(u.uid);
       } else {
         setPurchasedTitles([]);
+        setPurchasedDetails({});
       }
     });
     return () => unsub();
   }, []);
-
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [modalState, setModalState] = useState<'closed' | 'idle' | 'loading' | 'success' | 'details'>('closed');
-  const [selectedGame, setSelectedGame] = useState<typeof GAMES[0] | null>(null);
-  const [isLocked, setIsLocked] = useState(false); // New lock timing state
-
-  // Coupon States
-  const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [couponError, setCouponError] = useState("");
-  const [isValidating, setIsValidating] = useState(false);
 
   const handleApplyCoupon = async () => {
     if (!couponInput) return;
@@ -185,34 +201,107 @@ export default function GamesCarousel() {
         <h2 className={styles.mainTitle}>Featured Game Studio Works</h2>
       </div>
 
-      {/* Epic Games-like Carousel Wrapper */}
-      <div className={styles.carouselInner}>
+      <div className={styles.carouselWrapper}>
 
-        {/* Main large display */}
-        <div className={styles.activeDisplay}>
-          <AnimatePresence mode="wait">
+        {/* Main Stage: Media + Content */}
+        <div className={styles.mainStage}>
+          
+          {/* Dynamic Blurred Background */}
+          <div className={styles.stageBackground}>
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={`bg-${activeIndex}`}
+                src={activeGame.image}
+                className={styles.bgImage}
+                initial={{ opacity: 0, scale: 1.1 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1 }}
+              />
+            </AnimatePresence>
+          </div>
+
+          {/* Media Display (Left/Top) */}
+          <div className={styles.activeMedia}>
+            
+            {/* The Video (Animate ONLY the Iframe Section) */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6 }}
+                style={{ width: '100%', height: '100%' }}
+              >
+                <iframe
+                  src={`${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video.split('/').pop()}&loop=1`}
+                  className={styles.activeIframe}
+                  title={activeGame.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Navigation Ribbon (Static Container OUTSIDE Cross-fade) */}
+            <div className={styles.navRibbonContainer} ref={constraintsRef}>
+              <motion.div 
+                className={styles.navRibbon}
+                drag="x"
+                dragConstraints={{ right: 0, left: -dragWidth }}
+                dragElastic={0.4}
+                whileTap={{ cursor: "grabbing" }}
+              >
+                {GAMES.map((game, idx) => {
+                  const isActive = idx === activeIndex;
+                  return (
+                    <button
+                      key={game.id}
+                      className={`${styles.navItem} ${isActive ? styles.activeNavItem : ''}`}
+                      onClick={() => handleThumbClick(idx)}
+                      onMouseDown={(e) => e.stopPropagation()} // Prevent drag interference
+                    >
+                      <img src={game.image} alt={game.title} className={styles.navThumb} />
+                      <div className={styles.navInfo}>
+                        <div className={styles.navTitleRow}>
+                          <span className={styles.navTitle}>{game.title}</span>
+                          <Monitor size={10} className={styles.osIcon} />
+                        </div>
+                        <div className={styles.navLabels}>
+                          <span className={isActive ? styles.activeLabel : ''}>
+                            {purchasedTitles.includes(game.title) ? 'Owned' : game.price}
+                          </span>
+                          <span>•</span>
+                          <span>{game.genre.split('&')[0]}</span>
+                        </div>
+                      </div>
+                      {isActive && !isLocked && (
+                        <motion.div 
+                          className={styles.navProgressBar}
+                          initial={{ width: 0 }}
+                          animate={{ width: "100%" }}
+                          transition={{ duration: 20, ease: "linear" }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Content Overlay (Right/Bottom) */}
+          <div className={styles.contentOverlay}>
             <motion.div
-              key={activeIndex}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+              key={`content-${activeIndex}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <iframe
-                src={activeGame.video}
-                className={styles.activeIframe}
-                title={activeGame.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            </motion.div>
-          </AnimatePresence>
-
-          <div className={styles.overlay}>
-            <div className={styles.textContent}>
-              <span className={styles.statusBadge}>Available Now</span>
+              <span className={styles.statusBadge}>Featured Release</span>
+              <h3 className={styles.genre}>{activeGame.genre}</h3>
               <h2 className={styles.title}>{activeGame.title}</h2>
               <p className={styles.description}>{activeGame.description}</p>
 
@@ -220,6 +309,7 @@ export default function GamesCarousel() {
                 <button
                   className="btnSolid"
                   disabled={activeGame.price !== 'Free' && !purchasedTitles.includes(activeGame.title)}
+                  style={{ minWidth: '160px' }}
                 >
                   <Play size={14} fill="currentColor" />
                   {activeGame.price === 'Free' || purchasedTitles.includes(activeGame.title) ? 'Play Now' : 'Unlock to Play'}
@@ -228,6 +318,7 @@ export default function GamesCarousel() {
                 {purchasedTitles.includes(activeGame.title) ? (
                   <button
                     className="btnBuyNow"
+                    style={{ whiteSpace: "nowrap" }}
                     onClick={() => { setSelectedGame(activeGame); setModalState('details'); setIsKeyVisible(false); }}
                   >
                     <Eye size={16} /> View Details
@@ -235,6 +326,7 @@ export default function GamesCarousel() {
                 ) : activeGame.price !== 'Free' && (
                   <button
                     className="btnBuyNow"
+                    style={{ whiteSpace: "nowrap" }}
                     onClick={() => handleBuyClick(activeGame)}
                     disabled={isCheckingPurchases}
                   >
@@ -242,60 +334,31 @@ export default function GamesCarousel() {
                   </button>
                 )}
 
-                <button
-                  className="btnOutline"
-                  style={{ padding: '0.4rem 1rem' }}
-                  onClick={() => setIsLocked(!isLocked)}
-                  title={isLocked ? "Unlock Auto-Play" : "Lock Auto-Play"}
-                >
-                  {isLocked ? <Play size={16} /> : <span style={{ fontSize: '14px', fontWeight: 'bold' }}>||</span>}
-                </button>
-                <button
-                  className="btnOutline"
-                  style={{ padding: '0.4rem 1rem' }}
-                  onClick={() => { setSelectedGame(activeGame); setIsBugReportOpen(true); }}
-                  title="Report Bug"
-                >
-                  <Bug size={16} />
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    className="btnOutline"
+                    style={{ padding: '0.7rem' }}
+                    onClick={() => setIsLocked(!isLocked)}
+                    title={isLocked ? "Unlock Auto-Play" : "Lock Auto-Play"}
+                  >
+                    {isLocked ? <Play size={16} /> : <span style={{ fontSize: '14px', fontWeight: 'bold' }}>||</span>}
+                  </button>
+                  <button
+                    className="btnOutline"
+                    style={{ padding: '0.7rem' }}
+                    onClick={() => { setSelectedGame(activeGame); setIsBugReportOpen(true); }}
+                    title="Report Bug"
+                  >
+                    <Bug size={16} />
+                  </button>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
-
-        {/* Vertical Thumbnails Navigation list (Right Side) */}
-        <div className={styles.thumbnailList}>
-          {GAMES.map((game, idx) => {
-            const isActive = idx === activeIndex;
-            return (
-              <button
-                key={game.id}
-                className={`${styles.thumbnailBtn} ${isActive ? styles.activeThumb : ''}`}
-                onClick={() => handleThumbClick(idx)}
-              >
-                <div className={styles.thumbImageWrapper}>
-                  <img src={game.image} alt={game.title} className={styles.thumbImg} />
-                  {purchasedTitles.includes(game.title) && (
-                    <div className={styles.ownedOverlay}>
-                      <CheckCircle2 size={12} color="var(--primary)" />
-                    </div>
-                  )}
-                </div>
-                <div className={styles.thumbInfo}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '0.5rem' }}>
-                    <span className={styles.thumbTitle}>{game.title}</span>
-                    <span className={styles.thumbTag}>
-                      {purchasedTitles.includes(game.title) ? 'Purchased' : game.price === 'Free' ? 'Free' : game.price}
-                    </span>
-                  </div>
-                  <span className={styles.thumbDesc}>{game.description}</span>
-                </div>
-                {isActive && <div className={styles.progressBar}></div>}
-              </button>
-            );
-          })}
-        </div>
       </div>
+
+
 
       <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">
         {modalState === 'idle' && selectedGame ? (
@@ -407,7 +470,6 @@ export default function GamesCarousel() {
                   <User size={14} /> <span className={styles.connectText}>Connect Google</span>
                 </button>
               )}
-              <button className={styles.laterBtn} onClick={() => setModalState('closed')}>Select Later</button>
             </div>
           </div>
         ) : modalState === 'details' && selectedGame ? (
