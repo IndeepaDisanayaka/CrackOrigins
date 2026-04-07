@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "cursor-server": "node server/cursor-server.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run cursor-server\""
+    "lint": "eslint"
   },
   "dependencies": {
     "@next/third-parties": "^16.2.2",
