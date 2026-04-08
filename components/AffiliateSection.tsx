@@ -116,7 +116,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
   return (
     <motion.section 
     className={styles.container}
-        id="affiliate"
+        id="Affiliates"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}

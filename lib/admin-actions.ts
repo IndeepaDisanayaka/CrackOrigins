@@ -97,12 +97,17 @@ export async function getOwnedGames(uid: string) {
         const games: string[] = [];
         const details: Record<string, any> = {};
 
-        snapshot.forEach(doc => {
+        const userRef = adminDb.collection("accounts").doc(uid);
+        const [paymentsSnap, offersSnap] = await Promise.all([
+            userRef.collection("payments").where("status", "==", "COMPLETED").get(),
+            userRef.collection("offers").get()
+        ]);
+
+        const processDoc = (doc: any, isOffer = false) => {
             const data = doc.data();
             if (data.game) {
                 games.push(data.game);
                 
-                // Decrypt sensitive PII if it's there
                 let decryptedEmail = data.payerEmail || "unknown";
                 if (decryptedEmail && decryptedEmail.includes(':')) {
                     try { decryptedEmail = decrypt(decryptedEmail); } catch(e) {}
@@ -114,9 +119,13 @@ export async function getOwnedGames(uid: string) {
                     amount: data.amount,
                     status: data.status,
                     payerEmail: decryptedEmail,
+                    isOffer
                 };
             }
-        });
+        };
+
+        paymentsSnap.forEach(doc => processDoc(doc));
+        offersSnap.forEach(doc => processDoc(doc, true));
 
         return { success: true, games, details };
     } catch (error: any) {
@@ -323,11 +332,23 @@ export async function updateUserKey(adminUid: string, uid: string, paymentId: st
         if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
 
         const encryptedKey = encrypt(steamKey);
-        await adminDb.collection("accounts").doc(uid).collection("payments").doc(paymentId).update({
-            steamKey: encryptedKey,
-            offerStatus: true // Key is ready
-        });
-        return { success: true };
+        const userRef = adminDb.collection("accounts").doc(uid);
+        
+        // Try updating in both subcollections as we don't know which one holds it
+        const [paymentDoc, offerDoc] = await Promise.all([
+            userRef.collection("payments").doc(paymentId).get(),
+            userRef.collection("offers").doc(paymentId).get()
+        ]);
+
+        if (paymentDoc.exists) {
+            await userRef.collection("payments").doc(paymentId).update({ steamKey: encryptedKey });
+            return { success: true };
+        } else if (offerDoc.exists) {
+            await userRef.collection("offers").doc(paymentId).update({ steamKey: encryptedKey });
+            return { success: true };
+        }
+
+        return { success: false, error: "Purchase record not found." };
     } catch (e: any) {
         console.error("Error updating key:", e);
         return { success: false, error: e.message };
@@ -340,13 +361,22 @@ export async function updateUserKey(adminUid: string, uid: string, paymentId: st
 export async function getUserKey(uid: string, offerId: string) {
     try {
         const adminDb = await getAdminDb();
-        const paymentsRef = adminDb.collection("accounts").doc(uid).collection("payments");
-        const snapshot = await paymentsRef.where("offerId", "==", offerId).limit(1).get();
+        const userRef = adminDb.collection("accounts").doc(uid);
         
-        if (snapshot.empty) return { success: false, error: "Purchase record not found." };
+        // 1. Try 'offers' subcollection (New way: doc id is offer id)
+        let offerDoc = await userRef.collection("offers").doc(offerId).get();
+        let data = offerDoc.exists ? offerDoc.data() : null;
+
+        // 2. Try 'payments' subcollection (Old way for backward compatibility)
+        if (!data) {
+            const paymentsRef = userRef.collection("payments");
+            const snapshot = await paymentsRef.where("offerId", "==", offerId).limit(1).get();
+            if (!snapshot.empty) data = snapshot.docs[0].data();
+        }
         
-        const data = snapshot.docs[0].data();
-        if (!data?.steamKey) return { success: false, error: "Key not yet available. Still waiting for verification." };
+        if (!data) return { success: false, error: "Purchase record not found." };
+        
+        if (!data.steamKey) return { success: false, error: "Key not yet available. Still waiting for verification." };
 
         const keyVal = data.steamKey;
         

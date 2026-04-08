@@ -234,8 +234,8 @@ export default function LiveCursors() {
           className={`${styles.toggleBtn} ${!isEnabled ? styles.disabled : ''}`}
           title={isEnabled ? "Disable Cursors" : "Enable Cursors"}
         >
-          {isEnabled ? <Eye size={16} /> : <EyeOff size={16} />}
-          <span>{isEnabled ? "LIVE" : "OFF"}</span>
+          <MousePointer2 size={16} fill={isEnabled ? "var(--primary)" : "none"} />
+          <span>{isEnabled ? "CURSORS ON" : "CURSORS OFF"}</span>
         </button>
       </div>
 

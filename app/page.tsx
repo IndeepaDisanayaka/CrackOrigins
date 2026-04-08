@@ -22,6 +22,9 @@ import { syncUserRecord, checkAdminStatus, createCoupon, createOffer } from '@/l
 import { useToast } from '../components/Toast';
 import { useSearchParams } from 'next/navigation';
 import LiveCursors from '../components/LiveCursors';
+import Link from 'next/link';
+import AuthModal from '../components/AuthModal';
+
 
 const provider = new GoogleAuthProvider();
 
@@ -57,6 +60,7 @@ function HomeContent() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isAddOfferModalOpen, setIsAddOfferModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
   const [userCountry, setUserCountry] = useState<{ name: string} | null>(null);
@@ -115,14 +119,23 @@ function HomeContent() {
     const getCountry = async () => {
       try {
         const res = await fetch("https://ipapi.co/json/");
+        if (!res.ok) throw new Error("Fetch failed");
         const data = await res.json();
-        if (data.country_name) {
+        if (data && data.country_name) {
           setUserCountry({ 
             name: data.country_name,
           });
         }
       } catch (e) {
-        console.error("Failed to fetch country:", e);
+        // Silently fail or use a fallback if needed
+        console.warn("Geolocator (ipapi) failed. Using default.");
+        // Optional: Try a second service
+        try {
+          const res2 = await fetch("https://api.ipify.org?format=json");
+          if (res2.ok) {
+            setUserCountry({ name: "Global" }); 
+          }
+        } catch (e2) {}
       }
     };
     getCountry();
@@ -181,6 +194,34 @@ function HomeContent() {
     }
   };
 
+  const triggerLogin = async () => {
+    // 1. Attempt to get country
+    let country = "Unknown";
+    try {
+      const locResponse = await fetch("https://ipapi.co/json/");
+      if (locResponse.ok) {
+        const locData = await locResponse.json();
+        country = locData.country_name || "Unknown";
+      }
+    } catch (e) { }
+
+    // 2. Get referral code from URL
+    const refId = searchParams?.get('ref');
+
+    const res = await login(refId, country);
+    if (res?.success !== false) {
+      setIsAuthModalOpen(false);
+    }
+    if (res?.success && 'affiliateId' in res) {
+      setAffiliateId(res.affiliateId as string);
+      if (auth.currentUser) {
+        const profile = await checkAdminStatus(auth.currentUser.uid);
+        setDiscount(profile.discount);
+        setAffiliateCount(profile.affiliateCount);
+      }
+    }
+  };
+
   return (
     <>
       <div className={styles.splashScreen}>
@@ -197,7 +238,8 @@ function HomeContent() {
           <div className={styles.navLinks}>
             <a href="#about" className={styles.link}>About</a>
             <a href="#project" className={styles.link}>Games</a>
-            <a href="#projects" className={styles.link}>Projects</a>
+            <a href="#Affiliates" className={styles.link}>Affiliates</a>
+            <a href="#Keys" className={styles.link}>Keys</a>
             <a href="#teams" className={styles.link}>Community</a>
           </div>
 
@@ -249,29 +291,7 @@ function HomeContent() {
                 </button>
               </div>
             ) : (
-              <button className="btnSolid" onClick={async () => {
-                // 1. Attempt to get country
-                let country = "Unknown";
-                try {
-                  const locResponse = await fetch("https://ipapi.co/json/");
-                  const locData = await locResponse.json();
-                  country = locData.country_name || "Unknown";
-                } catch (e) { }
-
-                // 2. Get referral code from URL
-                const refId = searchParams?.get('ref');
-
-                const res = await login(refId, country);
-                if (res?.success && 'affiliateId' in res) {
-                  setAffiliateId(res.affiliateId as string);
-                  // RE-FETCH status to get updated discount/count if it was a success invite
-                  if (auth.currentUser) {
-                    const profile = await checkAdminStatus(auth.currentUser.uid);
-                    setDiscount(profile.discount);
-                    setAffiliateCount(profile.affiliateCount);
-                  }
-                }
-              }} style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer' }}>
+              <button className="btnSolid" onClick={() => setIsAuthModalOpen(true)} style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer' }}>
                 <User size={14} /> <span className={styles.connectText}>Connect Google</span>
               </button>
             )}
@@ -307,6 +327,12 @@ function HomeContent() {
                 <a href="#projects" onClick={() => setIsMobileMenuOpen(false)} className={styles.mobileLink}>
                    <Briefcase size={18} /> Projects
                 </a>
+                <a href="#Affiliates" onClick={() => setIsMobileMenuOpen(false)} className={styles.mobileLink}>
+                   <Briefcase size={18} /> Affiliates
+                </a>
+                <a href="#Keys" onClick={() => setIsMobileMenuOpen(false)} className={styles.mobileLink}>
+                   <Briefcase size={18} /> Keys
+                </a>
                 <a href="#teams" onClick={() => setIsMobileMenuOpen(false)} className={styles.mobileLink}>
                    <MessageSquare size={18} /> Community
                 </a>
@@ -324,10 +350,21 @@ function HomeContent() {
                       <span>Guest User</span>
                    </div>
                 )}
-                <p>© 2026 Crack Origins Studio. All Rights Reserved.</p>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
+                   <Link href="/terms" onClick={() => setIsMobileMenuOpen(false)} style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 700, textTransform: 'uppercase' }}>
+                      Terms & Privacy
+                   </Link>
+                </div>
+                 <p>© 2026 Crack Origins Studio. All rights reserved.</p>
              </div>
           </div>
         </header>
+
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={() => setIsAuthModalOpen(false)} 
+          onLogin={triggerLogin} 
+        />
 
         <Modal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} title="Admin Coupon Generator">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
@@ -582,12 +619,11 @@ function HomeContent() {
           </div>
 
           <h1 className={`${styles.title} animateText animateText2`}>
-            Creative indie game dev<br />
-            team who creates <span className={styles.highlight}><FlipWords words={['universes', 'experiences', 'worlds']} /></span>
+            CRACK ORIGINS:<br />
+            <span className={styles.highlight}>A NEW PAGE IN HISTORY.</span>
           </h1>
-
           <p className={`${styles.subtitle} animateText animateText3`}>
-            A small indie game dev team at California, USA, crafting immersion and high-fidelity experiences for native games. Passionate and player-first.
+            Crack Origins (CO's) is an indie game team on a mission to redefine the industry. By turning the page on traditional development and embracing a culture of bold innovation, we are rising to create the next unique masterpiece guided by community ideas.
           </p>
 
           <div className={`${styles.actionButtons} animateText animateText4`}>
@@ -694,6 +730,7 @@ function HomeContent() {
             <a href="#projects">Projects</a>
             <a href="#teams">Community</a>
             <a href="#contact">Contact</a>
+            <Link href="/terms">Terms & Privacy</Link>
           </div>
           <div className={styles.footerRight}>
             © 2026 Crack Origins. All rights reserved.
