@@ -3,7 +3,7 @@ import styles from './page.module.css';
 import {
   Gamepad2, Users, MessageSquare, Paintbrush, Send,
   Skull, Swords, Ghost, Trophy, Target, Zap, User,
-  Ticket, Plus, Calendar, Percent, Hash, Copy, Tag,
+  Shield, Plus, Calendar, Percent, Hash, Copy, Tag,
   Menu, X, Briefcase
 } from 'lucide-react';
 import GamesCarousel from '../components/GamesCarousel';
@@ -15,15 +15,15 @@ import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, User 
 import { useEffect, useState, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Counter from '../components/Counter';
-import FlipWords from '../components/FlipWords';
 import KoFi from '@/lib/co-fi';
-import Modal from '../components/Modal';
+import Modal from '@/components/Modal';
 import { syncUserRecord, checkAdminStatus, createCoupon, createOffer } from '@/lib/admin-actions';
 import { useToast } from '../components/Toast';
 import { useSearchParams } from 'next/navigation';
 import LiveCursors from '../components/LiveCursors';
 import Link from 'next/link';
 import AuthModal from '../components/AuthModal';
+import AdminPanel from '@/components/AdminPanel';
 
 
 const provider = new GoogleAuthProvider();
@@ -57,16 +57,17 @@ function HomeContent() {
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
   const [discount, setDiscount] = useState(0);
   const [affiliateCount, setAffiliateCount] = useState(0);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false); // admin panel
+  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [isAddOfferModalOpen, setIsAddOfferModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState("");
   const [userCountry, setUserCountry] = useState<{ name: string} | null>(null);
   const { showToast } = useToast();
 
-  // Form states
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
+
   const [couponForm, setCouponForm] = useState({
     name: "",
     discount: "",
@@ -82,7 +83,8 @@ function HomeContent() {
     expire: "",
     quantity: 1,
     operatingSystem: "windows",
-    platform: "steam"
+    platform: "steam",
+    gameUrl: ""
   });
 
   const refreshUserStatus = async () => {
@@ -154,11 +156,11 @@ function HomeContent() {
       const result = await createCoupon(user.uid, couponForm);
       if (result.success && result.couponCode) {
         setGeneratedCode(result.couponCode);
-        showToast("Coupon generated successfully!", "success");
+        showToast("Coupon generated!", "success");
       } else {
         showToast(result.error || "Failed to create coupon.", "error");
       }
-    } catch (err) {
+    } catch {
       showToast("Error creating coupon.", "error");
     } finally {
       setIsGenerating(false);
@@ -168,7 +170,7 @@ function HomeContent() {
   const handleAddOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!offerForm.id || !offerForm.title || !offerForm.originalPrice || !offerForm.discount || !offerForm.expire) {
+    if (!offerForm.id || !offerForm.title || !offerForm.originalPrice || !offerForm.discount || !offerForm.expire || !offerForm.gameUrl) {
       showToast("Please fill all fields.", "error");
       return;
     }
@@ -177,21 +179,30 @@ function HomeContent() {
     try {
       const result = await createOffer(user.uid, {
         ...offerForm,
+        discount: `${offerForm.discount}%`,
         originalPrice: Number(offerForm.originalPrice),
         quantity: Number(offerForm.quantity)
       });
       if (result.success) {
-        showToast("Offer added successfully!", "success");
+        showToast("Offer added!", "success");
         setIsAddOfferModalOpen(false);
-        setOfferForm({ id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, operatingSystem: "windows", platform: "steam" });
+        setOfferForm({ id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, operatingSystem: "windows", platform: "steam", gameUrl: "" });
       } else {
         showToast(result.error || "Failed to add offer.", "error");
       }
-    } catch (err) {
+    } catch {
       showToast("Error adding offer.", "error");
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const getFinalOfferPrice = () => {
+    const base = parseFloat(offerForm.originalPrice) || 0;
+    const discount = parseFloat(offerForm.discount) || 0;
+    if (!base) return "0.00";
+    const final = Math.max(0, base - (base * discount) / 100);
+    return final.toFixed(2);
   };
 
   const triggerLogin = async () => {
@@ -258,22 +269,30 @@ function HomeContent() {
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 {isAdmin && (
                   <>
-                  <button
-                    className="btnOutline"
-                    onClick={() => { setIsAdminModalOpen(true); setGeneratedCode(""); }}
-                    title="Generate New Coupon"
-                    style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
-                  >
-                    <Ticket size={18} />
-                  </button>
-                  <button
-                    className="btnOutline"
-                    onClick={() => { setIsAddOfferModalOpen(true); }}
-                    title="Add New Game Offer"
-                    style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
-                  >
-                    <Swords size={18} />
-                  </button>
+                    <button
+                      className="btnOutline"
+                      onClick={() => { setIsCouponModalOpen(true); setGeneratedCode(""); }}
+                      title="Generate New Coupon"
+                      style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                    >
+                      <Tag size={18} />
+                    </button>
+                    <button
+                      className="btnOutline"
+                      onClick={() => setIsAddOfferModalOpen(true)}
+                      title="Add New Game Offer"
+                      style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                    >
+                      <Swords size={18} />
+                    </button>
+                    <button
+                      className="btnOutline"
+                      onClick={() => setIsAdminModalOpen(true)}
+                      title="Open Admin Panel"
+                      style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                    >
+                      <Shield size={18} />
+                    </button>
                   </>
                 )}
                 <button
@@ -366,13 +385,14 @@ function HomeContent() {
           onLogin={triggerLogin} 
         />
 
-        <Modal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} title="Admin Coupon Generator">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
+        {/* Admin Coupon Generator */}
+        <Modal isOpen={isCouponModalOpen} onClose={() => setIsCouponModalOpen(false)} title="Coupon Generator">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
             {!generatedCode ? (
               <form onSubmit={handleGenerateCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Tag size={12} /> Coupon Label Name
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Tag size={12} /> Coupon Name
                   </label>
                   <input
                     type="text"
@@ -385,32 +405,32 @@ function HomeContent() {
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <Percent size={12} /> Discount
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 50% or 10"
+                      placeholder="e.g. 50"
                       className={styles.adminInput}
                       value={couponForm.discount}
                       onChange={e => setCouponForm({ ...couponForm, discount: e.target.value })}
                     />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Hash size={12} /> Max Quantity
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Hash size={12} /> Quantity
                     </label>
                     <input
                       type="number"
                       className={styles.adminInput}
                       value={couponForm.quantity}
-                      onChange={e => setCouponForm({ ...couponForm, quantity: parseInt(e.target.value) })}
+                      onChange={e => setCouponForm({ ...couponForm, quantity: parseInt(e.target.value || "0") })}
                     />
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <Calendar size={12} /> Expiration Date
                   </label>
                   <input
@@ -421,38 +441,24 @@ function HomeContent() {
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  className="btnSolid"
-                  disabled={isGenerating}
-                  style={{ marginTop: '1rem', width: '100%', padding: '1rem', gap: '0.5rem' }}
-                >
-                  {isGenerating ? "..." : <Plus size={16} />} Generate Secure Code
+                <button type="submit" className="btnSolid" disabled={isGenerating} style={{ marginTop: '0.5rem', width: '100%', padding: '1rem', gap: '0.5rem' }}>
+                  {isGenerating ? "..." : <Plus size={16} />} Generate Code
                 </button>
               </form>
             ) : (
-              <div style={{ textAlign: 'center', padding: '2rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', padding: '1rem', borderRadius: '12px', border: '1px dashed #4ade80' }}>
-                  <p style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>SUCCESS! NEW COUPON CREATED</p>
-                  <h2 style={{ fontSize: '1.5rem', letterSpacing: '4px', fontFamily: 'monospace' }}>{generatedCode}</h2>
+              <div style={{ textAlign: 'center', padding: '1.25rem 0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ border: '1px dashed var(--primary)', padding: '1rem', borderRadius: '12px' }}>
+                  <p style={{ fontSize: '0.75rem', marginBottom: '0.5rem', fontWeight: 900, letterSpacing: '0.12em' }}>
+                    COUPON CREATED
+                  </p>
+                  <h2 style={{ fontSize: '1.25rem', letterSpacing: '4px', fontFamily: 'monospace', color: 'var(--primary)' }}>{generatedCode}</h2>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    className="btnSolid"
-                    style={{ flex: 1 }}
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedCode);
-                      showToast("Coupon code copied!", "success");
-                    }}
-                  >
-                    <Copy size={16} /> Copy Code
+                  <button className="btnSolid" style={{ flex: 1 }} onClick={() => { navigator.clipboard.writeText(generatedCode); showToast("Copied!", "success"); }}>
+                    <Copy size={16} /> Copy
                   </button>
-                  <button
-                    className="btnOutline"
-                    style={{ flex: 1 }}
-                    onClick={() => { setGeneratedCode(""); setCouponForm({ name: "", discount: "", expire: "", quantity: 100 }); }}
-                  >
-                    Create Another
+                  <button className="btnOutline" style={{ flex: 1 }} onClick={() => { setGeneratedCode(""); setCouponForm({ name: "", discount: "", expire: "", quantity: 100 }); }}>
+                    New
                   </button>
                 </div>
               </div>
@@ -460,110 +466,85 @@ function HomeContent() {
           </div>
         </Modal>
 
-        <Modal isOpen={isAddOfferModalOpen} onClose={() => setIsAddOfferModalOpen(false)} title="Add New Game Offer">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
+        {/* Admin Add Offer */}
+        <Modal isOpen={isAddOfferModalOpen} onClose={() => setIsAddOfferModalOpen(false)} title="Add Game Offer">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
             <form onSubmit={handleAddOffer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                   Steam App ID
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Hash size={12} /> Steam App ID
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1245620"
-                  className={styles.adminInput}
-                  value={offerForm.id}
-                  onChange={e => setOfferForm({ ...offerForm, id: e.target.value })}
-                />
+                <input type="text" placeholder="e.g. 1245620" className={styles.adminInput} value={offerForm.id} onChange={e => setOfferForm({ ...offerForm, id: e.target.value })} />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                   Game Title
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Tag size={12} /> Game Title
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Elden Ring"
-                  className={styles.adminInput}
-                  value={offerForm.title}
-                  onChange={e => setOfferForm({ ...offerForm, title: e.target.value })}
-                />
+                <input type="text" placeholder="e.g. Elden Ring" className={styles.adminInput} value={offerForm.title} onChange={e => setOfferForm({ ...offerForm, title: e.target.value })} />
               </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    Original Price ($)
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Tag size={12} /> Original Price
                   </label>
-                  <input
-                    type="number"
-                    placeholder="10.00"
-                    className={styles.adminInput}
-                    value={offerForm.originalPrice}
-                    onChange={e => setOfferForm({ ...offerForm, originalPrice: e.target.value })}
-                  />
+                  <input style={{ flex: 1 }} type="number" placeholder="e.g. 10.00" className={styles.adminInput} value={offerForm.originalPrice} onChange={e => setOfferForm({ ...offerForm, originalPrice: e.target.value })} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    Discount
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Percent size={12} /> Discount %
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 10% or -10%"
-                    className={styles.adminInput}
-                    value={offerForm.discount}
-                    onChange={e => setOfferForm({ ...offerForm, discount: e.target.value })}
-                  />
+                  <input style={{ flex: 1 }} type="number" placeholder="e.g. 10" className={styles.adminInput} value={offerForm.discount} onChange={e => setOfferForm({ ...offerForm, discount: e.target.value })} />
                 </div>
+              </div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)' }}>
+                Final Price: ${getFinalOfferPrice()}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Tag size={12} /> Steam Store URL
+                </label>
+                <input type="url" placeholder="https://store.steampowered.com/app/..." className={styles.adminInput} value={offerForm.gameUrl} onChange={e => setOfferForm({ ...offerForm, gameUrl: e.target.value })} />
               </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    OS
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Tag size={12} /> OS
                   </label>
-                  <input
-                    type="text"
-                    className={styles.adminInput}
-                    value={offerForm.operatingSystem}
-                    onChange={e => setOfferForm({ ...offerForm, operatingSystem: e.target.value })}
-                  />
+                  <input style={{ flex: 1 }} type="text" placeholder="windows" className={styles.adminInput} value={offerForm.operatingSystem} onChange={e => setOfferForm({ ...offerForm, operatingSystem: e.target.value })} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    Quantity
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Hash size={12} /> Quantity
                   </label>
-                  <input
-                    type="number"
-                    className={styles.adminInput}
-                    value={offerForm.quantity}
-                    onChange={e => setOfferForm({ ...offerForm, quantity: parseInt(e.target.value) })}
-                  />
+                  <input style={{ flex: 1 }} type="number" placeholder="1" className={styles.adminInput} value={offerForm.quantity} onChange={e => setOfferForm({ ...offerForm, quantity: parseInt(e.target.value || "0") })} />
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  Expiration Date
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Calendar size={12} /> Expiration Date
                 </label>
-                <input
-                  type="date"
-                  className={styles.adminInput}
-                  value={offerForm.expire}
-                  onChange={e => setOfferForm({ ...offerForm, expire: e.target.value })}
-                />
+                <input type="date" className={styles.adminInput} value={offerForm.expire} onChange={e => setOfferForm({ ...offerForm, expire: e.target.value })} />
               </div>
 
-              <button
-                type="submit"
-                className="btnSolid"
-                disabled={isGenerating}
-                style={{ marginTop: '1rem', width: '100%', padding: '1rem', gap: '0.5rem' }}
-              >
-                {isGenerating ? "..." : <Plus size={16} />} Add New Offer
+              <button type="submit" className="btnSolid" disabled={isGenerating} style={{ marginTop: '0.5rem', width: '100%', padding: '1rem', gap: '0.5rem' }}>
+                {isGenerating ? "..." : <Plus size={16} />} Add Offer
               </button>
             </form>
           </div>
         </Modal>
+
+        {user && isAdmin && (
+          <AdminPanel
+            userUid={user.uid}
+            isOpen={isAdminModalOpen}
+            setIsOpen={setIsAdminModalOpen}
+          />
+        )}
 
         <motion.div
           className={styles.subHeader}
