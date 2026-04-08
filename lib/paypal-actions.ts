@@ -133,3 +133,40 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Server Action: Read PayPal available balance (Admin only)
+ */
+export async function getPayPalBalance(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        const accessToken = await getAccessToken();
+        const asOf = encodeURIComponent(new Date().toISOString());
+        const response = await fetch(`${PAYPAL_BASE_URL}/v1/reporting/balances?as_of_time=${asOf}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+            return { success: false, error: payload?.message || "Failed to fetch PayPal balance." };
+        }
+
+        const balances = payload?.balances || [];
+        const usd = balances.find((b: any) => b?.currency_code === "USD") || balances[0];
+        const available = usd?.available_balance?.value ?? usd?.total_balance?.value ?? "0.00";
+        const currency = usd?.currency_code || "USD";
+
+        return { success: true, amount: String(available), currency };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Failed to fetch PayPal balance." };
+    }
+}

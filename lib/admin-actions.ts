@@ -2,6 +2,18 @@
 
 import { getAdminDb } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { encrypt, decrypt } from './crypto';
+
+function toIsoDate(value: any): string | null {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value?.toDate === 'function') return value.toDate().toISOString();
+    try {
+        return new Date(value).toISOString();
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Server Action: Sync user profile to Firestore securely (Admin SDK)
@@ -227,6 +239,136 @@ export async function checkAdminStatus(uid: string) {
 }
 
 /**
+ * Server Action: Get admin dashboard data (Owner only)
+ */
+export async function getAdminDashboardData(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        // Users
+        const accountsSnap = await adminDb.collection("accounts").get();
+        const users = accountsSnap.docs.map(d => {
+            const data = d.data() || {};
+            let decryptedEmail = data.email || null;
+            if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
+                try { decryptedEmail = decrypt(decryptedEmail); } catch { }
+            }
+            return {
+                uid: d.id,
+                name: data.name || null,
+                email: decryptedEmail,
+                photoURL: data.photoURL || null,
+                isOwner: data.isOwner === true,
+                country: data.country || "Unknown",
+            };
+        });
+
+        // Global Offers + Coupons
+        const [offersSnap, couponsSnap] = await Promise.all([
+            adminDb.collection("offers").get(),
+            adminDb.collection("coupons").get(),
+        ]);
+
+        const offers = offersSnap.docs.map(d => {
+            const data = d.data() || {};
+            return {
+                id: d.id,
+                title: data.title || "",
+                originalPrice: data.originalPrice ?? 0,
+                discount: data.discount || "",
+                quantity: data.quantity ?? 0,
+                operatingSystem: data.operatingSystem || "",
+                platform: data.platform || "",
+                gameUrl: data.gameUrl || "",
+                expire: toIsoDate(data.expire) || data.expire || "",
+                listed: toIsoDate(data.listed),
+            };
+        });
+
+        const coupons = couponsSnap.docs.map(d => {
+            const data = d.data() || {};
+            return {
+                id: d.id,
+                name: data.name || "",
+                discount: data.discount || "",
+                quantity: data.quantity ?? 0,
+                expire: data.expire || "",
+                isExpired: data.isExpired === true,
+                createdAt: toIsoDate(data.createdAt),
+                userId: data.userId || null,
+            };
+        });
+
+        // Payments across all users (subcollections)
+        const payments: any[] = [];
+        await Promise.all(
+            accountsSnap.docs.map(async (accountDoc) => {
+                const userId = accountDoc.id;
+                const userRef = adminDb.collection("accounts").doc(userId);
+
+                const [paymentsSnap, offersPurchSnap] = await Promise.all([
+                    userRef.collection("payments").get(),
+                    userRef.collection("offers").get(),
+                ]);
+
+                const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
+                    const data = doc.data() || {};
+                    let decryptedEmail = data.payerEmail || "unknown";
+                    if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
+                        try { decryptedEmail = decrypt(decryptedEmail); } catch { }
+                    }
+                    payments.push({
+                        id: doc.id,
+                        userId,
+                        game: data.game || "",
+                        payerEmail: decryptedEmail,
+                        amount: data.amount || "0",
+                        status: data.status || "UNKNOWN",
+                        purchaseDate: toIsoDate(data.purchaseDate) || new Date().toISOString(),
+                        steamKey: data.steamKey || null,
+                        paypalOrderId: data.paypalOrderId || null,
+                        coupon: data.coupon || null,
+                        source,
+                    });
+                };
+
+                paymentsSnap.forEach((doc) => pushPayment(doc, "payment"));
+                offersPurchSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
+            })
+        );
+
+        // Sort newest first
+        payments.sort((a, b) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
+
+        return { success: true, data: { users, payments, offers, coupons } };
+    } catch (error: any) {
+        console.error("Error getting admin dashboard data:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Update user owner status (Owner only)
+ */
+export async function updateUserOwnerStatus(adminUid: string, targetUid: string, isOwner: boolean) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        await adminDb.collection("accounts").doc(targetUid).set({ isOwner: isOwner === true }, { merge: true });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating owner status:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Server Action: Generate a personal coupon using affiliate discount
  */
 export async function generateAffiliateCoupon(uid: string) {
@@ -298,6 +440,7 @@ export async function createOffer(adminUid: string, offerData: {
     quantity: number;
     operatingSystem: string;
     platform: string;
+    gameUrl?: string;
 }) {
     try {
         const adminDb = await getAdminDb();
@@ -319,8 +462,6 @@ export async function createOffer(adminUid: string, offerData: {
         return { success: false, error: error.message };
     }
 }
-
-import { encrypt, decrypt } from './crypto';
 
 /**
  * Server Action: Update user's Steam key for a specific payment (Admin only)
