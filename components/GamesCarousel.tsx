@@ -11,6 +11,9 @@ import { getOwnedGames } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
 import { useSearchParams } from 'next/navigation';
+import AuthModal from './AuthModal';
+import { CheckSquare, Square } from 'lucide-react';
+import Link from 'next/link';
 
 
 const GAMES = [
@@ -100,6 +103,8 @@ export default function GamesCarousel() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Automatically calculate drag bounds
   useEffect(() => {
@@ -447,25 +452,39 @@ export default function GamesCarousel() {
 
             <div className={styles.modalFooter}>
               {user ? (
-                <Checkout
-                  amount={selectedGame.price}
-                  game={selectedGame.title}
-                  isOwned={purchasedTitles.includes(selectedGame.title)}
-                  onSuccess={() => fetchPurchases(user.uid)}
-                  appliedCoupon={appliedCoupon}
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+                   <div 
+                    onClick={() => setAcceptedTerms(!acceptedTerms)}
+                    style={{ 
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', 
+                      width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>
+                      {acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
+                      I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.
+                    </span>
+                  </div>
+                  {acceptedTerms ? (
+                    <Checkout
+                      amount={selectedGame.price}
+                      game={selectedGame.title}
+                      isOwned={purchasedTitles.includes(selectedGame.title)}
+                      onSuccess={() => fetchPurchases(user.uid)}
+                      appliedCoupon={appliedCoupon}
+                    />
+                  ) : (
+                    <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>
+                      Accept Terms to Buy
+                    </button>
+                  )}
+                </div>
               ) : (
                 <button className="btnSolid" 
-                    onClick={async () => {
-                        let country = "Unknown";
-                        try {
-                            const lRes = await fetch("https://ipapi.co/json/");
-                            const lData = await lRes.json();
-                            country = lData.country_name || "Unknown";
-                        } catch (e) {}
-                        
-                        login(searchParams?.get('ref'), country);
-                    }} 
+                    onClick={() => setIsAuthModalOpen(true)} 
                     style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%" }}>
                   <User size={14} /> <span className={styles.connectText}>Connect Google</span>
                 </button>
@@ -576,6 +595,20 @@ export default function GamesCarousel() {
           </div>
         )}
       </Modal>
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onLogin={async () => {
+          let country = "Unknown";
+          try {
+            const lRes = await fetch("https://ipapi.co/json/");
+            const lData = await lRes.json();
+            country = lData.country_name || "Unknown";
+          } catch (e) { }
+          login(searchParams?.get('ref') || null, country);
+        }} 
+      />
     </div>
   );
 }

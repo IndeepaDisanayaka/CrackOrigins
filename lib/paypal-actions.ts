@@ -102,8 +102,7 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
 
             const { encrypt } = await import('./crypto');
 
-            // Securely store in Firebase using Admin SDK
-            await adminDb.collection("accounts").doc(uid).collection("payments").doc(orderID).set({
+            const paymentData: any = {
                 game: game,
                 purchaseDate: Timestamp.now(),
                 coupon: couponUsed,
@@ -113,11 +112,17 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 paypalOrderId: orderID,
                 payerEmail: encrypt(details.payer?.email_address || "unknown"),
                 payerName: encrypt(details.payer ? `${details.payer.name.given_name} ${details.payer.name.surname}` : "unknown"),
-                // Unified Offers Logic
-                offerId: offerId || null,
-                offerStatus: offerId ? false : null,
-                steamKey: null // To be filled by admin later
-            });
+            };
+
+            const userRef = adminDb.collection("accounts").doc(uid);
+
+            if (offerId) {
+                // Limited Offer: Store in 'offers' subcollection with offerId as doc ID
+                await userRef.collection("offers").doc(offerId).set(paymentData);
+            } else {
+                // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
+                await userRef.collection("payments").doc(orderID).set(paymentData);
+            }
 
             return { success: true };
         }

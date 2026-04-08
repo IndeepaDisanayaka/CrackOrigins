@@ -568,12 +568,17 @@
 .emailInput {
   flex: 1;
   padding: 1.2rem 1.5rem;
-  border: none;
+  border: 1px solid var(--outline-color);
   background-color: transparent;
   color: var(--foreground);
   font-size: 1rem;
   font-family: inherit;
   outline: none;
+  transition: border-color 0.4s ease;
+}
+
+.emailInput:focus {
+  border-color: var(--primary);
 }
 
 .emailInput::placeholder {

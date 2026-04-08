@@ -112,41 +112,50 @@
 .toggleBtn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #000;
-  border: 1px solid #1a1a1a;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 4px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #000000;
+  padding: 12px 20px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   font-weight: 900;
-  font-size: 0.6rem;
-  letter-spacing: 0.15em;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  user-select: none;
 }
 
 .toggleBtn:hover {
-  transform: translateY(-4px);
-  border-color: #333;
+  transform: translateY(-4px) scale(1.02);
+  border-color: var(--primary, #feb60c);
+  background: var(--primary);
 }
 
 .toggleBtn svg {
   color: var(--primary, #feb60c);
+  transition: all 0.3s ease;
+}
+
+.toggleBtn:hover svg{
+  color:#fff;
+  fill:#fff;
 }
 
 .toggleBtn.disabled {
-  opacity: 0.6;
-  border-color: #111;
-  background: #050505;
+  opacity: 0.5;
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .toggleBtn.disabled svg {
-  color: #444;
+  color: #666;
+  fill: none !important;
 }
 
 .toggleBtn span {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .remoteCursor svg {
