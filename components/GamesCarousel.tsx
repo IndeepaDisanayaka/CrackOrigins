@@ -1,20 +1,17 @@
 'use client';
+
 import { useState, useEffect, useRef } from 'react';
 import styles from './GamesCarousel.module.css';
 import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor } from 'lucide-react';
-import { auth } from "../lib/firebase";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { login } from '@/app/page';
-import Checkout from '@/lib/paypal';
+import { useAuth } from '../lib/contexts/AuthContext';
+import { useModals } from '../lib/contexts/ModalContext';
+import Web3Checkout from './Web3Checkout';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getOwnedGames } from '@/lib/admin-actions';
+import { getOwnedGames, validateCoupon } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
-import { useSearchParams } from 'next/navigation';
-import AuthModal from './AuthModal';
 import { CheckSquare, Square } from 'lucide-react';
 import Link from 'next/link';
-
 
 const GAMES = [
   {
@@ -75,22 +72,19 @@ const GAMES = [
   },
 ];
 
-
 export default function GamesCarousel() {
-  const searchParams = useSearchParams();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const { user } = useAuth();
+  const { isAuthModalOpen, setIsAuthModalOpen, isBugReportOpen, setIsBugReportOpen } = useModals();
+  const { showToast } = useToast();
+
   const [purchasedTitles, setPurchasedTitles] = useState<string[]>([]);
   const [purchasedDetails, setPurchasedDetails] = useState<Record<string, any>>({});
   const [isCheckingPurchases, setIsCheckingPurchases] = useState(false);
-  const { showToast } = useToast();
 
-  // Dragging Ref
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [dragWidth, setDragWidth] = useState(0);
 
-  // Component States
   const [isKeyVisible, setIsKeyVisible] = useState(false);
-  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [bugTitle, setBugTitle] = useState('');
   const [bugDesc, setBugDesc] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -98,20 +92,16 @@ export default function GamesCarousel() {
   const [selectedGame, setSelectedGame] = useState<typeof GAMES[0] | null>(null);
   const [isLocked, setIsLocked] = useState(false); 
 
-  // Coupon States
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [couponError, setCouponError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  // Automatically calculate drag bounds
   useEffect(() => {
     if (constraintsRef.current) {
       setDragWidth(constraintsRef.current.scrollWidth - constraintsRef.current.offsetWidth);
     }
-  }, [GAMES.length]);
+  }, []);
 
   const fetchPurchases = async (uid: string) => {
     if (!uid) return;
@@ -130,24 +120,18 @@ export default function GamesCarousel() {
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        fetchPurchases(u.uid);
-      } else {
-        setPurchasedTitles([]);
-        setPurchasedDetails({});
-      }
-    });
-    return () => unsub();
-  }, []);
+    if (user) {
+      fetchPurchases(user.uid);
+    } else {
+      setPurchasedTitles([]);
+      setPurchasedDetails({});
+    }
+  }, [user]);
 
   const handleApplyCoupon = async () => {
     if (!couponInput) return;
     setIsValidating(true);
-    setCouponError("");
     try {
-      const { validateCoupon } = await import('@/lib/admin-actions');
       const result = await validateCoupon(couponInput);
       if (result.success && result.coupon) {
         setAppliedCoupon(result.coupon);
@@ -163,25 +147,13 @@ export default function GamesCarousel() {
     }
   };
 
-  // Auto advance logic
   useEffect(() => {
     const timer = setInterval(() => {
       if (modalState !== 'closed' || isBugReportOpen || isLocked) return;
       setActiveIndex((current) => (current + 1) % GAMES.length);
     }, 20000);
-
     return () => clearInterval(timer);
   }, [modalState, isBugReportOpen, isLocked]);
-
-  const handleThumbClick = (index: number) => {
-    setActiveIndex(index);
-  };
-
-  const handleBuyClick = (game: typeof GAMES[0]) => {
-    if (purchasedTitles.includes(game.title)) return;
-    setSelectedGame(game);
-    setModalState('idle');
-  };
 
   useEffect(() => {
     if (modalState !== 'closed') {
@@ -190,11 +162,9 @@ export default function GamesCarousel() {
       document.body.style.overflow = 'unset';
       setCouponInput("");
       setAppliedCoupon(null);
-      setCouponError("");
+      setAcceptedTerms(false);
     }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+    return () => { document.body.style.overflow = 'unset'; };
   }, [modalState]);
 
   const activeGame = GAMES[activeIndex];
@@ -207,11 +177,7 @@ export default function GamesCarousel() {
       </div>
 
       <div className={styles.carouselWrapper}>
-
-        {/* Main Stage: Media + Content */}
         <div className={styles.mainStage}>
-          
-          {/* Dynamic Blurred Background */}
           <div className={styles.stageBackground}>
             <AnimatePresence mode="wait">
               <motion.img
@@ -226,10 +192,7 @@ export default function GamesCarousel() {
             </AnimatePresence>
           </div>
 
-          {/* Media Display (Left/Top) */}
           <div className={styles.activeMedia}>
-            
-            {/* The Video (Animate ONLY the Iframe Section) */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeIndex}
@@ -250,7 +213,6 @@ export default function GamesCarousel() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Navigation Ribbon (Static Container OUTSIDE Cross-fade) */}
             <div className={styles.navRibbonContainer} ref={constraintsRef}>
               <motion.div 
                 className={styles.navRibbon}
@@ -265,8 +227,8 @@ export default function GamesCarousel() {
                     <button
                       key={game.id}
                       className={`${styles.navItem} ${isActive ? styles.activeNavItem : ''}`}
-                      onClick={() => handleThumbClick(idx)}
-                      onMouseDown={(e) => e.stopPropagation()} // Prevent drag interference
+                      onClick={() => setActiveIndex(idx)}
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
                       <img src={game.image} alt={game.title} className={styles.navThumb} />
                       <div className={styles.navInfo}>
@@ -297,7 +259,6 @@ export default function GamesCarousel() {
             </div>
           </div>
 
-          {/* Content Overlay (Right/Bottom) */}
           <div className={styles.contentOverlay}>
             <motion.div
               key={`content-${activeIndex}`}
@@ -323,7 +284,6 @@ export default function GamesCarousel() {
                 {purchasedTitles.includes(activeGame.title) ? (
                   <button
                     className="btnBuyNow"
-                    style={{ whiteSpace: "nowrap" }}
                     onClick={() => { setSelectedGame(activeGame); setModalState('details'); setIsKeyVisible(false); }}
                   >
                     <Eye size={16} /> View Details
@@ -331,8 +291,7 @@ export default function GamesCarousel() {
                 ) : activeGame.price !== 'Free' && (
                   <button
                     className="btnBuyNow"
-                    style={{ whiteSpace: "nowrap" }}
-                    onClick={() => handleBuyClick(activeGame)}
+                    onClick={() => { setSelectedGame(activeGame); setModalState('idle'); }}
                     disabled={isCheckingPurchases}
                   >
                     <ShoppingCart size={16} /> Buy Now - {activeGame.price}
@@ -340,20 +299,10 @@ export default function GamesCarousel() {
                 )}
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    className="btnOutline"
-                    style={{ padding: '0.7rem' }}
-                    onClick={() => setIsLocked(!isLocked)}
-                    title={isLocked ? "Unlock Auto-Play" : "Lock Auto-Play"}
-                  >
+                  <button className="btnOutline" style={{ padding: '0.7rem' }} onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Auto-Play" : "Lock Auto-Play"}>
                     {isLocked ? <Play size={16} /> : <span style={{ fontSize: '14px', fontWeight: 'bold' }}>||</span>}
                   </button>
-                  <button
-                    className="btnOutline"
-                    style={{ padding: '0.7rem' }}
-                    onClick={() => { setSelectedGame(activeGame); setIsBugReportOpen(true); }}
-                    title="Report Bug"
-                  >
+                  <button className="btnOutline" style={{ padding: '0.7rem' }} onClick={() => { setSelectedGame(activeGame); setIsBugReportOpen(true); }} title="Report Bug">
                     <Bug size={16} />
                   </button>
                 </div>
@@ -362,8 +311,6 @@ export default function GamesCarousel() {
           </div>
         </div>
       </div>
-
-
 
       <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">
         {modalState === 'idle' && selectedGame ? (
@@ -379,17 +326,13 @@ export default function GamesCarousel() {
                       <span>
                         ${(() => {
                           const base = parseFloat(selectedGame.price.replace(/[^0-9.]/g, '')) || 0;
-                          const discRaw = appliedCoupon.discount;
-                          const discStr = String(discRaw).trim();
+                          const discStr = String(appliedCoupon.discount).trim();
                           let finalAmt = base;
-
                           if (discStr.includes('%')) {
-                            const percent = parseFloat(discStr) || 0;
-                            finalAmt = base - (base * percent / 100);
+                            finalAmt = base - (base * parseFloat(discStr) / 100);
                           } else {
                             finalAmt = base - (parseFloat(discStr) || 0);
                           }
-
                           return Math.max(0, finalAmt).toFixed(2);
                         })()}
                       </span>
@@ -411,81 +354,33 @@ export default function GamesCarousel() {
             </div>
 
             <div className={styles.couponSection}>
-              <input
-                type="text"
-                placeholder="COUPON CODE"
-                className={styles.couponInput}
-                value={couponInput}
-                onChange={(e) => setCouponInput(e.target.value)}
-                disabled={!!appliedCoupon}
-              />
-              <button
-                className={styles.applyBtn}
-                onClick={handleApplyCoupon}
-                disabled={isValidating || !couponInput || !!appliedCoupon}
-                style={{
-                  background: appliedCoupon ? 'transparent' : '#feb60c',
-                  cursor: appliedCoupon ? 'default' : 'pointer',
-                  border: appliedCoupon ? 'none' : 'initial'
-                }}
-              >
+              <input type="text" placeholder="COUPON CODE" className={styles.couponInput} value={couponInput} onChange={(e) => setCouponInput(e.target.value)} disabled={!!appliedCoupon} />
+              <button className={styles.applyBtn} onClick={handleApplyCoupon} disabled={isValidating || !couponInput || !!appliedCoupon} style={{ background: appliedCoupon ? 'transparent' : '#feb60c', cursor: appliedCoupon ? 'default' : 'pointer', border: appliedCoupon ? 'none' : 'initial' }}>
                 {isValidating ? "..." : appliedCoupon ? "Applied" : "Apply"}
               </button>
             </div>
             {appliedCoupon && (
-              <div style={{ fontSize: '0.75rem', color: '#ccc', marginTop: '-5px', marginBottom: '10px', display: 'flex',flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                Discount: {appliedCoupon.discount} off
-
-                <span>{appliedCoupon.name}</span>
-                <span>Expires: {appliedCoupon.expire}</span>
-                <span>{appliedCoupon.quantity} left</span>
-
-                <button
-                  onClick={() => { setAppliedCoupon(null); setCouponInput(""); }}
-                  style={{background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
-                >
-                  Remove
-                </button>
-
+              <div style={{ fontSize: '0.75rem', color: '#ccc', marginTop: '-5px', marginBottom: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                Discount: {appliedCoupon.discount} off <span>{appliedCoupon.name}</span>
+                <button onClick={() => { setAppliedCoupon(null); setCouponInput(""); }} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Remove</button>
               </div>
             )}
 
             <div className={styles.modalFooter}>
               {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                   <div 
-                    onClick={() => setAcceptedTerms(!acceptedTerms)}
-                    style={{ 
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', 
-                      width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>
-                      {acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
-                      I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.
-                    </span>
+                   <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
+                    <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>{acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}</div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.</span>
                   </div>
                   {acceptedTerms ? (
-                    <Checkout
-                      amount={selectedGame.price}
-                      game={selectedGame.title}
-                      isOwned={purchasedTitles.includes(selectedGame.title)}
-                      onSuccess={() => fetchPurchases(user.uid)}
-                      appliedCoupon={appliedCoupon}
-                    />
+                    <Web3Checkout amount={selectedGame.price} game={selectedGame.title} isOwned={purchasedTitles.includes(selectedGame.title)} onSuccess={() => fetchPurchases(user.uid)} appliedCoupon={appliedCoupon} />
                   ) : (
-                    <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>
-                      Accept Terms to Buy
-                    </button>
+                    <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>Accept Terms to Buy</button>
                   )}
                 </div>
               ) : (
-                <button className="btnSolid" 
-                    onClick={() => setIsAuthModalOpen(true)} 
-                    style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%" }}>
+                <button className="btnSolid" onClick={() => setIsAuthModalOpen(true)} style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%", justifyContent: 'center' }}>
                   <User size={14} /> <span className={styles.connectText}>Connect Google</span>
                 </button>
               )}
@@ -502,113 +397,49 @@ export default function GamesCarousel() {
               </div>
             </div>
 
-            <div className={styles.detailsSection} style={{ background: 'var(--outline-color)', padding: '1.25rem', borderRadius: '8px' }}>
+            <div className={styles.detailsSection}>
               <span style={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 800 }}>Activation Key</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ flex: 1, padding: '0.8rem', background: 'var(--background)', fontFamily: 'monospace', fontSize: '1rem', color: 'var(--primary)', letterSpacing: '2px', borderRadius: '4px', overflow: 'hidden' }}>
                   {isKeyVisible ? purchasedDetails[selectedGame.title]?.activationKey : '••••••••••••••••••••'}
                 </div>
-                <button className="btnOutline" style={{ padding: '0.8rem' }} onClick={() => setIsKeyVisible(!isKeyVisible)}>
-                  {isKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-                <button className="btnSolid" style={{ padding: '0.8rem' }} onClick={() => {
-                  navigator.clipboard.writeText(purchasedDetails[selectedGame.title]?.activationKey);
-                  showToast("Activation key copied to clipboard!", "success");
-                }}>
-                  <Copy size={16} />
-                </button>
+                <button className="btnOutline" style={{ padding: '0.8rem' }} onClick={() => setIsKeyVisible(!isKeyVisible)}>{isKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                <button className="btnSolid" style={{ padding: '0.8rem' }} onClick={() => { navigator.clipboard.writeText(purchasedDetails[selectedGame.title]?.activationKey); showToast("Activation key copied to clipboard!", "success"); }}><Copy size={16} /></button>
               </div>
             </div>
-
-            <div className={styles.modalFooter}>
-              <button className="btnSolid" style={{ width: '100%' }} onClick={() => setModalState('closed')}>Back to Hub</button>
-            </div>
+            <div className={styles.modalFooter}><button className="btnSolid" style={{ width: '100%' }} onClick={() => setModalState('closed')}>Back to Hub</button></div>
           </div>
         ) : modalState === 'loading' ? (
           <div style={{ textAlign: 'center' }}>
-            <div className={styles.modalLoader}></div>
-            <h2 className={styles.modalTitle}>Verifying...</h2>
-            <p className={styles.modalText}>Your payment is being processed through our secure servers.</p>
+            <div className="premiumLoader"><div className="glitchLoader" style={{ fontSize: '1.5rem' }}>VERIFYING...</div></div>
+            <p className={styles.modalText} style={{ marginTop: '1rem' }}>Your payment is being processed through our secure servers.</p>
           </div>
         ) : (
           <div className={styles.successState}>
-            <div className={styles.successIcon}>
-              <CheckCircle2 size={32} />
-            </div>
+            <div className={styles.successIcon}><CheckCircle2 size={32} /></div>
             <h2 className={styles.modalTitle}>Purchase Confirmed</h2>
             <p className={styles.modalText}>{selectedGame?.title} has been added to your library. Check your email for the key.</p>
-            <button className="btnSolid" style={{ width: '100%', marginTop: '1rem' }} onClick={() => setModalState('closed')}>
-              Back to Hub
-            </button>
+            <button className="btnSolid" style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }} onClick={() => setModalState('closed')}>Back to Hub</button>
           </div>
         )}
       </Modal>
 
-      {/* Bug Report Modal */}
       <Modal isOpen={isBugReportOpen && !!selectedGame} onClose={() => setIsBugReportOpen(false)} title="Report an Issue">
         {selectedGame && (
           <div className={styles.checkoutModal} style={{ paddingTop: 0 }}>
             <p className={styles.modalText} style={{ marginTop: '-1rem' }}>Send a bug report directly to the development team for <strong>{selectedGame.title}</strong>.</p>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input
-                type="email"
-                value={user?.email || ''}
-                disabled
-                placeholder="Your attached email"
-                style={{ width: '100%', padding: '0.8rem', background: 'var(--outline-color)', border: 'none', color: 'var(--text-muted)', borderRadius: '8px' }}
-              />
-
-              <input
-                type="text"
-                placeholder="Issue Title (e.g. Game crashes on start)"
-                value={bugTitle}
-                onChange={e => setBugTitle(e.target.value)}
-                style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', color: 'var(--foreground)', borderRadius: '8px', outline: 'none' }}
-              />
-
-              <textarea
-                placeholder="Steps to reproduce or describe the bug..."
-                value={bugDesc}
-                onChange={e => setBugDesc(e.target.value)}
-                rows={4}
-                style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', color: 'var(--foreground)', resize: 'vertical', borderRadius: '8px', outline: 'none' }}
-              ></textarea>
-
-              <div style={{ padding: '1rem', border: '1px dashed var(--outline-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '8px', transition: 'background 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--outline-color)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <ImageIcon size={16} /> Attach Screenshot
-              </div>
+              <input type="email" value={user?.email || ''} disabled placeholder="Your attached email" style={{ width: '100%', padding: '0.8rem', background: 'var(--outline-color)', border: 'none', color: 'var(--text-muted)', borderRadius: '8px' }} />
+              <input type="text" placeholder="Issue Title" value={bugTitle} onChange={e => setBugTitle(e.target.value)} style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', borderRadius: '8px' }} />
+              <textarea placeholder="Steps to reproduce..." value={bugDesc} onChange={e => setBugDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', borderRadius: '8px' }}></textarea>
+              <div style={{ padding: '1rem', border: '1px dashed var(--outline-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '8px' }}><ImageIcon size={16} /> Attach Screenshot</div>
             </div>
-
             <div className={styles.modalFooter} style={{ marginTop: '1rem' }}>
-              <button
-                className="btnSolid"
-                style={{ width: '100%' }}
-                onClick={() => {
-                  showToast("Bug report sent. Thank you for your feedback!", "success");
-                  setIsBugReportOpen(false);
-                }}
-              >
-                Submit Report
-              </button>
+              <button className="btnSolid" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { showToast("Bug report sent. Thank you for your feedback!", "success"); setIsBugReportOpen(false); }}>Submit Report</button>
             </div>
           </div>
         )}
       </Modal>
-
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-        onLogin={async () => {
-          let country = "Unknown";
-          try {
-            const lRes = await fetch("https://ipapi.co/json/");
-            const lData = await lRes.json();
-            country = lData.country_name || "Unknown";
-          } catch (e) { }
-          login(searchParams?.get('ref') || null, country);
-        }} 
-      />
     </div>
   );
 }

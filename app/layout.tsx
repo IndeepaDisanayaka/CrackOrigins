@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Roboto } from 'next/font/google';
 import './globals.css';
-import { ThemeProvider } from '../components/ThemeProvider';
-import { ToastProvider } from '../components/Toast';
+import { GlobalProvider } from '../components/providers/GlobalProvider';
 import { GoogleAnalytics } from '@next/third-parties/google';
 
 const roboto = Roboto({
@@ -27,11 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={roboto.variable}>
       <body style={{ fontFamily: 'var(--font-roboto), sans-serif' }}>
-        <ThemeProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </ThemeProvider>
+        <GlobalProvider>
+          {children}
+        </GlobalProvider>
         <GoogleAnalytics gaId="G-NMHZKWEC88" />
       </body>
     </html>
