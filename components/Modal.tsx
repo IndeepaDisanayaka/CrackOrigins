@@ -73,6 +73,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '45
                 overflow: 'hidden'
             }}
           >
+            <div className="scanline" style={{ opacity: 0.1 }} />
             {title && (
                 <div style={{
                     padding: '1.5rem',

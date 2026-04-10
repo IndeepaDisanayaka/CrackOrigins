@@ -1,5 +1,9 @@
 "use server";
 
+/**
+ * PAYPAL IS DISABLED - SWITCHED TO WEB3 (METAMASK)
+ */
+
 import { getAdminDb } from './firebase-admin';
 
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;

@@ -27,6 +27,7 @@ export async function getAdminDb() {
                     privateKey,
                 }),
             });
+            
             console.log("Firebase Admin initialized securely.");
         } catch (error) {
             console.error("Firebase Admin initialization error:", error);

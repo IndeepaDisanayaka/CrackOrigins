@@ -92,8 +92,14 @@ export default function AuthModal({
             transform: 'none'
           }}
         >
-          <img src="https://www.google.com/favicon.ico" alt="Google" style={{ width: '16px', height: '16px' }} />
-          {isLoggingIn ? "Signing in..." : actionText}
+          {isLoggingIn ? (
+            <div className="glitchLoader">INITIALIZING...</div>
+          ) : (
+            <>
+              <img src="https://www.google.com/favicon.ico" alt="Google" style={{ width: '16px', height: '16px' }} />
+              {actionText}
+            </>
+          )}
         </button>
 
         <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>

@@ -12,7 +12,7 @@ import {
   updateUserOwnerStatus,
   updateUserKey
 } from '@/lib/admin-actions';
-import { getPayPalBalance } from '@/lib/paypal-actions';
+import { getWalletBalance } from '@/lib/web3-actions';
 import { useToast } from './Toast';
 
 interface AdminPanelProps {
@@ -38,9 +38,9 @@ export default function AdminPanel({
   const [onlyKeyNotSet, setOnlyKeyNotSet] = useState(false);
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [expandedPayments, setExpandedPayments] = useState<Record<string, boolean>>({});
-  const [paypalBalance, setPayPalBalance] = useState<string | null>(null);
-  const [showPayPalBalance, setShowPayPalBalance] = useState(false);
-  const [isPayPalLoading, setIsPayPalLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [showWalletBalance, setShowWalletBalance] = useState(false);
+  const [isWalletLoading, setIsWalletLoading] = useState(false);
 
   const [roleConfirm, setRoleConfirm] = useState<{ open: boolean; targetUid: string; nextOwner: boolean; name: string }>({
     open: false, targetUid: "", nextOwner: false, name: ""
@@ -66,23 +66,23 @@ export default function AdminPanel({
     }
   }, [isOpen]);
 
-  const handleTogglePayPalBalance = async () => {
-    if (showPayPalBalance) {
-      setShowPayPalBalance(false);
+  const handleToggleWalletBalance = async () => {
+    if (showWalletBalance) {
+      setShowWalletBalance(false);
       return;
     }
 
-    setShowPayPalBalance(true);
-    if (paypalBalance || isPayPalLoading) return;
+    setShowWalletBalance(true);
+    if (walletBalance || isWalletLoading) return;
 
-    setIsPayPalLoading(true);
-    const res = await getPayPalBalance(userUid);
+    setIsWalletLoading(true);
+    const res = await getWalletBalance(userUid);
     if (res.success) {
-      setPayPalBalance(`${res.currency} ${res.amount}`);
+      setWalletBalance(`${res.currency} ${res.amount}`);
     } else {
-      showToast(res.error || "Failed to load PayPal balance.", "error");
+      showToast(res.error || "Failed to load wallet balance.", "error");
     }
-    setIsPayPalLoading(false);
+    setIsWalletLoading(false);
   };
 
   const handleUpdateKey = async () => {
@@ -179,8 +179,8 @@ export default function AdminPanel({
         <main style={{ flex: 1, overflowY: 'auto', padding: '2rem', background: 'var(--background)' }}>
           {loading ? (
              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-                <div className="modalLoader"></div>
-                <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Loading records...</p>
+                <div className="premiumLoader"><div className="glitchLoader" style={{ fontSize: '1.5rem' }}>SCANNING DATABASE...</div></div>
+                <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Securely fetching studio records...</p>
              </div>
           ) : (
             <>
@@ -213,11 +213,11 @@ export default function AdminPanel({
                   <div style={{ background: 'transparent', border: '1px solid var(--outline-color)', padding: '1.5rem', borderRadius: '16px' }}>
                     <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
                     <div style={{ fontSize: '1.3rem', fontWeight: 900 }}>
-                      {showPayPalBalance ? (paypalBalance || (isPayPalLoading ? 'Loading...' : 'N/A')) : '••••••'}
+                      {showWalletBalance ? (walletBalance || (isWalletLoading ? 'Loading...' : 'N/A')) : '••••••'}
                     </div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase', marginBottom: '0.8rem' }}>PayPal Balance</div>
-                    <button className="btnOutline" onClick={handleTogglePayPalBalance} style={{ padding: '0.35rem 0.65rem', fontSize: '0.65rem', transform: 'none' }}>
-                      {showPayPalBalance ? 'Hide' : 'Show'}
+                    <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase', marginBottom: '0.8rem' }}>Wallet Balance (BSC)</div>
+                    <button className="btnOutline" onClick={handleToggleWalletBalance} style={{ padding: '0.35rem 0.65rem', fontSize: '0.65rem', transform: 'none' }}>
+                      {showWalletBalance ? 'Hide' : 'Show'}
                     </button>
                   </div>
                 </div>
@@ -418,7 +418,7 @@ export default function AdminPanel({
                                        <div><strong>Record Type:</strong> {p.source === 'offerPayment' ? 'Offer Payment' : 'Payment'}</div>
                                        <div><strong>User UID:</strong> {p.userId}</div>
                                        <div><strong>Order ID:</strong> {p.id}</div>
-                                       <div><strong>PayPal ID:</strong> {p.paypalOrderId || 'N/A'}</div>
+                                       <div><strong>Web3 TX Hash:</strong> {p.txHash || 'N/A'}</div>
                                        <div><strong>Coupon:</strong> {p.coupon || 'None'}</div>
                                        <div><strong>Steam Key:</strong> {p.steamKey ? 'Set' : 'Not Set'}</div>
                                      </div>
