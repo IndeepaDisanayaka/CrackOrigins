@@ -2,37 +2,42 @@ import { getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 /**
- * Initialize Firebase Admin safely for Server Side logic
+ * Initialize Firebase Admin safely for Server Side logic (shared by Firestore + Auth).
  */
-export async function getAdminDb() {
-    // Modular dynamic imports to solve Next.js constructor errors
+export async function ensureFirebaseAdminInitialized() {
     const { initializeApp, cert } = await import('firebase-admin/app');
-    const { getFirestore } = await import('firebase-admin/firestore');
 
     const apps = getApps();
-    if (!apps.length) {
-        try {
-            const projectId = process.env.FIREBASE_PROJECT_ID;
-            const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-            const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    if (apps.length) return;
 
-            if (!projectId || !clientEmail || !privateKey) {
-                throw new Error("Missing Firebase Admin credentials in .env.local (Ensure they don't have NEXT_PUBLIC_ prefix)");
-            }
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-            initializeApp({
-                credential: cert({
-                    projectId,
-                    clientEmail,
-                    privateKey,
-                }),
-            });
-            
-            console.log("Firebase Admin initialized securely.");
-        } catch (error) {
-            console.error("Firebase Admin initialization error:", error);
-            throw error;
-        }
+    if (!projectId || !clientEmail || !privateKey) {
+        throw new Error("Missing Firebase Admin credentials in .env.local (Ensure they don't have NEXT_PUBLIC_ prefix)");
     }
+
+    initializeApp({
+        credential: cert({
+            projectId,
+            clientEmail,
+            privateKey,
+        }),
+    });
+    console.log("Firebase Admin initialized securely.");
+}
+
+export async function getAdminDb() {
+    const { getFirestore } = await import('firebase-admin/firestore');
+    await ensureFirebaseAdminInitialized();
     return getFirestore();
+}
+
+/** Returns Firebase Auth UID for a valid client ID token (server-only). */
+export async function verifyFirebaseIdToken(idToken: string): Promise<string> {
+    await ensureFirebaseAdminInitialized();
+    const { getAuth } = await import('firebase-admin/auth');
+    const decoded = await getAuth().verifyIdToken(idToken);
+    return decoded.uid;
 }

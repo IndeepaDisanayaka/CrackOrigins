@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getOwnedGames, validateCoupon } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
+import PayPalCheckout from '@/lib/paypal';
 import { CheckSquare, Square } from 'lucide-react';
 import Link from 'next/link';
 
@@ -374,7 +375,62 @@ export default function GamesCarousel() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.</span>
                   </div>
                   {acceptedTerms ? (
-                    <Web3Checkout amount={selectedGame.price} game={selectedGame.title} isOwned={purchasedTitles.includes(selectedGame.title)} onSuccess={() => fetchPurchases(user.uid)} appliedCoupon={appliedCoupon} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+                      {/* Money Section */}
+                      <div style={{ 
+                        background: 'rgba(255,255,255,0.03)', 
+                        padding: '1.25rem', 
+                        borderRadius: '12px', 
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1rem'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                          <div style={{ width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px' }}></div>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Money</h4>
+                        </div>
+
+                        <PayPalCheckout 
+                          amount={selectedGame.price} 
+                          game={selectedGame.title} 
+                          isOwned={purchasedTitles.includes(selectedGame.title)} 
+                          onSuccess={() => fetchPurchases(user.uid)} 
+                          appliedCoupon={appliedCoupon} 
+                        />
+                      </div>
+
+                      {/* Divider */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', opacity: 0.3 }}>
+                        <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>OR</span>
+                        <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
+                      </div>
+
+                      {/* Crypto Section */}
+                      <div style={{ 
+                        background: 'rgba(255,255,255,0.03)', 
+                        padding: '1.25rem', 
+                        borderRadius: '12px', 
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1rem'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                          <div style={{ width: '4px', height: '16px', background: '#f6851b', borderRadius: '2px' }}></div>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Crypto</h4>
+                        </div>
+
+                        <Web3Checkout 
+                          amount={selectedGame.price} 
+                          game={selectedGame.title} 
+                          isOwned={purchasedTitles.includes(selectedGame.title)} 
+                          onSuccess={() => fetchPurchases(user.uid)} 
+                          appliedCoupon={appliedCoupon} 
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>Accept Terms to Buy</button>
                   )}
