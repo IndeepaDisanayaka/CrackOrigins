@@ -21,12 +21,17 @@ export default function LemonSqueezyOfferCheckout({
     const [busy, setBusy] = useState(false);
     const { showToast } = useToast();
 
-    const openCheckout = async () => {
+    const openCheckout = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         const user = auth.currentUser;
         if (!user) {
             showToast("Please login to proceed with the payment.", "error");
             return;
         }
+        if (busy) return;
+
         setBusy(true);
         onOpenStart?.();
         try {
@@ -34,18 +39,20 @@ export default function LemonSqueezyOfferCheckout({
             const res = await createOfferLemonCheckout(idToken, offerId);
             if (!res.success) {
                 showToast(res.error, "error");
+                setBusy(false);
                 return;
             }
-            const tab = window.open(res.checkoutUrl, "_blank", "noopener,noreferrer");
-            if (!tab) {
-                window.location.assign(res.checkoutUrl);
-                showToast("Redirecting to secure checkout…", "info");
-                return;
-            }
-            showToast("Complete payment in the new tab, then return here.", "info");
-        } catch {
+
+            // Standard approach to avoid double-opening or popup blocks: 
+            // Prefer window.location for checkout redirects to be safe and consistent.
+            window.location.assign(res.checkoutUrl);
+            showToast("Redirecting to secure checkout…", "info");
+            
+            // Note: We don't setbusy(false) here immediately because we want to keep the UI
+            // locked while the page is unloading/redirecting.
+        } catch (err) {
+            console.error("Open Checkout error:", err);
             showToast("Could not start checkout.", "error");
-        } finally {
             setBusy(false);
         }
     };

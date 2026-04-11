@@ -22,7 +22,12 @@ export async function POST(request: Request) {
 
     const rawBody = await request.text();
     const sig = request.headers.get("x-signature");
+    
+    // Log for debugging (remove in production if body is large)
+    console.log("Lemon Squeezy Webhook received. Signature:", sig);
+
     if (!verifySignature(rawBody, secret, sig)) {
+        console.error("Lemon Squeezy Webhook: Invalid Signature.");
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
@@ -36,6 +41,7 @@ export async function POST(request: Request) {
             id?: string;
             attributes?: {
                 status?: string;
+                total?: number;
                 total_usd?: number;
                 user_email?: string;
                 identifier?: string;
@@ -58,8 +64,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
     }
 
+    // Diagnostic log for the whole payload in dev
+    console.log("Lemon Squeezy Webhook Payload:", JSON.stringify(payload, null, 2));
+
     const attrs = payload.data.attributes;
     if (attrs?.status !== "paid") {
+        console.log("Lemon webhook: ignoring because status is", attrs?.status);
         return NextResponse.json({ ok: true, ignored: "not_paid" });
     }
 
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
     const orderId = payload.data.id;
 
     if (!offerId || !userUid || !orderId) {
-        console.warn("Lemon webhook: missing custom_data.offer_id, user_uid, or order id");
+        console.warn("Lemon webhook: missing custom_data or order id. Custom:", custom, "OrderID:", orderId);
         return NextResponse.json({ ok: true });
     }
 
@@ -80,8 +90,10 @@ export async function POST(request: Request) {
     const userRef = adminDb.collection("accounts").doc(userUid);
     const userOfferRef = userRef.collection("offers").doc(offerId);
 
-    const totalUsdCents = typeof attrs.total_usd === "number" ? attrs.total_usd : 0;
-    const amountUsd = (totalUsdCents / 100).toFixed(2);
+    // Lemon Squeezy 'total' is in cents
+    const totalCents = Number(attrs?.total || 0);
+    const amountUsd = (totalCents / 100).toFixed(2);
+    console.log(`Processing order ${orderId} for User ${userUid}, Offer ${offerId}, Amount ${amountUsd}`);
 
     try {
         await adminDb.runTransaction(async (t) => {
