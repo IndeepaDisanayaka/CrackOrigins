@@ -12,6 +12,8 @@ import { useModals } from '../../lib/contexts/ModalContext';
 import { useToast } from '../Toast';
 import Modal from '../Modal';
 import Web3Checkout from '../Web3Checkout';
+import PayPalCheckout from '../../lib/paypal';
+import LemonSqueezyOfferCheckout from '../LemonSqueezyOfferCheckout';
 import CountdownTimer from '../common/CountdownTimer';
 import { revealVariants, staggerContainer, STEAM_SVG, WINDOWS_SVG } from '../../lib/constants';
 import styles from '../ExtraSections.module.css';
@@ -31,6 +33,14 @@ export default function SteamMarketplace() {
   const [isFetchingKey, setIsFetchingKey] = useState<{ [key: string]: boolean }>({});
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  /** One active path at a time: card checkout started vs crypto in wallet */
+  const [offerPayLock, setOfferPayLock] = useState<'none' | 'lemon' | 'web3'>('none');
+
+  useEffect(() => {
+    if (modalState === 'closed' || modalState === 'success') {
+      setOfferPayLock('none');
+    }
+  }, [modalState]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -77,6 +87,10 @@ export default function SteamMarketplace() {
               steamUrl: `https://store.steampowered.com/app/${d.id}/`,
               endTime: endTimeStr,
               quantity: Number(data.quantity || 0),
+              lemonVariantId:
+                data.lemonVariantId != null && String(data.lemonVariantId).trim() !== ''
+                  ? String(data.lemonVariantId).trim()
+                  : '',
             };
           } catch (itemErr) {
             console.error("Error parsing offer item:", d.id, itemErr);
@@ -296,7 +310,7 @@ export default function SteamMarketplace() {
                         return (
                           <>
                             <div className={styles.hiddenKey}>••••••••••</div>
-                            <button className={styles.btnUnlock} onClick={() => { setSelectedSteamGame(game); setModalState('idle'); }}>
+                            <button className={styles.btnUnlock} onClick={() => { setOfferPayLock('none'); setSelectedSteamGame(game); setModalState('idle'); }}>
                               <ShoppingCart size={16} /> PURCHASE
                             </button>
                           </>
@@ -357,13 +371,79 @@ export default function SteamMarketplace() {
                     </span>
                   </div>
                   {acceptedTerms ? (
-                    <Web3Checkout
-                      amount={selectedSteamGame.discountPrice}
-                      game={selectedSteamGame.title}
-                      isOwned={false}
-                      offerId={selectedSteamGame.id}
-                      onSuccess={async () => { setModalState('success'); }}
-                    />
+                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+                        {/* Money Section */}
+                        <div style={{ 
+                          background: 'rgba(255,255,255,0.03)', 
+                          padding: '1.25rem', 
+                          borderRadius: '12px', 
+                          border: '1px solid rgba(255,255,255,0.05)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '1rem'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                            <div style={{ width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px' }}></div>
+                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Money</h4>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {/* <PayPalCheckout
+                              amount={selectedSteamGame.discountPrice}
+                              game={selectedSteamGame.title}
+                              offerId={selectedSteamGame.id}
+                              onSuccess={async () => { setModalState('success'); }}
+                            /> */}
+
+                            {selectedSteamGame.lemonVariantId ? (
+                              <LemonSqueezyOfferCheckout
+                                offerId={selectedSteamGame.id}
+                                disabled={offerPayLock === 'web3'}
+                                onOpenStart={() => setOfferPayLock('lemon')}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', opacity: 0.3 }}>
+                          <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>OR</span>
+                          <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
+                        </div>
+
+                        {/* Crypto Section */}
+                        <div style={{ 
+                          background: 'rgba(255,255,255,0.03)', 
+                          padding: '1.25rem', 
+                          borderRadius: '12px', 
+                          border: '1px solid rgba(255,255,255,0.05)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '1rem'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                            <div style={{ width: '4px', height: '16px', background: '#f6851b', borderRadius: '2px' }}></div>
+                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Crypto</h4>
+                          </div>
+
+                          <Web3Checkout
+                            amount={selectedSteamGame.discountPrice}
+                            game={selectedSteamGame.title}
+                            isOwned={false}
+                            offerId={selectedSteamGame.id}
+                            paymentLocked={offerPayLock === 'lemon'}
+                            onPaymentActivityChange={(active) => {
+                              setOfferPayLock((prev) => {
+                                if (active) return 'web3';
+                                if (prev === 'web3') return 'none';
+                                return prev;
+                              });
+                            }}
+                            onSuccess={async () => { setModalState('success'); }}
+                          />
+                        </div>
+                      </div>
                   ) : (
                     <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>Accept Terms to Buy</button>
                   )}

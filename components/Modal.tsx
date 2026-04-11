@@ -22,8 +22,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '45
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      // Prevent mobile background scrolling entirely
-      document.body.style.touchAction = 'none'; 
+      document.body.style.touchAction = 'none';
     } else {
       document.body.style.overflow = '';
       document.body.style.touchAction = '';
@@ -37,90 +36,127 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '45
   if (!mounted) return null;
 
   return createPortal(
-    <AnimatePresence>
-      {isOpen && (
-        <div 
-            style={{
-                position: 'fixed',
-                top: 0, left: 0, right: 0, bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                backdropFilter: 'blur(8px)',
-                zIndex: 999999, // Ensure it is completely above NavBar
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '1rem'
-            }}
-            onClick={onClose}
+    <AnimatePresence mode="wait">
+      {isOpen ? (
+        <motion.div
+          key="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.3, type: "spring", bounce: 0.2 }}
+            exit={{ opacity: 0, scale: 0.95, y: 16 }}
+            transition={{ duration: 0.25, type: 'spring', bounce: 0.2 }}
             onClick={(e) => e.stopPropagation()}
             style={{
-                background: 'var(--background)',
-                border: '1px solid var(--outline-color)',
-                borderRadius: '16px',
-                width: '100%',
-                maxWidth: maxWidth,
-                maxHeight: '90vh',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 40px 100px -20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)',
-                position: 'relative',
-                overflow: 'hidden'
+              background: 'var(--background)',
+              border: '1px solid var(--outline-color)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: maxWidth,
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 40px 100px -20px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
             <div className="scanline" style={{ opacity: 0.1 }} />
             {title && (
-                <div style={{
-                    padding: '1.5rem',
-                    borderBottom: '1px solid var(--outline-color)',
+              <div
+                style={{
+                  padding: '1.5rem',
+                  borderBottom: '1px solid var(--outline-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: '1.25rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    color: 'var(--foreground)',
+                  }}
+                >
+                  {title}
+                </h2>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--foreground)' }}>
-                        {title}
-                    </h2>
-                    <button 
-                        onClick={onClose}
-                        style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             )}
             {!title && (
-                <button 
-                    onClick={onClose}
-                    style={{
-                        position: 'absolute', top: '1rem', right: '1rem', zIndex: 10,
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}
-                >
-                    <X size={20} />
-                </button>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  right: '1rem',
+                  zIndex: 10,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={20} />
+              </button>
             )}
-            
-            <div style={{
+
+            <div
+              style={{
                 padding: '1.5rem',
                 overflowY: 'auto',
-                WebkitOverflowScrolling: 'touch', // Smooth scroll on iOS
-                flex: 1
-            }}>
-                {children}
+                WebkitOverflowScrolling: 'touch',
+                flex: 1,
+              }}
+            >
+              {children}
             </div>
           </motion.div>
-        </div>
-      )}
+        </motion.div>
+      ) : null}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 }
