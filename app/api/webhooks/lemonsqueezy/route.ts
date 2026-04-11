@@ -20,43 +20,35 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
     }
 
+    let payload: any;
     const rawBody = await request.text();
     const sig = request.headers.get("x-signature");
-    
-    // Log for debugging (remove in production if body is large)
-    console.log("Lemon Squeezy Webhook received. Signature:", sig);
-
-    if (!verifySignature(rawBody, secret, sig)) {
-        console.error("Lemon Squeezy Webhook: Invalid Signature.");
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
-
-    let payload: {
-        meta?: {
-            event_name?: string;
-            custom_data?: Record<string, unknown>;
-        };
-        data?: {
-            type?: string;
-            id?: string;
-            attributes?: {
-                status?: string;
-                total?: number;
-                total_usd?: number;
-                user_email?: string;
-                identifier?: string;
-            };
-        };
-    };
 
     try {
         payload = JSON.parse(rawBody);
     } catch {
+        console.error("CRITICAL: Lemon Squeezy Webhook Invalid JSON.");
         return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    const eventName = request.headers.get("x-event-name") || payload.meta?.event_name;
+    const eventName = request.headers.get("x-event-name") || payload?.meta?.event_name;
+    
+    console.log("--- LEMON SQUEEZY WEBHOOK START ---");
+    console.log("Event Name:", eventName);
+    console.log("Signature Header:", sig);
+    console.log("Webhook Secret Set:", !!secret);
+
+    if (!verifySignature(rawBody, secret, sig)) {
+        console.error("CRITICAL: Lemon Squeezy Webhook Invalid Signature.");
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+
+    console.log("Full Payload Data Type:", payload.data?.type);
+    console.log("Order Status:", payload.data?.attributes?.status);
+    console.log("Custom Data:", JSON.stringify(payload.meta?.custom_data));
+
     if (eventName !== "order_created") {
+        console.log("Ignoring event:", eventName);
         return NextResponse.json({ ok: true, ignored: eventName });
     }
 
@@ -64,22 +56,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
     }
 
-    // Diagnostic log for the whole payload in dev
-    console.log("Lemon Squeezy Webhook Payload:", JSON.stringify(payload, null, 2));
-
     const attrs = payload.data.attributes;
     if (attrs?.status !== "paid") {
-        console.log("Lemon webhook: ignoring because status is", attrs?.status);
+        console.log("Ignoring order status:", attrs?.status);
         return NextResponse.json({ ok: true, ignored: "not_paid" });
     }
 
     const custom = payload.meta?.custom_data ?? {};
-    const offerId = typeof custom.offer_id === "string" ? custom.offer_id : "";
-    const userUid = typeof custom.user_uid === "string" ? custom.user_uid : "";
+    const offerId = String(custom.offer_id || "");
+    const userUid = String(custom.user_uid || "");
     const orderId = payload.data.id;
 
     if (!offerId || !userUid || !orderId) {
-        console.warn("Lemon webhook: missing custom_data or order id. Custom:", custom, "OrderID:", orderId);
+        console.error("MISSING DATA: offerId:", offerId, "userUid:", userUid, "orderId:", orderId);
         return NextResponse.json({ ok: true });
     }
 
@@ -139,3 +128,4 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true });
 }
+
