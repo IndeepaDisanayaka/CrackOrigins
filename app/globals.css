@@ -4,6 +4,7 @@
   --background: #ffffff;
   --background-rgb: 255, 255, 255;
   --foreground: #111111;
+  --foreground-rgb: 17, 17, 17;
   --primary: #feb60c;
   --primary-rgb: 254, 182, 12;
   --primary-hover: #e5a30b;
@@ -17,6 +18,7 @@
   --background: #0a0a0f;
   --background-rgb: 10, 10, 15;
   --foreground: #f8fafc;
+  --foreground-rgb: 248, 250, 252;
   --outline-color: #1e1e2e;
   --text-muted: #94a3b8;
   --primary: #feb60c; /* Sharper yellow */
@@ -28,6 +30,7 @@
   --background: #ffffff;
   --background-rgb: 255, 255, 255;
   --foreground: #111111;
+  --foreground-rgb: 17, 17, 17;
   --outline-color: #e2e8f0;
   --text-muted: #64748b;
   --primary-rgb: 254, 182, 12;

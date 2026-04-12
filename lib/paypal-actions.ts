@@ -15,13 +15,14 @@ const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
  * - live → https://api-m.paypal.com
  */
 // Production deploys should use live API + live credentials. Override with PAYPAL_ENV=sandbox for staging.
-const PAYPAL_ENV = (
-    process.env.PAYPAL_ENV ||
-    process.env.NEXT_PUBLIC_PAYPAL_ENV ||
-    (process.env.NODE_ENV === "production" ? "live" : "sandbox")
-).toLowerCase();
-const PAYPAL_BASE_URL =
-    PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+// const PAYPAL_ENV = (
+//     process.env.PAYPAL_ENV ||
+//     process.env.NEXT_PUBLIC_PAYPAL_ENV ||
+//     (process.env.NODE_ENV === "production" ? "live" : "sandbox")
+// ).toLowerCase();
+const PAYPAL_BASE_URL = "https://api-m.paypal.com";
+// const PAYPAL_BASE_URL =
+//     PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 
 function verifyPayPalCapturePayload(details: any, expectedAmountStr: string): { ok: true } | { ok: false; error: string } {
     if (!details || details.status !== "COMPLETED") {
@@ -117,12 +118,12 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
             }
         } else {
             console.log(`Processing Free Claim: ${game}`);
-            details = { 
-                status: "COMPLETED", 
-                payer: { 
+            details = {
+                status: "COMPLETED",
+                payer: {
                     email_address: "free-tier@crackorigins.com",
                     name: { given_name: "Crack", surname: "Origins User" }
-                } 
+                }
             };
         }
 
