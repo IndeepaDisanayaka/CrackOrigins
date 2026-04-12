@@ -24,6 +24,7 @@ export async function ensureFirebaseAdminInitialized() {
             clientEmail,
             privateKey,
         }),
+        databaseURL: "https://crack-origins-default-rtdb.asia-southeast1.firebasedatabase.app"
     });
     console.log("Firebase Admin initialized securely.");
 }
@@ -32,6 +33,12 @@ export async function getAdminDb() {
     const { getFirestore } = await import('firebase-admin/firestore');
     await ensureFirebaseAdminInitialized();
     return getFirestore();
+}
+
+export async function getAdminRtdb() {
+    const { getDatabase } = await import('firebase-admin/database');
+    await ensureFirebaseAdminInitialized();
+    return getDatabase();
 }
 
 /** Returns Firebase Auth UID for a valid client ID token (server-only). */
