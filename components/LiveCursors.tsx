@@ -8,6 +8,7 @@ import { ref, onValue, set, onDisconnect, push, remove, update, runTransaction }
 
 interface PresenceData {
   id: string;
+  uid?: string;
   x: number;
   y: number;
   name: string;
@@ -27,6 +28,7 @@ export default function LiveCursors() {
   const [isEnabled, setIsEnabled] = useState(true);
   const [partner, setPartner] = useState<PresenceData | null>(null);
   const [userName, setUserName] = useState('Ghost');
+  const [userUid, setUserUid] = useState<string | null>(null);
   const [userColor, setUserColor] = useState('#feb60c');
   const [isTyping, setIsTyping] = useState(false);
   const [typedMessage, setTypedMessage] = useState('');
@@ -84,6 +86,7 @@ export default function LiveCursors() {
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
       if (u?.displayName) setUserName(u.displayName.split(' ')[0]);
+      setUserUid(u?.uid || null);
     });
     return () => unsub();
   }, []);
@@ -105,6 +108,7 @@ export default function LiveCursors() {
 
     const myData = {
         id: myId, x: 0, y: 0,
+        uid: userUid || '',
         name: userNameRef.current,
         color: userColor,
         lastActive: Date.now(),

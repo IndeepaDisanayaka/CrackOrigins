@@ -1,9 +1,8 @@
 'use client';
 
-import React from 'react';
 import styles from './terms.module.css';
 import commonStyles from '../page.module.css';
-import { Gamepad2, ArrowLeft, ShieldCheck, FileText, Scale, Clock } from 'lucide-react';
+import { Gamepad2, ArrowLeft, Scale, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -61,7 +60,32 @@ const TermsPage = () => {
     {
         id: "refunds",
         title: "6. Digital Products and Refund Policy",
-        content: "All products sold on this platform are digital goods.\n\nOnce a purchase has been successfully completed and the digital product has been delivered, refunds are not available. Digital products cannot be returned, reversed, or reclaimed after delivery.\n\nUsers are responsible for verifying purchase details before completing any transaction."
+        content: "All products sold on this platform are digital goods. Our goal is to provide a reliable and trustworthy service when purchasing game keys from our website.",
+        subsections: [
+          {
+            subtitle: "Eligible Refund Situations",
+            items: [
+              "If you purchase a game and complete the required verification process, but the game key is not delivered to you, a full refund will be issued.",
+              "The verification process normally takes up to 2 days to complete.",
+              "If the game key provided to you is invalid, unusable, or not working, a refund will be granted after verification and confirmation."
+            ]
+          },
+          {
+            subtitle: "Refund Conditions",
+            items: [
+              "Customers must provide a valid and reasonable explanation when requesting a refund.",
+              "Customer cooperation is required during the verification process.",
+              "Refund requests may be rejected in cases involving fraud, misuse, abuse, or unfair usage."
+            ]
+          },
+          {
+            subtitle: "Refund Processing",
+            items: [
+              "Approved refunds will be sent back using the original payment method used during purchase.",
+              "Refund processing time may vary depending on the payment provider."
+            ]
+          }
+        ]
     },
     {
         id: "monitoring",

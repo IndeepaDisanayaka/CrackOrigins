@@ -1,7 +1,7 @@
 "use server";
 
 /**
- * PAYPAL IS DISABLED - SWITCHED TO WEB3 (METAMASK)
+ * PayPal Payment Processing Actions
  */
 
 import { getAdminDb } from './firebase-admin';

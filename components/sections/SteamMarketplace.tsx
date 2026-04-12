@@ -11,9 +11,7 @@ import { useAuth } from '../../lib/contexts/AuthContext';
 import { useModals } from '../../lib/contexts/ModalContext';
 import { useToast } from '../Toast';
 import Modal from '../Modal';
-import Web3Checkout from '../Web3Checkout';
 import PayPalCheckout from '../../lib/paypal';
-import LemonSqueezyOfferCheckout from '../LemonSqueezyOfferCheckout';
 import CountdownTimer from '../common/CountdownTimer';
 import { revealVariants, staggerContainer, STEAM_SVG, WINDOWS_SVG } from '../../lib/constants';
 import styles from '../ExtraSections.module.css';
@@ -33,8 +31,8 @@ export default function SteamMarketplace() {
   const [isFetchingKey, setIsFetchingKey] = useState<{ [key: string]: boolean }>({});
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  /** One active path at a time: card checkout started vs crypto in wallet */
-  const [offerPayLock, setOfferPayLock] = useState<'none' | 'lemon' | 'web3'>('none');
+  /** One active path at a time */
+  const [offerPayLock, setOfferPayLock] = useState<'none' | 'paypal'>('none');
 
   useEffect(() => {
     if (modalState === 'closed' || modalState === 'success') {
@@ -58,6 +56,8 @@ export default function SteamMarketplace() {
         const offers = snap.docs.map(d => {
           try {
             const data = d.data();
+            if (!data) return null;
+
             let discountPercent = 0;
             if (typeof data.discount === 'string') {
               discountPercent = Number(data.discount.replace('%', '').replace('-', ''));
@@ -67,12 +67,20 @@ export default function SteamMarketplace() {
             const originalPrice = Number(data.originalPrice || 0);
             const discountPrice = isNaN(discountPercent) ? originalPrice : originalPrice - (originalPrice * discountPercent / 100);
 
+            // Defensive Date parsing
             let endTimeStr = new Date(Date.now() + 86400000).toISOString();
             if (data.expire) {
-              if (typeof data.expire.toDate === 'function') {
-                endTimeStr = data.expire.toDate().toISOString();
-              } else {
-                endTimeStr = new Date(data.expire).toISOString();
+              try {
+                if (typeof data.expire.toDate === 'function') {
+                  endTimeStr = data.expire.toDate().toISOString();
+                } else if (data.expire.seconds) {
+                    // Manual timestamp conversion if toDate is missing
+                    endTimeStr = new Date(data.expire.seconds * 1000).toISOString();
+                } else {
+                  endTimeStr = new Date(data.expire).toISOString();
+                }
+              } catch (e) {
+                console.warn("Date parsing failed for offer:", d.id, e);
               }
             }
 
@@ -83,29 +91,34 @@ export default function SteamMarketplace() {
               discountPrice: `$${discountPrice.toFixed(2)}`,
               discount: (typeof data.discount === 'string' && data.discount.includes('-')) ? data.discount : `-${discountPercent}%`,
               image: `https://cdn.akamai.steamstatic.com/steam/apps/${d.id}/header.jpg`,
-              platforms: data.operatingSystem ? [data.operatingSystem.toLowerCase()] : ['windows'],
-              steamUrl: `https://store.steampowered.com/app/${d.id}/`,
+              platforms: data.operatingSystem ? [String(data.operatingSystem).toLowerCase()] : ['windows'],
+              steamUrl: data.gameUrl || `https://store.steampowered.com/app/${d.id}/`,
               endTime: endTimeStr,
               quantity: Number(data.quantity || 0),
-              lemonVariantId:
-                data.lemonVariantId != null && String(data.lemonVariantId).trim() !== ''
-                  ? String(data.lemonVariantId).trim()
-                  : '',
             };
           } catch (itemErr) {
-            console.error("Error parsing offer item:", d.id, itemErr);
+            console.error("Error parsing individual offer item:", d.id, itemErr);
             return null;
           }
         }).filter((x): x is any => !!x);
 
         const filteredSorted = offers
-          .filter((game) => new Date(game.endTime).getTime() > Date.now())
+          .filter((game) => {
+              if (!game.endTime) return false;
+              const expireTime = new Date(game.endTime).getTime();
+              return !isNaN(expireTime) && expireTime > Date.now();
+          })
           .sort((a, b) => {
             const aIsOut = a.quantity <= 0;
             const bIsOut = b.quantity <= 0;
             if (aIsOut && !bIsOut) return 1;
             if (!aIsOut && bIsOut) return -1;
-            return new Date(a.endTime).getTime() - new Date(b.endTime).getTime();
+            
+            const timeA = new Date(a.endTime).getTime();
+            const timeB = new Date(b.endTime).getTime();
+            if (isNaN(timeA)) return 1;
+            if (isNaN(timeB)) return -1;
+            return timeA - timeB;
           });
 
         if (typeof window !== 'undefined') {
@@ -114,9 +127,13 @@ export default function SteamMarketplace() {
         setSteamGames(filteredSorted);
         setIsLoadingOffers(false);
       } catch (err) {
-        console.error("Error setting offers: ", err);
+        console.error("Critical error mapping offers: ", err);
         setIsLoadingOffers(false);
       }
+    }, (error) => {
+        console.error("Firestore onSnapshot error:", error);
+        showToast("Failed to connect to offers database. Please check your connection.", "error");
+        setIsLoadingOffers(false);
     });
 
     return () => unsubOffers();
@@ -235,7 +252,7 @@ export default function SteamMarketplace() {
              </div>
           ))
         ) : steamGames.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7 }}>No active offers available right now.</div>
+          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
         ) : (
           steamGames.map((game) => (
             <motion.div key={game.id} className={styles.steamCard} variants={revealVariants}>
@@ -300,7 +317,7 @@ export default function SteamMarketplace() {
                           return (
                             <>
                               <div className={styles.hiddenKey}>••••••••••</div>
-                              <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', background: '#ccc' }}>
+                              <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid rgba(var(--primary-rgb), 0.2)', color: 'var(--text-muted)' }}>
                                 <ShoppingCart size={16} /> {isExpired ? 'EXPIRED' : 'SOLD OUT'}
                               </button>
                             </>
@@ -362,7 +379,12 @@ export default function SteamMarketplace() {
             <div className={carouselStyles.modalFooter}>
               {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
+                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ 
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', 
+                    border: acceptedTerms ? '1px solid var(--primary)' : '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)', 
+                    background: acceptedTerms ? 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)' : 'transparent',
+                    textAlign: 'left' 
+                  }}>
                     <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>
                       {acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}
                     </div>
@@ -374,74 +396,28 @@ export default function SteamMarketplace() {
                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
                         {/* Money Section */}
                         <div style={{ 
-                          background: 'rgba(255,255,255,0.03)', 
+                          background: 'rgba(var(--primary-rgb, 254, 182, 12), 0.03)', 
                           padding: '1.25rem', 
                           borderRadius: '12px', 
-                          border: '1px solid rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.15)',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '1rem'
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                             <div style={{ width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Money</h4>
+                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Secure Card / PayPal</h4>
                           </div>
 
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {/* <PayPalCheckout
+                            <PayPalCheckout
                               amount={selectedSteamGame.discountPrice}
                               game={selectedSteamGame.title}
                               offerId={selectedSteamGame.id}
                               onSuccess={async () => { setModalState('success'); }}
-                            /> */}
-
-                            {selectedSteamGame.lemonVariantId ? (
-                              <LemonSqueezyOfferCheckout
-                                offerId={selectedSteamGame.id}
-                                disabled={offerPayLock === 'web3'}
-                                onOpenStart={() => setOfferPayLock('lemon')}
-                              />
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {/* Divider */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', opacity: 0.3 }}>
-                          <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>OR</span>
-                          <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
-                        </div>
-
-                        {/* Crypto Section */}
-                        <div style={{ 
-                          background: 'rgba(255,255,255,0.03)', 
-                          padding: '1.25rem', 
-                          borderRadius: '12px', 
-                          border: '1px solid rgba(255,255,255,0.05)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '1rem'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                            <div style={{ width: '4px', height: '16px', background: '#f6851b', borderRadius: '2px' }}></div>
-                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Crypto</h4>
-                          </div>
-
-                          <Web3Checkout
-                            amount={selectedSteamGame.discountPrice}
-                            game={selectedSteamGame.title}
-                            isOwned={false}
-                            offerId={selectedSteamGame.id}
-                            paymentLocked={offerPayLock === 'lemon'}
-                            onPaymentActivityChange={(active) => {
-                              setOfferPayLock((prev) => {
-                                if (active) return 'web3';
-                                if (prev === 'web3') return 'none';
-                                return prev;
-                              });
-                            }}
-                            onSuccess={async () => { setModalState('success'); }}
-                          />
+                              onPaymentActivityChange={(active) => {
+                                setOfferPayLock(active ? 'paypal' : 'none');
+                              }}
+                            />
                         </div>
                       </div>
                   ) : (
