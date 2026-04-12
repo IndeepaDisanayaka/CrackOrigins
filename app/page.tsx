@@ -17,6 +17,7 @@ import Footer from '../components/layout/Footer';
 import Hero from '../components/sections/Hero';
 import StatsBar from '../components/sections/StatsBar';
 import Features from '../components/sections/Features';
+import LiveTransactions from '../components/sections/LiveTransactions';
 import SplashScreen from '../components/layout/SplashScreen';
 import SubHeader from '../components/layout/SubHeader';
 import CouponModal from '../components/admin/CouponModal';
@@ -90,7 +91,7 @@ function HomeContent() {
         <StatsBar />
 
         <Features />
-
+        <LiveTransactions />
         <div className={styles.sectionDivider}></div>
 
         <motion.div

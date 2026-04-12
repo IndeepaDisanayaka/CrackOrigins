@@ -55,8 +55,6 @@ export default function Hero() {
           See Portfolio
         </a>
       </div>
-
-
     </motion.section>
   );
 }

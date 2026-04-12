@@ -6,8 +6,8 @@
 
 import { getAdminDb } from './firebase-admin';
 
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
+const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET?.trim();
 
 /**
  * Must match the environment of NEXT_PUBLIC_PAYPAL_CLIENT_ID (sandbox vs live).
@@ -15,15 +15,14 @@ const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
  * - live → https://api-m.paypal.com
  */
 // Production deploys should use live API + live credentials. Override with PAYPAL_ENV=sandbox for staging.
-// const PAYPAL_ENV = (
-//     process.env.PAYPAL_ENV ||
-//     process.env.NEXT_PUBLIC_PAYPAL_ENV ||
-//     (process.env.NODE_ENV === "production" ? "live" : "sandbox")
-// ).toLowerCase();
-const PAYPAL_BASE_URL = "https://api-m.paypal.com";
-// const PAYPAL_BASE_URL =
-//     PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-
+const PAYPAL_ENV = (
+    process.env.PAYPAL_ENV ||
+    process.env.NEXT_PUBLIC_PAYPAL_ENV ||
+    (process.env.NODE_ENV === "production" ? "live" : "sandbox")
+).toLowerCase();
+const PAYPAL_BASE_URL =
+    PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+console.log(PAYPAL_BASE_URL, "PAYPAL_BASE_URL");
 function verifyPayPalCapturePayload(details: any, expectedAmountStr: string): { ok: true } | { ok: false; error: string } {
     if (!details || details.status !== "COMPLETED") {
         return { ok: false, error: "PayPal order is not COMPLETED." };
@@ -118,12 +117,12 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
             }
         } else {
             console.log(`Processing Free Claim: ${game}`);
-            details = {
-                status: "COMPLETED",
-                payer: {
+            details = { 
+                status: "COMPLETED", 
+                payer: { 
                     email_address: "free-tier@crackorigins.com",
                     name: { given_name: "Crack", surname: "Origins User" }
-                }
+                } 
             };
         }
 
@@ -167,7 +166,11 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 status: "COMPLETED",
                 paypalOrderId: orderID,
                 payerEmail: encrypt(details.payer?.email_address || "unknown"),
-                payerName: encrypt(details.payer ? `${details.payer.name.given_name} ${details.payer.name.surname}` : "unknown"),
+                payerName: encrypt(
+                    details.payer?.name 
+                    ? `${details.payer.name.given_name || ""} ${details.payer.name.surname || ""}`.trim() || "unknown" 
+                    : "unknown"
+                ),
             };
 
             const userRef = adminDb.collection("accounts").doc(uid);
@@ -178,6 +181,30 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
             } else {
                 // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
                 await userRef.collection("payments").doc(orderID).set(paymentData);
+            }
+
+            // Record Public Activity (RTDB for bypassing Firestore rules)
+            try {
+                const userDoc = await userRef.get();
+                const userData = userDoc.data();
+                const userName = userData?.name || "Guest Comrade";
+                
+                const { getAdminRtdb } = await import('./firebase-admin');
+                const rtdb = await getAdminRtdb();
+                const activityRef = rtdb.ref("live_activity");
+                
+                await activityRef.push({
+                    gameName: game,
+                    userName: userName,
+                    amount: amount,
+                    status: "COMPLETED",
+                    timestamp: Date.now(), // RTDB uses number timestamps commonly
+                    type: offerId ? "SPECIAL_OFFER" : "STANDARD_PURCHASE"
+                });
+
+                // Activity recorded successfully
+            } catch (err) {
+                console.error("Error recording public activity:", err);
             }
 
             return { success: true };
