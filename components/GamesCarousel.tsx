@@ -97,11 +97,23 @@ export default function GamesCarousel() {
   const [isValidating, setIsValidating] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  useEffect(() => {
+  const updateDragWidth = () => {
     if (constraintsRef.current) {
       setDragWidth(constraintsRef.current.scrollWidth - constraintsRef.current.offsetWidth);
     }
+  };
+
+  useEffect(() => {
+    updateDragWidth();
+    window.addEventListener('resize', updateDragWidth);
+    return () => window.removeEventListener('resize', updateDragWidth);
   }, []);
+
+  useEffect(() => {
+    // Also update when internal components might have finished rendering
+    const timer = setTimeout(updateDragWidth, 500);
+    return () => clearTimeout(timer);
+  }, [activeIndex]);
 
   const fetchPurchases = async (uid: string) => {
     if (!uid) return;
@@ -193,31 +205,33 @@ export default function GamesCarousel() {
           </div>
 
           <div className={styles.activeMedia}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.6 }}
-                style={{ width: '100%', height: '100%' }}
-              >
-                <iframe
-                  src={`${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video.split('/').pop()}&loop=1`}
-                  className={styles.activeIframe}
-                  title={activeGame.title}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </motion.div>
-            </AnimatePresence>
+            <div className={styles.mediaWrapper}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6 }}
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  <iframe
+                    src={`${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video.split('/').pop()}&loop=1`}
+                    className={styles.activeIframe}
+                    title={activeGame.title}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </motion.div>
+              </AnimatePresence>
+            </div>
 
             <div className={styles.navRibbonContainer} ref={constraintsRef}>
               <motion.div 
                 className={styles.navRibbon}
                 drag="x"
-                dragConstraints={{ right: 0, left: -dragWidth }}
+                dragConstraints={{ right: 0, left: -Math.max(0, dragWidth) }}
                 dragElastic={0.4}
                 whileTap={{ cursor: "grabbing" }}
               >
@@ -355,14 +369,14 @@ export default function GamesCarousel() {
 
             <div className={styles.couponSection}>
               <input type="text" placeholder="COUPON CODE" className={styles.couponInput} value={couponInput} onChange={(e) => setCouponInput(e.target.value)} disabled={!!appliedCoupon} />
-              <button className={styles.applyBtn} onClick={handleApplyCoupon} disabled={isValidating || !couponInput || !!appliedCoupon} style={{ background: appliedCoupon ? 'transparent' : '#feb60c', cursor: appliedCoupon ? 'default' : 'pointer', border: appliedCoupon ? 'none' : 'initial' }}>
+              <button className={styles.applyBtn} onClick={handleApplyCoupon} disabled={isValidating || !couponInput || !!appliedCoupon} style={{ background: appliedCoupon ? 'transparent' : 'var(--primary)', cursor: appliedCoupon ? 'default' : 'pointer', border: appliedCoupon ? 'none' : 'initial' }}>
                 {isValidating ? "..." : appliedCoupon ? "Applied" : "Apply"}
               </button>
             </div>
             {appliedCoupon && (
-              <div style={{ fontSize: '0.75rem', color: '#ccc', marginTop: '-5px', marginBottom: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-5px', marginBottom: '10px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
                 Discount: {appliedCoupon.discount} off <span>{appliedCoupon.name}</span>
-                <button onClick={() => { setAppliedCoupon(null); setCouponInput(""); }} style={{ background: 'none', border: 'none', color: '#888', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Remove</button>
+                <button onClick={() => { setAppliedCoupon(null); setCouponInput(""); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Remove</button>
               </div>
             )}
 
@@ -376,10 +390,10 @@ export default function GamesCarousel() {
                   {acceptedTerms ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
                       <div style={{ 
-                        background: 'rgba(255,255,255,0.03)', 
+                        background: 'rgba(var(--foreground-rgb), 0.03)', 
                         padding: '1.25rem', 
                         borderRadius: '12px', 
-                        border: '1px solid rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(var(--foreground-rgb), 0.05)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '1rem'
