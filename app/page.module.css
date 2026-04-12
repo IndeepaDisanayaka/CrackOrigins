@@ -828,8 +828,8 @@
 
 /* Admin UI Theme Sync */
 .adminInput {
-  background: var(--background);
-  border: 1px solid var(--outline-color);
+  background: rgba(var(--primary-rgb), 0.03);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
   padding: 1rem;
   border-radius: 8px;
   color: var(--foreground);

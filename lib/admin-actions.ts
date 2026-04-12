@@ -441,8 +441,7 @@ export async function createOffer(adminUid: string, offerData: {
     operatingSystem: string;
     platform: string;
     gameUrl?: string;
-    /** Lemon Squeezy variant ID for overlay checkout (per offer) */
-    lemonVariantId?: string;
+
 }) {
     try {
         const adminDb = await getAdminDb();
@@ -451,14 +450,13 @@ export async function createOffer(adminUid: string, offerData: {
             return { success: false, error: "Unauthorized." };
         }
 
-        const { lemonVariantId, ...rest } = offerData;
+
         await adminDb.collection("offers").doc(offerData.id).set({
-            ...rest,
+            ...offerData,
             originalPrice: Number(offerData.originalPrice),
             quantity: Number(offerData.quantity),
             expire: Timestamp.fromDate(new Date(offerData.expire)),
             listed: Timestamp.now(),
-            ...(lemonVariantId?.trim() ? { lemonVariantId: lemonVariantId.trim() } : {}),
         });
 
         return { success: true };

@@ -56,12 +56,7 @@ export default function Hero() {
         </a>
       </div>
 
-      <div className={`${styles.subscribeRow} animateText animateText5`}>
-        <input type="email" placeholder="Enter your email for updates" className={styles.emailInput} />
-        <button className="btnSolid" style={{ padding: '0 1.5rem', fontSize: '0.75rem' }}>
-          <Send size={14} /> Subscribe
-        </button>
-      </div>
+
     </motion.section>
   );
 }

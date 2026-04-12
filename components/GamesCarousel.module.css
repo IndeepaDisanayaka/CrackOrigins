@@ -406,7 +406,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
-  background: var(--outline-color);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.05);
+  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.1);
   padding: 1.5rem;
   border-radius: 10px;
 }
@@ -432,10 +433,10 @@
 
 .couponSection {
   display: flex;
-  background: var(--outline-color);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.03);
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.15);
 }
 
 .couponInput {
@@ -459,7 +460,8 @@
 }
 
 .detailsSection {
-  background: var(--outline-color);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.05);
+  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.1);
   padding: 1.5rem;
   border-radius: 12px;
 }

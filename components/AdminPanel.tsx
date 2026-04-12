@@ -1,19 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import { 
   Users, CreditCard, TrendingUp, Gamepad2,
   Search, Shield, Key, ChevronDown, ChevronUp, ExternalLink,
-  RefreshCw, CheckCircle2, AlertCircle, DollarSign, CheckSquare, Square
+  RefreshCw, CheckCircle2, AlertCircle, DollarSign, CheckSquare, Square,
+  MousePointer2, MessageSquare, X, Clock
 } from 'lucide-react';
 import { 
   getAdminDashboardData,
   updateUserOwnerStatus,
   updateUserKey
 } from '@/lib/admin-actions';
-import { getWalletBalance } from '@/lib/web3-actions';
+import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
+import { rtdb } from '../lib/firebase';
+import { ref, onValue, remove } from 'firebase/database';
 
 interface AdminPanelProps {
   userUid: string;
@@ -38,9 +41,20 @@ export default function AdminPanel({
   const [onlyKeyNotSet, setOnlyKeyNotSet] = useState(false);
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [expandedPayments, setExpandedPayments] = useState<Record<string, boolean>>({});
-  const [walletBalance, setWalletBalance] = useState<string | null>(null);
-  const [showWalletBalance, setShowWalletBalance] = useState(false);
-  const [isWalletLoading, setIsWalletLoading] = useState(false);
+  const [paypalBalance, setPaypalBalance] = useState<string | null>(null);
+  const [showPaypalBalance, setShowPaypalBalance] = useState(false);
+  const [isPaypalLoading, setIsPaypalLoading] = useState(false);
+
+  // Live Cursor Users
+  const [showLiveCursors, setShowLiveCursors] = useState(false);
+  const [liveCursorUsers, setLiveCursorUsers] = useState<Record<string, any>>({});
+  const [showChatSidebar, setShowChatSidebar] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ id: string; name: string; message: string; color: string; time: number }[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [autoCleanupEnabled, setAutoCleanupEnabled] = useState(false);
+  const [autoCleanupInterval, setAutoCleanupInterval] = useState(30); // seconds
+  const autoCleanupRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [timerTick, setTimerTick] = useState(0);
 
   const [roleConfirm, setRoleConfirm] = useState<{ open: boolean; targetUid: string; nextOwner: boolean; name: string }>({
     open: false, targetUid: "", nextOwner: false, name: ""
@@ -66,23 +80,109 @@ export default function AdminPanel({
     }
   }, [isOpen]);
 
-  const handleToggleWalletBalance = async () => {
-    if (showWalletBalance) {
-      setShowWalletBalance(false);
+  // Live Cursor Users listener
+  useEffect(() => {
+    if (!showLiveCursors) return;
+    const presenceRef = ref(rtdb, 'presence');
+    const unsub = onValue(presenceRef, (snapshot) => {
+      const allUsers = snapshot.val() || {};
+      setLiveCursorUsers(allUsers);
+      // Extract chat messages from users who have a message
+      const msgs: { id: string; name: string; message: string; color: string; time: number }[] = [];
+      Object.entries(allUsers).forEach(([id, userData]: [string, any]) => {
+        if (userData.message) {
+          msgs.push({
+            id,
+            name: userData.name || 'Ghost',
+            message: userData.message,
+            color: userData.color || '#feb60c',
+            time: userData.lastActive || Date.now()
+          });
+        }
+      });
+      setChatMessages(prev => {
+        const newMsgs = msgs.filter(m => !prev.find(p => p.id === m.id && p.message === m.message));
+        if (newMsgs.length > 0) {
+          const merged = [...prev, ...newMsgs].slice(-100);
+          return merged;
+        }
+        return prev;
+      });
+    });
+    return () => unsub();
+  }, [showLiveCursors]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // Pending offers countdown tick (every second)
+  useEffect(() => {
+    const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-cleanup scheduler
+  useEffect(() => {
+    if (autoCleanupRef.current) {
+      clearInterval(autoCleanupRef.current);
+      autoCleanupRef.current = null;
+    }
+    if (!autoCleanupEnabled || !showLiveCursors) return;
+    autoCleanupRef.current = setInterval(() => {
+      const now = Date.now();
+      Object.entries(liveCursorUsers).forEach(([id, userData]: [string, any]) => {
+        if (now - (userData.lastActive || 0) > autoCleanupInterval * 1000) {
+          remove(ref(rtdb, `presence/${id}`));
+        }
+      });
+    }, 5000);
+    return () => {
+      if (autoCleanupRef.current) clearInterval(autoCleanupRef.current);
+    };
+  }, [autoCleanupEnabled, showLiveCursors, autoCleanupInterval, liveCursorUsers]);
+
+  // RTDB delete helpers
+  const handleDeletePresenceEntry = (id: string) => {
+    remove(ref(rtdb, `presence/${id}`));
+    showToast('Entry removed.', 'success');
+  };
+
+  const handlePurgeAllStale = () => {
+    const now = Date.now();
+    let count = 0;
+    Object.entries(liveCursorUsers).forEach(([id, userData]: [string, any]) => {
+      if (now - (userData.lastActive || 0) > 10000) {
+        remove(ref(rtdb, `presence/${id}`));
+        count++;
+      }
+    });
+    showToast(`Purged ${count} stale entries.`, 'success');
+  };
+
+  const handleDeleteAllPresence = () => {
+    remove(ref(rtdb, 'presence'));
+    showToast('All presence data cleared.', 'success');
+  };
+
+  const handleTogglePaypalBalance = async () => {
+    if (showPaypalBalance) {
+      setShowPaypalBalance(false);
       return;
     }
-
-    setShowWalletBalance(true);
-    if (walletBalance || isWalletLoading) return;
-
-    setIsWalletLoading(true);
-    const res = await getWalletBalance(userUid);
+ 
+    setShowPaypalBalance(true);
+    if (paypalBalance || isPaypalLoading) return;
+ 
+    setIsPaypalLoading(true);
+    const res = await getPayPalBalance(userUid);
     if (res.success) {
-      setWalletBalance(`${res.currency} ${res.amount}`);
+      setPaypalBalance(`${res.currency} ${res.amount}`);
     } else {
-      showToast(res.error || "Failed to load wallet balance.", "error");
+      showToast(res.error || "Failed to load PayPal balance.", "error");
     }
-    setIsWalletLoading(false);
+    setIsPaypalLoading(false);
   };
 
   const handleUpdateKey = async () => {
@@ -194,31 +294,437 @@ export default function AdminPanel({
 
               {/* Overview Tab */}
               {activeTab === 'overview' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                  <div style={{ background: 'transparent', border: '1px solid var(--outline-color)', padding: '1.5rem', borderRadius: '16px' }}>
-                    <Users size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                    <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>{data?.users?.length || 0}</div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Users</div>
-                  </div>
-                  <div style={{ background: 'transparent', border: '1px solid var(--outline-color)', padding: '1.5rem', borderRadius: '16px' }}>
-                    <CreditCard size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                    <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>{data?.payments?.length || 0}</div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Orders</div>
-                  </div>
-                  <div style={{ background: 'transparent', border: '1px solid var(--outline-color)', padding: '1.5rem', borderRadius: '16px' }}>
-                    <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                    <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>${data?.payments?.reduce((acc: number, p: any) => acc + (parseFloat(p.amount) || 0), 0).toFixed(2)}</div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Revenue (EST)</div>
-                  </div>
-                  <div style={{ background: 'transparent', border: '1px solid var(--outline-color)', padding: '1.5rem', borderRadius: '16px' }}>
-                    <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                    <div style={{ fontSize: '1.3rem', fontWeight: 900 }}>
-                      {showWalletBalance ? (walletBalance || (isWalletLoading ? 'Loading...' : 'N/A')) : '••••••'}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+                      <Users size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                      <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>{data?.users?.length || 0}</div>
+                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Users</div>
                     </div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase', marginBottom: '0.8rem' }}>Wallet Balance (BSC)</div>
-                    <button className="btnOutline" onClick={handleToggleWalletBalance} style={{ padding: '0.35rem 0.65rem', fontSize: '0.65rem', transform: 'none' }}>
-                      {showWalletBalance ? 'Hide' : 'Show'}
-                    </button>
+                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+                      <CreditCard size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                      <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>{data?.payments?.length || 0}</div>
+                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Orders</div>
+                    </div>
+                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+                      <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                      <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>${data?.payments?.reduce((acc: number, p: any) => acc + (parseFloat(p.amount) || 0), 0).toFixed(2)}</div>
+                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Revenue (EST)</div>
+                    </div>
+                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+                      <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
+                      <div style={{ fontSize: '1.3rem', fontWeight: 900 }}>
+                        {showPaypalBalance ? (paypalBalance || (isPaypalLoading ? 'Loading...' : 'N/A')) : '••••••'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase', marginBottom: '0.8rem' }}>PayPal Balance</div>
+                      <button className="btnOutline" onClick={handleTogglePaypalBalance} style={{ padding: '0.35rem 0.65rem', fontSize: '0.65rem', transform: 'none' }}>
+                        {showPaypalBalance ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pending Offers Card */}
+                  {(() => {
+                    const pendingOffers = (data?.payments || []).filter((p: any) => p.source === 'offerPayment' && !p.steamKey);
+                    const TWO_HOURS = 2 * 60 * 60 * 1000;
+
+                    const getCountdown = (purchaseDate: string) => {
+                      const purchaseTime = new Date(purchaseDate).getTime();
+                      const deadline = purchaseTime + TWO_HOURS;
+                      const remaining = deadline - Date.now();
+                      if (remaining <= 0) return { text: 'OVERDUE', color: '#ff4d4d', pct: 0, overdue: true };
+                      const totalSec = Math.floor(remaining / 1000);
+                      const h = Math.floor(totalSec / 3600);
+                      const m = Math.floor((totalSec % 3600) / 60);
+                      const s = totalSec % 60;
+                      const pct = remaining / TWO_HOURS;
+                      const color = pct > 0.5 ? '#4ade80' : pct > 0.2 ? '#f59e0b' : '#ff4d4d';
+                      return { text: `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`, color, pct, overdue: false };
+                    };
+
+                    // Sort: overdue first, then by least time remaining
+                    const sortedPending = [...pendingOffers].sort((a: any, b: any) => {
+                      const aDeadline = new Date(a.purchaseDate).getTime() + TWO_HOURS;
+                      const bDeadline = new Date(b.purchaseDate).getTime() + TWO_HOURS;
+                      return aDeadline - bDeadline;
+                    });
+
+                    const overdueCount = sortedPending.filter((p: any) => {
+                      const deadline = new Date(p.purchaseDate).getTime() + TWO_HOURS;
+                      return Date.now() > deadline;
+                    }).length;
+
+                    return (
+                      <div style={{ 
+                        background: 'transparent', 
+                        border: `1px solid ${overdueCount > 0 ? 'rgba(255, 77, 77, 0.5)' : 'var(--outline-color)'}`, 
+                        padding: '1.5rem', 
+                        borderRadius: '16px',
+                        transition: 'border-color 0.3s ease'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                            <Clock size={22} style={{ color: overdueCount > 0 ? '#ff4d4d' : '#f59e0b' }} />
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '1rem' }}>Pending Offers</div>
+                              <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>
+                                {overdueCount > 0 
+                                  ? `⚠️ ${overdueCount} overdue — assign keys ASAP!` 
+                                  : 'Offer payments awaiting key assignment'}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ 
+                            background: pendingOffers.length > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(74, 222, 128, 0.15)', 
+                            color: pendingOffers.length > 0 ? '#f59e0b' : '#4ade80', 
+                            padding: '0.35rem 0.85rem', 
+                            fontSize: '0.9rem', 
+                            fontWeight: 900,
+                            border: `1px solid ${pendingOffers.length > 0 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(74, 222, 128, 0.3)'}`,
+                          }}>
+                            {pendingOffers.length}
+                          </div>
+                        </div>
+                        {sortedPending.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '280px', overflowY: 'auto' }}>
+                            {sortedPending.slice(0, 8).map((p: any, idx: number) => {
+                              const cd = getCountdown(p.purchaseDate);
+                              return (
+                                <div key={`${p.userId}-${p.id}-${idx}`} style={{ 
+                                  border: `1px solid ${cd.overdue ? 'rgba(255, 77, 77, 0.4)' : 'var(--outline-color)'}`,
+                                  background: cd.overdue ? 'rgba(255, 77, 77, 0.04)' : 'transparent',
+                                  overflow: 'hidden',
+                                  position: 'relative'
+                                }}>
+                                  {/* Progress bar background */}
+                                  {!cd.overdue && (
+                                    <div style={{ 
+                                      position: 'absolute', bottom: 0, left: 0, 
+                                      height: '2px', 
+                                      width: `${(cd.pct as number) * 100}%`, 
+                                      background: cd.color,
+                                      transition: 'width 1s linear, background 0.5s ease'
+                                    }} />
+                                  )}
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'space-between', 
+                                    padding: '0.6rem 0.8rem', 
+                                    fontSize: '0.78rem',
+                                    gap: '0.5rem'
+                                  }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minWidth: 0, flex: 1 }}>
+                                      <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.game}</span>
+                                      <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>{p.payerEmail}</span>
+                                    </div>
+                                    <div style={{ 
+                                      fontWeight: 900, 
+                                      fontSize: '0.72rem', 
+                                      color: cd.color,
+                                      fontFamily: 'monospace',
+                                      whiteSpace: 'nowrap',
+                                      animation: cd.overdue ? 'pulse 1s ease-in-out infinite' : 'none',
+                                      minWidth: '85px',
+                                      textAlign: 'center'
+                                    }}>
+                                      {cd.text}
+                                    </div>
+                                    <span style={{ fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>${p.amount}</span>
+                                    <button 
+                                      className="btnSolid" 
+                                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.65rem', flexShrink: 0 }}
+                                      onClick={() => {
+                                        setKeyModal({ open: true, targetUid: p.userId, paymentId: p.id, key: '' });
+                                      }}
+                                    >
+                                      <Key size={10} /> Assign
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {sortedPending.length > 8 && (
+                              <div style={{ fontSize: '0.7rem', opacity: 0.6, textAlign: 'center', padding: '0.4rem' }}>
+                                +{sortedPending.length - 8} more pending...
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.78rem', opacity: 0.6, textAlign: 'center', padding: '0.8rem' }}>
+                            All offer payments have keys assigned ✓
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Live Cursor Users Toggle */}
+                  <div style={{ 
+                    background: 'transparent', 
+                    border: '1px solid var(--outline-color)', 
+                    padding: '1.5rem', 
+                    borderRadius: '16px' 
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showLiveCursors ? '1rem' : 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <MousePointer2 size={22} style={{ color: 'var(--primary)' }} />
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '1rem' }}>Live Cursor Users</div>
+                          <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>Currently active users on the site</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {showLiveCursors && Object.keys(liveCursorUsers).length > 0 && (
+                          <button
+                            className="btnOutline"
+                            onClick={() => setShowChatSidebar(!showChatSidebar)}
+                            style={{ padding: '0.35rem 0.65rem', fontSize: '0.65rem', transform: 'none', borderColor: showChatSidebar ? 'var(--primary)' : undefined, color: showChatSidebar ? 'var(--primary)' : undefined }}
+                          >
+                            <MessageSquare size={12} /> Chat
+                          </button>
+                        )}
+                        <div
+                          onClick={() => setShowLiveCursors(!showLiveCursors)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.45rem',
+                            padding: '0.4rem 0.7rem',
+                            border: '1px solid var(--outline-color)',
+                            cursor: 'pointer',
+                            background: showLiveCursors ? 'var(--primary)' : 'transparent',
+                            color: showLiveCursors ? '#000' : 'var(--foreground)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          {showLiveCursors ? <CheckSquare size={14} color="#000" /> : <Square size={14} />}
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700 }}>Show</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {showLiveCursors && (() => {
+                      // Filter out admin's own cursor
+                      const filteredEntries = Object.entries(liveCursorUsers).filter(
+                        ([, userData]: [string, any]) => userData.uid !== userUid
+                      );
+                      const totalCount = filteredEntries.length;
+
+                      // Group paired users into blocks
+                      const visited = new Set<string>();
+                      const pairedBlocks: { a: [string, any]; b: [string, any] }[] = [];
+                      const soloUsers: [string, any][] = [];
+
+                      filteredEntries.forEach(([id, userData]) => {
+                        if (visited.has(id)) return;
+                        if (userData.partnerId && !visited.has(userData.partnerId)) {
+                          const partnerEntry = filteredEntries.find(([pid]) => pid === userData.partnerId);
+                          if (partnerEntry) {
+                            visited.add(id);
+                            visited.add(userData.partnerId);
+                            pairedBlocks.push({ a: [id, userData], b: partnerEntry });
+                            return;
+                          }
+                        }
+                        visited.add(id);
+                        soloUsers.push([id, userData]);
+                      });
+
+                      const renderUserRow = ([id, userData]: [string, any], showDelete = true) => {
+                        const isStale = Date.now() - (userData.lastActive || 0) > 10000;
+                        return (
+                          <div key={id} style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between',
+                            padding: '0.5rem 0.7rem', 
+                            opacity: isStale ? 0.4 : 1,
+                            transition: 'opacity 0.3s ease'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                              <div style={{ 
+                                width: 8, height: 8, 
+                                background: isStale ? '#666' : (userData.color || '#4ade80'), 
+                                boxShadow: isStale ? 'none' : `0 0 6px ${userData.color || '#4ade80'}`,
+                                flexShrink: 0 
+                              }} />
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.78rem' }}>{userData.name || 'Ghost'}</div>
+                                <div style={{ fontSize: '0.65rem', opacity: 0.5 }}>
+                                  x:{userData.x?.toFixed(0)}% y:{userData.y?.toFixed(0)}%
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              {userData.message && (
+                                <div style={{ 
+                                  fontSize: '0.65rem', padding: '0.2rem 0.5rem', 
+                                  background: userData.color || 'var(--primary)', color: '#000', fontWeight: 700,
+                                  maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                }}>
+                                  {userData.message}
+                                </div>
+                              )}
+                              {showDelete && (
+                                <button
+                                  onClick={() => handleDeletePresenceEntry(id)}
+                                  style={{ background: 'none', border: '1px solid var(--outline-color)', color: '#ff4d4d', cursor: 'pointer', padding: '3px 6px', fontSize: '0.6rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}
+                                >
+                                  <X size={10} /> DEL
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                          <div style={{ flex: 1 }}>
+                            {/* Action Bar */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                              <button
+                                className="btnOutline"
+                                onClick={handlePurgeAllStale}
+                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.6rem', transform: 'none', color: '#f59e0b', borderColor: '#f59e0b' }}
+                              >
+                                <Clock size={10} /> Purge Stale
+                              </button>
+                              <button
+                                className="btnOutline"
+                                onClick={handleDeleteAllPresence}
+                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.6rem', transform: 'none', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                              >
+                                <X size={10} /> Clear All
+                              </button>
+                              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div
+                                  onClick={() => setAutoCleanupEnabled(!autoCleanupEnabled)}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                                    padding: '0.3rem 0.6rem', border: '1px solid var(--outline-color)',
+                                    cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700,
+                                    background: autoCleanupEnabled ? 'rgba(74, 222, 128, 0.15)' : 'transparent',
+                                    color: autoCleanupEnabled ? '#4ade80' : 'var(--foreground)',
+                                    transition: 'all 0.2s ease',
+                                  }}
+                                >
+                                  {autoCleanupEnabled ? <CheckSquare size={11} /> : <Square size={11} />}
+                                  Auto-Clean
+                                </div>
+                                {autoCleanupEnabled && (
+                                  <select
+                                    value={autoCleanupInterval}
+                                    onChange={(e) => setAutoCleanupInterval(Number(e.target.value))}
+                                    style={{ 
+                                      background: 'transparent', border: '1px solid var(--outline-color)', 
+                                      color: 'var(--foreground)', fontSize: '0.6rem', padding: '0.25rem 0.4rem',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    <option value={10}>10s</option>
+                                    <option value={30}>30s</option>
+                                    <option value={60}>1m</option>
+                                    <option value={120}>2m</option>
+                                    <option value={300}>5m</option>
+                                  </select>
+                                )}
+                              </div>
+                            </div>
+
+                            {totalCount === 0 ? (
+                              <div style={{ fontSize: '0.78rem', opacity: 0.6, textAlign: 'center', padding: '1rem' }}>
+                                No active cursor users right now.
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '300px', overflowY: 'auto' }}>
+                                {/* Paired Blocks */}
+                                {pairedBlocks.map(({ a, b }) => (
+                                  <div key={`pair-${a[0]}-${b[0]}`} style={{ 
+                                    border: '1px solid var(--primary)',
+                                    background: 'rgba(254, 182, 12, 0.04)',
+                                    overflow: 'hidden'
+                                  }}>
+                                    <div style={{ 
+                                      padding: '0.3rem 0.7rem', 
+                                      background: 'rgba(254, 182, 12, 0.1)', 
+                                      fontSize: '0.6rem', fontWeight: 800, 
+                                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                                      color: 'var(--primary)',
+                                      display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                    }}>
+                                      <span style={{ display: 'inline-block', width: 6, height: 6, background: 'var(--primary)' }} />
+                                      Connected Pair
+                                    </div>
+                                    {renderUserRow(a, true)}
+                                    <div style={{ height: '1px', background: 'var(--outline-color)', margin: '0 0.7rem' }} />
+                                    {renderUserRow(b, true)}
+                                  </div>
+                                ))}
+
+                                {/* Solo Users */}
+                                {soloUsers.map((entry) => (
+                                  <div key={entry[0]} style={{ border: '1px solid var(--outline-color)' }}>
+                                    {renderUserRow(entry, true)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '0.5rem', textAlign: 'center' }}>
+                              {totalCount} user{totalCount !== 1 ? 's' : ''} online{autoCleanupEnabled ? ` • Auto-clean every ${autoCleanupInterval}s` : ''}
+                            </div>
+                          </div>
+
+                          {/* Chat Sidebar */}
+                          {showChatSidebar && (
+                            <div style={{ 
+                              width: '280px', border: '1px solid var(--outline-color)', 
+                              display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                            }}>
+                              <div style={{ 
+                                padding: '0.7rem 0.85rem', borderBottom: '1px solid var(--outline-color)', 
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: 'rgba(254, 182, 12, 0.05)'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <MessageSquare size={14} style={{ color: 'var(--primary)' }} />
+                                  <span style={{ fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Live Chat</span>
+                                </div>
+                                <button 
+                                  onClick={() => setShowChatSidebar(false)} 
+                                  style={{ background: 'none', border: 'none', color: 'var(--foreground)', opacity: 0.6, cursor: 'pointer', padding: '2px' }}
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                              <div style={{ 
+                                flex: 1, overflowY: 'auto', padding: '0.6rem', 
+                                display: 'flex', flexDirection: 'column', gap: '0.4rem',
+                                maxHeight: '260px', minHeight: '120px'
+                              }}>
+                                {chatMessages.length === 0 ? (
+                                  <div style={{ fontSize: '0.7rem', opacity: 0.4, textAlign: 'center', padding: '2rem 0.5rem' }}>
+                                    No messages yet. Users can press / to chat.
+                                  </div>
+                                ) : (
+                                  chatMessages.map((msg, idx) => (
+                                    <div key={`${msg.id}-${idx}`} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                      <div style={{ width: 6, height: 6, background: msg.color, marginTop: '0.35rem', flexShrink: 0 }} />
+                                      <div style={{ minWidth: 0 }}>
+                                        <span style={{ fontWeight: 800, fontSize: '0.65rem', color: msg.color }}>{msg.name}</span>
+                                        <div style={{ fontSize: '0.72rem', opacity: 0.85, wordBreak: 'break-word' }}>{msg.message}</div>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                                <div ref={chatEndRef} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -397,15 +903,19 @@ export default function AdminPanel({
                                      <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{new Date(p.purchaseDate).toLocaleDateString()}</div>
                                   </td>
                                   <td style={{ padding: '1rem' }}>
-                                     {!p.steamKey ? (
-                                        <button onClick={() => setKeyModal({ open: true, targetUid: p.userId, paymentId: p.id, key: "" })} className="btnSolid" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}>
-                                           <Key size={12} /> Assign Key
-                                        </button>
-                                     ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 800 }}>
-                                           <CheckCircle2 size={14} /> Key Set
-                                        </div>
-                                     )}
+                                      {p.source === 'offerPayment' ? (
+                                        !p.steamKey ? (
+                                           <button onClick={() => setKeyModal({ open: true, targetUid: p.userId, paymentId: p.id, key: "" })} className="btnSolid" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}>
+                                              <Key size={12} /> Assign Key
+                                           </button>
+                                        ) : (
+                                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: 800 }}>
+                                              <CheckCircle2 size={14} /> Key Set
+                                           </div>
+                                        )
+                                      ) : (
+                                        <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>N/A</span>
+                                      )}
                                      <button onClick={() => setExpandedPayments(prev => ({ ...prev, [paymentKey]: !prev[paymentKey] }))} className="btnOutline" style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem' }}>
                                        {expandedPayments[paymentKey] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                      </button>
@@ -418,7 +928,7 @@ export default function AdminPanel({
                                        <div><strong>Record Type:</strong> {p.source === 'offerPayment' ? 'Offer Payment' : 'Payment'}</div>
                                        <div><strong>User UID:</strong> {p.userId}</div>
                                        <div><strong>Order ID:</strong> {p.id}</div>
-                                       <div><strong>Web3 TX Hash:</strong> {p.txHash || 'N/A'}</div>
+                                       <div><strong>PayPal Order ID:</strong> {p.paypalOrderId || 'N/A'}</div>
                                        <div><strong>Coupon:</strong> {p.coupon || 'None'}</div>
                                        <div><strong>Steam Key:</strong> {p.steamKey ? 'Set' : 'Not Set'}</div>
                                      </div>

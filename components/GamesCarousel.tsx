@@ -5,7 +5,6 @@ import styles from './GamesCarousel.module.css';
 import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor } from 'lucide-react';
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useModals } from '../lib/contexts/ModalContext';
-import Web3Checkout from './Web3Checkout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getOwnedGames, validateCoupon } from '@/lib/admin-actions';
 import Modal from './Modal';
@@ -370,13 +369,12 @@ export default function GamesCarousel() {
             <div className={styles.modalFooter}>
               {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                   <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
+                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
                     <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>{acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}</div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.</span>
                   </div>
                   {acceptedTerms ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
-                      {/* Money Section */}
                       <div style={{ 
                         background: 'rgba(255,255,255,0.03)', 
                         padding: '1.25rem', 
@@ -388,41 +386,10 @@ export default function GamesCarousel() {
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                           <div style={{ width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Money</h4>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Secure Checkout (PayPal)</h4>
                         </div>
 
                         <PayPalCheckout 
-                          amount={selectedGame.price} 
-                          game={selectedGame.title} 
-                          isOwned={purchasedTitles.includes(selectedGame.title)} 
-                          onSuccess={() => fetchPurchases(user.uid)} 
-                          appliedCoupon={appliedCoupon} 
-                        />
-                      </div>
-
-                      {/* Divider */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', opacity: 0.3 }}>
-                        <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>OR</span>
-                        <div style={{ flex: 1, height: '1px', background: 'var(--foreground)' }}></div>
-                      </div>
-
-                      {/* Crypto Section */}
-                      <div style={{ 
-                        background: 'rgba(255,255,255,0.03)', 
-                        padding: '1.25rem', 
-                        borderRadius: '12px', 
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1rem'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                          <div style={{ width: '4px', height: '16px', background: '#f6851b', borderRadius: '2px' }}></div>
-                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Pay with Crypto</h4>
-                        </div>
-
-                        <Web3Checkout 
                           amount={selectedGame.price} 
                           game={selectedGame.title} 
                           isOwned={purchasedTitles.includes(selectedGame.title)} 

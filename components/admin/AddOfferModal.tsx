@@ -27,7 +27,6 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
     operatingSystem: "windows",
     platform: "steam",
     gameUrl: "",
-    lemonVariantId: "",
   });
 
   const handleAddOffer = async (e: React.FormEvent) => {
@@ -45,12 +44,11 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
         discount: `${offerForm.discount}%`,
         originalPrice: Number(offerForm.originalPrice),
         quantity: Number(offerForm.quantity),
-        lemonVariantId: offerForm.lemonVariantId.trim() || undefined,
       });
       if (result.success) {
         showToast("Offer added!", "success");
         onClose();
-        setOfferForm({ id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, operatingSystem: "windows", platform: "steam", gameUrl: "", lemonVariantId: "" });
+        setOfferForm({ id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, operatingSystem: "windows", platform: "steam", gameUrl: "" });
       } else {
         showToast(result.error || "Failed to add offer.", "error");
       }
@@ -105,13 +103,7 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
             Final Price: ${getFinalOfferPrice()}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Hash size={12} /> Lemon Squeezy variant ID
-            </label>
-            <input type="text" placeholder="e.g. 123456 (from Lemon Squeezy product variant)" className={styles.adminInput} value={offerForm.lemonVariantId} onChange={e => setOfferForm({ ...offerForm, lemonVariantId: e.target.value })} />
-            <span style={{ fontSize: '0.7rem', opacity: 0.65 }}>Optional. If set, the purchase modal shows card checkout (overlay) for this variant.</span>
-          </div>
+
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

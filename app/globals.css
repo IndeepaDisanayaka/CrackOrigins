@@ -5,6 +5,7 @@
   --background-rgb: 255, 255, 255;
   --foreground: #111111;
   --primary: #feb60c;
+  --primary-rgb: 254, 182, 12;
   --primary-hover: #e5a30b;
   --outline-color: #e2e8f0;
   --text-muted: #64748b;
@@ -19,6 +20,7 @@
   --outline-color: #1e1e2e;
   --text-muted: #94a3b8;
   --primary: #feb60c; /* Sharper yellow */
+  --primary-rgb: 254, 182, 12;
   --highlight-glow: rgba(254, 182, 12, 0.2);
 }
 
@@ -28,6 +30,7 @@
   --foreground: #111111;
   --outline-color: #e2e8f0;
   --text-muted: #64748b;
+  --primary-rgb: 254, 182, 12;
   --highlight-glow: rgba(254, 182, 12, 0.1);
 }
 
@@ -51,6 +54,16 @@ body {
   margin: 0;
   padding: 0;
   border-radius: 0 !important;
+}
+
+::selection {
+  background: var(--primary);
+  color: #000;
+}
+
+::-moz-selection {
+  background: var(--primary);
+  color: #000;
 }
 
 /* Ensure interactive elements show the standard pointer cursor */
@@ -170,31 +183,34 @@ a, button, [role="button"], input[type="submit"] {
 /* --- Theme Toggle --- */
 .themeToggle {
   display: flex;
-  background: var(--outline-color);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.05);
   padding: 4px;
   gap: 4px;
-  border: 1px solid var(--outline-color);
+  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.1);
+  border-radius: 8px;
 }
 
 .toggleBtn {
   background: transparent;
   border: none;
-  padding: 6px;
+  padding: 8px 12px;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
 }
 
 .toggleBtn:hover {
-  color: var(--foreground);
+  color: var(--primary);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.08);
 }
 
 .toggleBtnActive {
-  background: var(--background);
-  color: var(--primary) !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background: var(--primary) !important;
+  color: #000 !important;
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb, 254, 182, 12), 0.3);
 }
 
 /* --- Draggable Utilities --- */

@@ -54,7 +54,7 @@ export default function AuthModal({
           </p>
           <div style={{ 
             display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', 
-            background: 'var(--outline-color)', borderRadius: '8px', border: '1px solid var(--outline-color)',
+            background: 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)', borderRadius: '8px', border: '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)',
             marginTop: '0.5rem'
           }}>
             <Info size={20} color="var(--primary)" style={{ flexShrink: 0 }} />

@@ -7,7 +7,6 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { useToast } from "../components/Toast";
 
 import { capturePayPalOrder } from "./paypal-actions";
-import { validateCoupon } from "./admin-actions";
 
 interface CheckoutProps {
     amount: string;
@@ -16,9 +15,10 @@ interface CheckoutProps {
     onSuccess?: () => void;
     appliedCoupon?: any;
     offerId?: string;
+    onPaymentActivityChange?: (active: boolean) => void;
 }
 
-export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoupon, offerId }: CheckoutProps) {
+export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoupon, offerId, onPaymentActivityChange }: CheckoutProps) {
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
     const { showToast } = useToast();
@@ -85,12 +85,14 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
     }
 
     return (
-        <div style={{ width: "100%" }}> {/* parent 100% width */}
+        <div style={{ width: "100%",padding:1 }}> {/* responsive container */}
             <PayPalScriptProvider
                 options={{
                     clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
                     currency: "USD",
+                    intent: "capture",
                 }}
+            
             >
                 <div style={{ opacity: status === "processing" ? 0.5 : 1, pointerEvents: status === "processing" ? "none" : "auto" }}>
                     <PayPalButtons
@@ -99,16 +101,19 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
                             color: "white",
                             shape: "rect",
                             label: "paypal",
+                            height: 45 // Fixed height for consistency
                         }}
                         onError={(err) => {
                             console.error("PayPal Error:", err);
                             showToast("PayPal failed to load or encountered an error. Check your connection.", "error");
+                            if (onPaymentActivityChange) onPaymentActivityChange(false);
                         }}
                         createOrder={(data, actions) => {
                             if (isOwned) {
                                 showToast("You already own this game!", "warning");
                                 return Promise.reject("ALREADY_OWNED");
                             }
+                            if (onPaymentActivityChange) onPaymentActivityChange(true);
                             return actions.order.create({
                                 intent: "CAPTURE",
                                 purchase_units: [
@@ -128,20 +133,30 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
                                 return;
                             }
                             
-                            setStatus("processing");
-                            const result = await capturePayPalOrder(data.orderID, user.uid, game, price.toFixed(2), appliedCoupon?.code, offerId);
-                            
-                            if (result.success) {
-                                setStatus("completed");
-                                showToast(`Success! ${game} is now linked to your Crack Origins library.`, "success");
-                                if (onSuccess) {
-                                    onSuccess(); // Trigger live update in UI
+                            try {
+                                setStatus("processing");
+                                const result = await capturePayPalOrder(data.orderID, user.uid, game, price.toFixed(2), appliedCoupon?.code, offerId);
+                                
+                                if (result.success) {
+                                    setStatus("completed");
+                                    showToast(`Success! ${game} is now linked to your Crack Origins library.`, "success");
+                                    if (onSuccess) {
+                                        onSuccess(); // Trigger live update in UI
+                                    }
+                                } else {
+                                    setStatus("failed");
+                                    console.error("Payment Capture Error:", result.error);
+                                    showToast(result.error || "Payment verification failed. Please contact support.", "error");
                                 }
-                            } else {
+                            } catch (err: any) {
                                 setStatus("failed");
-                                console.error("Payment Capture Error:", result.error);
-                                showToast(result.error || "Payment verification failed. Please contact support.", "error");
+                                showToast(err.message || "An unexpected error occurred during payment.", "error");
+                            } finally {
+                                if (onPaymentActivityChange) onPaymentActivityChange(false);
                             }
+                        }}
+                        onCancel={() => {
+                            if (onPaymentActivityChange) onPaymentActivityChange(false);
                         }}
                     />
                     {status === "processing" && (
