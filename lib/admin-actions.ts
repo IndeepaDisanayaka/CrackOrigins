@@ -4,6 +4,32 @@ import { getAdminDb } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { encrypt, decrypt } from './crypto';
 
+/**
+ * Server Action: Generate a unique 3-digit Game ID
+ */
+export async function generateUniqueGameId() {
+    try {
+        const adminDb = await getAdminDb();
+        let gameId = 0;
+        let isUnique = false;
+        let attempts = 0;
+        
+        while (!isUnique && attempts < 100) {
+            gameId = Math.floor(100 + Math.random() * 900); // Generates 100-999
+            const existing = await adminDb.collection("games").where("gameId", "==", gameId).limit(1).get();
+            if (existing.empty) isUnique = true;
+            attempts++;
+        }
+        
+        if (!isUnique) throw new Error("Could not generate a unique ID. Registry may be full.");
+        
+        return { success: true, gameId };
+    } catch (error: any) {
+        console.error("Error generating game ID:", error);
+        return { success: false, error: error.message };
+    }
+}
+
 function toIsoDate(value: any): string | null {
     if (!value) return null;
     if (typeof value === 'string') return value;
@@ -12,6 +38,79 @@ function toIsoDate(value: any): string | null {
         return new Date(value).toISOString();
     } catch {
         return null;
+    }
+}
+
+/**
+ * Server Action: List a new game in the 'games' collection
+ */
+export async function listGame(adminUid: string, gameData: any) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        // Check for unique gameId again before saving by checking if document ID exists
+        if (gameData.gameId) {
+            const gameIdStr = String(gameData.gameId);
+            const existing = await adminDb.collection("games").doc(gameIdStr).get();
+            if (existing.exists) {
+                return { success: false, error: `Game ID ${gameIdStr} already exists. Please choose a different ID.` };
+            }
+        }
+
+        const gameIdStr = String(gameData.gameId);
+        const gameRef = adminDb.collection("games").doc(gameIdStr);
+        
+        // Remove redundant keys from the data object as requested
+        const { gameId, image, ...cleanedData } = gameData;
+        
+        await gameRef.set({
+            ...cleanedData,
+            time: Timestamp.now(),
+        });
+
+        return { success: true, id: gameIdStr };
+    } catch (error: any) {
+        console.error("Error listing game:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Fetch all games from Firestore
+ */
+export async function getGames() {
+    try {
+        const adminDb = await getAdminDb();
+        const snapshot = await adminDb.collection("games").get();
+        const games = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                // Ensure the fields match the component's expectations and the Firestore structure
+                id: doc.id,
+                gameId: data.gameId || doc.id, // Use doc.id as fallback if data.gameId is excluded
+                title: data.title || "Untitled Game",
+                genre: Array.isArray(data.genre) ? data.genre.join(" & ") : (data.genre || "Action"),
+                description: data.description || "No description available.",
+                image: data.image || data.logo || "/placeholder-game.png",
+                logo: data.logo || "",
+                video: data.video || "https://www.youtube.com/embed/AiA6gZN_usg",
+                price: typeof data.price === 'number' ? (data.price === 0 ? "Free" : `$${data.price.toFixed(2)}`) : (data.price || "Free"),
+                requirements: {
+                    min: data.requirement?.min || "Minimum requirements not specified.",
+                    max: data.requirement?.max || "Recommended requirements not specified."
+                },
+                os: Array.isArray(data.os) ? data.os.join(", ") : (data.os || "Windows"),
+                downloadUrl: data.downloadUrl || "" // Google Drive direct link
+            };
+        });
+        return { success: true, games };
+    } catch (error: any) {
+        console.error("Error fetching games:", error);
+        return { success: false, error: error.message };
     }
 }
 
@@ -76,7 +175,7 @@ export async function syncUserRecord(uid: string, data: {
         }
 
         // 3. Update/Create the user record
-        await userRef.set({
+        const userPayload: any = {
             isOwner: isNewUser ? data.isOwner : (userData?.isOwner ?? data.isOwner),
             name: data.name,
             email: encrypt(data.email || "unknown"),
@@ -86,9 +185,15 @@ export async function syncUserRecord(uid: string, data: {
             updatedAt: Timestamp.now(),
             affiliateId,
             discount,
-            referredBy,
             country: data.country || "Unknown"
-        }, { merge: true });
+        };
+
+        // Only insert referredBy if it has a value (not null/undefined)
+        if (referredBy) {
+            userPayload.referredBy = referredBy;
+        }
+
+        await userRef.set(userPayload, { merge: true });
 
         return { success: true, affiliateId };
     } catch (error: any) {
@@ -441,7 +546,8 @@ export async function createOffer(adminUid: string, offerData: {
     operatingSystem: string;
     platform: string;
     gameUrl?: string;
-
+    isGiveaway?: boolean;
+    targetAffiliates?: number;
 }) {
     try {
         const adminDb = await getAdminDb();
@@ -457,6 +563,7 @@ export async function createOffer(adminUid: string, offerData: {
             quantity: Number(offerData.quantity),
             expire: Timestamp.fromDate(new Date(offerData.expire)),
             listed: Timestamp.now(),
+            targetAffiliates: Number(offerData.targetAffiliates || 10),
         });
 
         return { success: true };
@@ -541,3 +648,24 @@ export async function getUserKey(uid: string, offerId: string) {
     }
 }
 
+/**
+ * Server Action: Get affiliate recruitment progress for a specific offer
+ */
+export async function getAffiliateProgress(uid: string, listedDateIso: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const { Timestamp } = await import('firebase-admin/firestore');
+        
+        const listedDate = new Date(listedDateIso);
+        if (isNaN(listedDate.getTime())) return { success: true, count: 0 };
+
+        const affiliatesRef = adminDb.collection("accounts").doc(uid).collection("affiliates");
+        const q = affiliatesRef.where('date', '>=', Timestamp.fromDate(listedDate));
+        const snapshot = await q.get();
+        
+        return { success: true, count: snapshot.size };
+    } catch (error: any) {
+        console.error("Error fetching affiliate progress:", error);
+        return { success: false, error: error.message };
+    }
+}

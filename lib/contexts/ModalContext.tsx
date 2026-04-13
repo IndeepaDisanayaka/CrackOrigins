@@ -11,6 +11,8 @@ interface ModalContextType {
   setIsCouponModalOpen: (open: boolean) => void;
   isAddOfferModalOpen: boolean;
   setIsAddOfferModalOpen: (open: boolean) => void;
+  isListGameOpen: boolean;
+  setIsListGameOpen: (open: boolean) => void;
   isBugReportOpen: boolean;
   setIsBugReportOpen: (open: boolean) => void;
   selectedBugGame: any | null;
@@ -25,6 +27,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [isAddOfferModalOpen, setIsAddOfferModalOpen] = useState(false);
+  const [isListGameOpen, setIsListGameOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [selectedBugGame, setSelectedBugGame] = useState<any | null>(null);
 
@@ -33,6 +36,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     setIsAdminModalOpen(false);
     setIsCouponModalOpen(false);
     setIsAddOfferModalOpen(false);
+    setIsListGameOpen(false);
     setIsBugReportOpen(false);
     setSelectedBugGame(null);
   };
@@ -47,6 +51,8 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       setIsCouponModalOpen,
       isAddOfferModalOpen,
       setIsAddOfferModalOpen,
+      isListGameOpen,
+      setIsListGameOpen,
       isBugReportOpen,
       setIsBugReportOpen,
       selectedBugGame,

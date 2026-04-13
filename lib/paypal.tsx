@@ -11,6 +11,7 @@ import { capturePayPalOrder } from "./paypal-actions";
 interface CheckoutProps {
     amount: string;
     game: string;
+    gameId: string | number;
     isOwned?: boolean;
     onSuccess?: () => void;
     appliedCoupon?: any;
@@ -18,7 +19,7 @@ interface CheckoutProps {
     onPaymentActivityChange?: (active: boolean) => void;
 }
 
-export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoupon, offerId, onPaymentActivityChange }: CheckoutProps) {
+export default function Checkout({ amount, game, gameId, isOwned, onSuccess, appliedCoupon, offerId, onPaymentActivityChange }: CheckoutProps) {
     const [user, setUser] = useState<FirebaseUser | null>(null);
     const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
     const { showToast } = useToast();
@@ -66,7 +67,7 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
                             return;
                         }
                         setStatus("processing");
-                        const result = await capturePayPalOrder("FREE_CLAIM_" + Date.now(), user.uid, game, "0.00", appliedCoupon?.code, offerId);
+                        const result = await capturePayPalOrder("FREE_CLAIM_" + Date.now(), user.uid, game, "0.00", appliedCoupon?.code, offerId, gameId);
                         if (result.success) {
                             setStatus("completed");
                             showToast(`Success! ${game} has been added to your library.`, "success");
@@ -135,7 +136,7 @@ export default function Checkout({ amount, game, isOwned, onSuccess, appliedCoup
                             
                             try {
                                 setStatus("processing");
-                                const result = await capturePayPalOrder(data.orderID, user.uid, game, price.toFixed(2), appliedCoupon?.code, offerId);
+                                const result = await capturePayPalOrder(data.orderID, user.uid, game, price.toFixed(2), appliedCoupon?.code, offerId, gameId);
                                 
                                 if (result.success) {
                                     setStatus("completed");

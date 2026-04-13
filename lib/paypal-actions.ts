@@ -82,7 +82,7 @@ async function getAccessToken() {
 /**
  * Server Action: Capture a PayPal order and store in Firebase
  */
-export async function capturePayPalOrder(orderID: string, uid: string, game: string, amount: string, couponCode?: string, offerId?: string) {
+export async function capturePayPalOrder(orderID: string, uid: string, game: string, amount: string, couponCode?: string, offerId?: string, gameId?: string | number) {
     try {
         let details: any = { status: "COMPLETED" };
 
@@ -159,6 +159,7 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
 
             const paymentData: any = {
                 game: game,
+                gameId: gameId || "",
                 purchaseDate: Timestamp.now(),
                 coupon: couponUsed,
                 amount: amount,
@@ -182,12 +183,12 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
                 await userRef.collection("payments").doc(orderID).set(paymentData);
             }
-
             // Record Public Activity (RTDB for bypassing Firestore rules)
             try {
                 const userDoc = await userRef.get();
                 const userData = userDoc.data();
                 const userName = userData?.name || "Guest Comrade";
+                const userPhoto = userData?.photoURL || "";
                 
                 const { getAdminRtdb } = await import('./firebase-admin');
                 const rtdb = await getAdminRtdb();
@@ -195,10 +196,12 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 
                 await activityRef.push({
                     gameName: game,
+                    gameId: gameId || offerId || "", // Store the ID (App ID) to show icons
                     userName: userName,
+                    userPhoto: userPhoto,
                     amount: amount,
                     status: "COMPLETED",
-                    timestamp: Date.now(), // RTDB uses number timestamps commonly
+                    timestamp: Date.now(),
                     type: offerId ? "SPECIAL_OFFER" : "STANDARD_PURCHASE"
                 });
 

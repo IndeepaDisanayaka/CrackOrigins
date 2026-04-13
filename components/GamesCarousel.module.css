@@ -1,7 +1,7 @@
 .carouselContainer {
   width: 100%;
   max-width: 1400px;
-  margin: 6rem auto;
+  margin: 2rem auto 6rem;
   position: relative;
   z-index: 50;
 }
@@ -85,7 +85,8 @@
 .navRibbonContainer {
   position: relative;
   z-index: 50;
-  overflow: hidden; /* Constrain the dragging ribbon */
+  overflow: hidden;
+  /* Constrain the dragging ribbon */
   background: var(--background);
   border-top: 1px solid var(--outline-color);
   width: 100%;
@@ -215,12 +216,12 @@
   border-left: 1px solid var(--outline-color);
 }
 
-.contentOverlay > * {
+.contentOverlay>* {
   width: 100%;
 }
 
 .statusBadge {
-  background: rgba(var(--primary-rgb, 254,182,12), 0.1);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.1);
   color: var(--primary);
   padding: 0.5rem 1rem;
   font-size: 0.65rem;
@@ -231,14 +232,14 @@
   margin-bottom: 2rem;
   width: fit-content;
   letter-spacing: 0.15em;
-  border: 1px solid rgba(var(--primary-rgb, 254,182,12), 0.2);
+  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2);
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   cursor: pointer;
 }
 
 .statusBadge:hover {
   transform: scale(1.1) rotate(-3deg);
-  background: rgba(var(--primary-rgb, 254,182,12), 0.2);
+  background: rgba(var(--primary-rgb, 254, 182, 12), 0.2);
   /* Box shadow glow removed as requested */
 }
 
@@ -457,8 +458,4 @@
   border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.1);
   padding: 1.5rem;
   border-radius: 12px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }

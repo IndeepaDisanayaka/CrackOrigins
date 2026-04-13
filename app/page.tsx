@@ -22,6 +22,7 @@ import SplashScreen from '../components/layout/SplashScreen';
 import SubHeader from '../components/layout/SubHeader';
 import CouponModal from '../components/admin/CouponModal';
 import AddOfferModal from '../components/admin/AddOfferModal';
+import ListGameModal from '../components/admin/ListGameModal';
 import { useSearchParams } from 'next/navigation';
 
 function HomeContent() {
@@ -30,7 +31,8 @@ function HomeContent() {
     isAuthModalOpen, setIsAuthModalOpen, 
     isAdminModalOpen, setIsAdminModalOpen,
     isCouponModalOpen, setIsCouponModalOpen,
-    isAddOfferModalOpen, setIsAddOfferModalOpen
+    isAddOfferModalOpen, setIsAddOfferModalOpen,
+    isListGameOpen, setIsListGameOpen
   } = useModals();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -74,6 +76,11 @@ function HomeContent() {
         <AddOfferModal 
           isOpen={isAddOfferModalOpen} 
           onClose={() => setIsAddOfferModalOpen(false)} 
+        />
+        
+        <ListGameModal 
+          isOpen={isListGameOpen} 
+          onClose={() => setIsListGameOpen(false)} 
         />
 
         {user && isAdmin && (
