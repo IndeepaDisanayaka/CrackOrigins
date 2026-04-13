@@ -2,75 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react';
 import styles from './GamesCarousel.module.css';
-import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor } from 'lucide-react';
+import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor, Smartphone, Laptop } from 'lucide-react';
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useModals } from '../lib/contexts/ModalContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getOwnedGames, validateCoupon } from '@/lib/admin-actions';
+import { getOwnedGames, validateCoupon, getGames } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
 import PayPalCheckout from '@/lib/paypal';
 import { CheckSquare, Square } from 'lucide-react';
 import Link from 'next/link';
 
-const GAMES = [
-  {
-    id: 1,
-    title: 'Silent Murder',
-    genre: 'Story & Survival Horror',
-    description: 'A lonely road. A silent follower. Step into a dark story where an innocent girl becomes the target of a ruthless attacker.',
-    image: 'silent-murder.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
-    price: '$0.99',
-    requirements: {
-      min: 'Intel i5-4460 / 8GB RAM / GTX 750 Ti',
-      max: 'Intel i7-8700K / 16GB RAM / RTX 2060'
-    },
-    os: 'Windows'
-  },
-  {
-    id: 2,
-    title: 'After Party',
-    genre: 'Survival Horror',
-    description: 'Lost in a strange and isolated place after chasing desire, you must collect money to survive.',
-    image: 'after-party.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
-    price: '$30.00',
-    requirements: {
-      min: 'Core i3 / 4GB RAM / GT 1030',
-      max: 'Core i5 / 8GB RAM / GTX 1050 Ti'
-    },
-    os: 'Windows'
-  },
-  {
-    id: 3,
-    title: 'Revealed',
-    genre: '2D & Multiplayer',
-    description: 'A competitive multiplayer challenge where two players face off in intense levels inspired by Level Devil.',
-    image: 'revealed.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
-    price: '$5.00',
-    requirements: {
-      min: 'Dual Core CPU / 2GB RAM / Integrated Graphics',
-      max: 'Quad Core CPU / 4GB RAM / Dedicated GPU'
-    },
-    os: 'Windows'
-  },
-  {
-    id: 4,
-    title: 'Survive',
-    genre: 'Survival Horror',
-    description: 'Ten minutes. One hunter. No escape. Stay alert and avoid being caught as a deadly creature chases you.',
-    image: 'survive.png',
-    video: 'https://www.youtube.com/embed/AiA6gZN_usg',
-    price: 'Free',
-    requirements: {
-      min: 'Core i5 / 8GB RAM / GTX 960',
-      max: 'Core i7 / 16GB RAM / RTX 2070'
-    },
-    os: 'Windows'
-  },
-];
+// GAMES constant removed, now using state
 
 export default function GamesCarousel() {
   const { user } = useAuth();
@@ -84,18 +27,27 @@ export default function GamesCarousel() {
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [dragWidth, setDragWidth] = useState(0);
 
+  const [games, setGames] = useState<any[]>([]);
+  const [isLoadingGames, setIsLoadingGames] = useState(true);
+
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [bugTitle, setBugTitle] = useState('');
   const [bugDesc, setBugDesc] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [modalState, setModalState] = useState<'closed' | 'idle' | 'loading' | 'success' | 'details'>('closed');
-  const [selectedGame, setSelectedGame] = useState<typeof GAMES[0] | null>(null);
+  const [selectedGame, setSelectedGame] = useState<any | null>(null);
   const [isLocked, setIsLocked] = useState(false); 
 
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const WindowsIcon = ({ size = 14, className }: { size?: number, className?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M0 3.449L9.75 2.1V11.59H0V3.449zm0 8.86h9.75v9.45L0 20.39V12.309zM10.71 1.95L24 0v11.59h-13.29V1.95zm0 10.359H24V24l-13.29-1.91v-9.78z" />
+    </svg>
+  );
 
   const updateDragWidth = () => {
     if (constraintsRef.current) {
@@ -114,6 +66,23 @@ export default function GamesCarousel() {
     const timer = setTimeout(updateDragWidth, 500);
     return () => clearTimeout(timer);
   }, [activeIndex]);
+
+  useEffect(() => {
+    const loadGames = async () => {
+      setIsLoadingGames(true);
+      try {
+        const res = await getGames();
+        if (res.success && res.games) {
+          setGames(res.games);
+        }
+      } catch (err) {
+        console.error("Failed to load games:", err);
+      } finally {
+        setIsLoadingGames(false);
+      }
+    };
+    loadGames();
+  }, []);
 
   const fetchPurchases = async (uid: string) => {
     if (!uid) return;
@@ -161,11 +130,21 @@ export default function GamesCarousel() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (modalState !== 'closed' || isBugReportOpen || isLocked) return;
-      setActiveIndex((current) => (current + 1) % GAMES.length);
+      if (modalState !== 'closed' || isBugReportOpen || isLocked || games.length === 0) return;
+      setActiveIndex((current) => (current + 1) % games.length);
     }, 20000);
     return () => clearInterval(timer);
-  }, [modalState, isBugReportOpen, isLocked]);
+  }, [modalState, isBugReportOpen, isLocked, games.length]);
+
+  const triggerDirectDownload = (url: string, title: string) => {
+    if (!url) {
+      showToast("Download link not available for this title.", "error");
+      return;
+    }
+    
+    window.open(url, '_blank');
+    showToast(`Opening download link for ${title}...`, "success");
+  };
 
   useEffect(() => {
     if (modalState !== 'closed') {
@@ -179,7 +158,26 @@ export default function GamesCarousel() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [modalState]);
 
-  const activeGame = GAMES[activeIndex];
+  const renderOSIcons = (osStr: string) => {
+    const os = osStr.toLowerCase();
+    const icons = [];
+    if (os.includes('windows')) icons.push(<WindowsIcon key="win" />);
+    if (os.includes('mac') || os.includes('apple') || os.includes('ios')) icons.push(<Laptop size={14} key="mac" />);
+    if (os.includes('android')) icons.push(<Smartphone size={14} key="android" />);
+    return <div style={{ display: 'flex', gap: '8px', color: 'var(--primary)', marginTop: '4px' }}>{icons}</div>;
+  };
+
+  const activeGame = games[activeIndex];
+
+  if (isLoadingGames) {
+    return (
+      <div className={styles.carouselContainer} style={{ minHeight: '600px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="premiumLoader"><div className="glitchLoader">LOADING CREATIONS...</div></div>
+      </div>
+    );
+  }
+
+  if (games.length === 0) return null;
 
   return (
     <div className={`${styles.carouselContainer} ${modalState !== 'closed' ? styles.modalOpenContext : ''}`} id="project">
@@ -194,7 +192,7 @@ export default function GamesCarousel() {
             <AnimatePresence mode="wait">
               <motion.img
                 key={`bg-${activeIndex}`}
-                src={activeGame.image}
+                src={activeGame.image || `https://img.youtube.com/vi/${activeGame.video}/maxresdefault.jpg`}
                 className={styles.bgImage}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -216,7 +214,7 @@ export default function GamesCarousel() {
                   style={{ width: '100%', height: '100%' }}
                 >
                   <iframe
-                    src={`${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video.split('/').pop()}&loop=1`}
+                    src={`https://www.youtube.com/embed/${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video}&loop=1`}
                     className={styles.activeIframe}
                     title={activeGame.title}
                     frameBorder="0"
@@ -235,7 +233,7 @@ export default function GamesCarousel() {
                 dragElastic={0.4}
                 whileTap={{ cursor: "grabbing" }}
               >
-                {GAMES.map((game, idx) => {
+                {games.map((game, idx) => {
                   const isActive = idx === activeIndex;
                   return (
                     <button
@@ -244,11 +242,11 @@ export default function GamesCarousel() {
                       onClick={() => setActiveIndex(idx)}
                       onMouseDown={(e) => e.stopPropagation()}
                     >
-                      <img src={game.image} alt={game.title} className={styles.navThumb} />
+                      <img src={game.logo || `https://img.youtube.com/vi/${game.video}/mqdefault.jpg`} alt={game.title} className={styles.navThumb} />
                       <div className={styles.navInfo}>
                         <div className={styles.navTitleRow}>
                           <span className={styles.navTitle}>{game.title}</span>
-                          <Monitor size={10} className={styles.osIcon} />
+                          <WindowsIcon size={10} className={styles.osIcon} />
                         </div>
                         <div className={styles.navLabels}>
                           <span className={isActive ? styles.activeLabel : ''}>
@@ -281,8 +279,24 @@ export default function GamesCarousel() {
               transition={{ duration: 0.6, delay: 0.2 }}
             >
               <span className={styles.statusBadge}>Featured Release</span>
-              <h3 className={styles.genre}>{activeGame.genre}</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                {activeGame.genre.split(',').map((genre: string) => (
+                  <span key={genre} style={{ 
+                    fontSize: '0.65rem', 
+                    fontWeight: 800, 
+                    textTransform: 'uppercase', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    padding: '0.3rem 0.6rem', 
+                    borderRadius: '4px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'var(--text-muted)'
+                  }}>
+                    {genre.trim()}
+                  </span>
+                ))}
+              </div>
               <h2 className={styles.title}>{activeGame.title}</h2>
+              {renderOSIcons(activeGame.os)}
               <p className={styles.description}>{activeGame.description}</p>
 
               <div className={styles.actions}>
@@ -290,9 +304,14 @@ export default function GamesCarousel() {
                   className="btnSolid"
                   disabled={activeGame.price !== 'Free' && !purchasedTitles.includes(activeGame.title)}
                   style={{ minWidth: '160px' }}
+                  onClick={() => {
+                    if (purchasedTitles.includes(activeGame.title) || activeGame.price === 'Free') {
+                      triggerDirectDownload(activeGame.downloadUrl, activeGame.title);
+                    }
+                  }}
                 >
                   <Play size={14} fill="currentColor" />
-                  {activeGame.price === 'Free' || purchasedTitles.includes(activeGame.title) ? 'Play Now' : 'Unlock to Play'}
+                  {activeGame.price === 'Free' || purchasedTitles.includes(activeGame.title) ? 'Download' : 'Unlock to Play'}
                 </button>
 
                 {purchasedTitles.includes(activeGame.title) ? (
@@ -404,8 +423,20 @@ export default function GamesCarousel() {
                         </div>
 
                         <PayPalCheckout 
-                          amount={selectedGame.price} 
+                          amount={(() => {
+                            const base = parseFloat(selectedGame.price.replace(/[^0-9.]/g, '')) || 0;
+                            if (!appliedCoupon) return base.toFixed(2);
+                            const discStr = String(appliedCoupon.discount).trim();
+                            let finalAmt = base;
+                            if (discStr.includes('%')) {
+                              finalAmt = base - (base * parseFloat(discStr) / 100);
+                            } else {
+                              finalAmt = base - (parseFloat(discStr) || 0);
+                            }
+                            return Math.max(0, finalAmt).toFixed(2);
+                          })()} 
                           game={selectedGame.title} 
+                          gameId={selectedGame.gameId}
                           isOwned={purchasedTitles.includes(selectedGame.title)} 
                           onSuccess={() => fetchPurchases(user.uid)} 
                           appliedCoupon={appliedCoupon} 

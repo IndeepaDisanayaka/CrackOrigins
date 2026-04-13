@@ -101,8 +101,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--outline-color);
+  padding: 1.5rem 0;
+  border-bottom: 2px solid var(--outline-color);
   font-weight: 700;
   font-size: 0.95rem;
   position: sticky;
@@ -205,6 +205,13 @@
   .menuToggle {
     display: flex;
   }
+  .desktopOnlyAction {
+    display: none;
+  }
+}
+
+.desktopOnlyAction {
+  display: flex;
 }
 
 /* Mobile Nav Drawer */

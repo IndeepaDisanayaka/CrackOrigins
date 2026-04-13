@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Hash, Tag, Percent, Calendar, Plus } from 'lucide-react';
+import { Hash, Tag, Percent, Calendar, Plus, Users, Gift, CheckSquare, Square } from 'lucide-react';
 import Modal from '../Modal';
 import { createOffer } from '@/lib/admin-actions';
 import { useToast } from '../Toast';
@@ -27,12 +27,17 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
     operatingSystem: "windows",
     platform: "steam",
     gameUrl: "",
+    isGiveaway: false,
+    targetAffiliates: "10",
   });
 
   const handleAddOffer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!offerForm.id || !offerForm.title || !offerForm.originalPrice || !offerForm.discount || !offerForm.expire || !offerForm.gameUrl) {
+    
+    const finalDiscount = offerForm.isGiveaway ? "100" : offerForm.discount;
+
+    if (!offerForm.id || !offerForm.title || !offerForm.originalPrice || !finalDiscount || !offerForm.expire || !offerForm.gameUrl) {
       showToast("Please fill all fields.", "error");
       return;
     }
@@ -41,25 +46,31 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
     try {
       const result = await createOffer(user.uid, {
         ...offerForm,
-        discount: `${offerForm.discount}%`,
+        discount: `${finalDiscount}%`,
         originalPrice: Number(offerForm.originalPrice),
         quantity: Number(offerForm.quantity),
+        targetAffiliates: Number(offerForm.targetAffiliates),
       });
       if (result.success) {
-        showToast("Offer added!", "success");
+        showToast("Offer added successfully!", "success");
         onClose();
-        setOfferForm({ id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, operatingSystem: "windows", platform: "steam", gameUrl: "" });
+        setOfferForm({ 
+            id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, 
+            operatingSystem: "windows", platform: "steam", gameUrl: "", 
+            isGiveaway: false, targetAffiliates: "10" 
+        });
       } else {
         showToast(result.error || "Failed to add offer.", "error");
       }
     } catch {
-      showToast("Error adding offer.", "error");
+      showToast("An unexpected error occurred.", "error");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const getFinalOfferPrice = () => {
+    if (offerForm.isGiveaway) return "0.00";
     const base = parseFloat(offerForm.originalPrice) || 0;
     const discount = parseFloat(offerForm.discount) || 0;
     if (!base) return "0.00";
@@ -71,6 +82,33 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
     <Modal isOpen={isOpen} onClose={onClose} title="Add Game Offer">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
         <form onSubmit={handleAddOffer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          
+          <div 
+            onClick={() => setOfferForm({ ...offerForm, isGiveaway: !offerForm.isGiveaway })}
+            style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                padding: '1rem', 
+                background: offerForm.isGiveaway ? 'rgba(var(--primary-rgb), 0.1)' : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${offerForm.isGiveaway ? 'var(--primary)' : 'var(--outline-color)'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+            }}
+          >
+            <div style={{ color: offerForm.isGiveaway ? 'var(--primary)' : 'var(--text-muted)' }}>
+                {offerForm.isGiveaway ? <CheckSquare size={18} /> : <Square size={18} />}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.isGiveaway ? 'var(--primary)' : 'var(--foreground)' }}>
+                    LIST AS GIVEAWAY
+                </span>
+                <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Requires affiliate recruitment to claim</span>
+            </div>
+            <Gift size={20} style={{ marginLeft: 'auto', opacity: 0.3 }} />
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Hash size={12} /> Steam App ID
@@ -88,22 +126,31 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
           <div style={{ display: 'flex', gap: '1rem' }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Tag size={12} /> Original Price
+                <Tag size={12} /> Value (Original Price)
               </label>
-              <input style={{ flex: 1 }} type="number" placeholder="e.g. 10.00" className={styles.adminInput} value={offerForm.originalPrice} onChange={e => setOfferForm({ ...offerForm, originalPrice: e.target.value })} />
+              <input style={{ flex: 1 }} type="number" placeholder="e.g. 59.99" className={styles.adminInput} value={offerForm.originalPrice} onChange={e => setOfferForm({ ...offerForm, originalPrice: e.target.value })} />
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Percent size={12} /> Discount %
-              </label>
-              <input style={{ flex: 1 }} type="number" placeholder="e.g. 10" className={styles.adminInput} value={offerForm.discount} onChange={e => setOfferForm({ ...offerForm, discount: e.target.value })} />
-            </div>
+            {!offerForm.isGiveaway && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Percent size={12} /> Discount %
+                    </label>
+                    <input style={{ flex: 1 }} type="number" placeholder="e.g. 10" className={styles.adminInput} value={offerForm.discount} onChange={e => setOfferForm({ ...offerForm, discount: e.target.value })} />
+                </div>
+            )}
+            {offerForm.isGiveaway && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <Users size={12} /> Target Affiliates
+                    </label>
+                    <input style={{ flex: 1 }} type="number" placeholder="10" className={styles.adminInput} value={offerForm.targetAffiliates} onChange={e => setOfferForm({ ...offerForm, targetAffiliates: e.target.value })} />
+                </div>
+            )}
           </div>
+          
           <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)' }}>
-            Final Price: ${getFinalOfferPrice()}
+            Status: {offerForm.isGiveaway ? "FREE GIVEAWAY" : `PRICE $${getFinalOfferPrice()}`}
           </div>
-
-
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -135,7 +182,7 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
           </div>
 
           <button type="submit" className="btnSolid" disabled={isGenerating} style={{ marginTop: '0.5rem', width: '100%', padding: '1rem', gap: '0.5rem' }}>
-            {isGenerating ? "..." : <Plus size={16} />} Add Offer
+            {isGenerating ? "Processing..." : <><Plus size={16} /> Add Offer</>}
           </button>
         </form>
       </div>

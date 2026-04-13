@@ -4,21 +4,219 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Shield, Clock, CheckCircle2, CheckSquare, Square, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp } from "firebase/firestore";
 import { fireStore } from "../../lib/firebase";
-import { getUserKey } from '@/lib/admin-actions';
+import { getUserKey, getAffiliateProgress } from '@/lib/admin-actions';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useModals } from '../../lib/contexts/ModalContext';
 import { useToast } from '../Toast';
 import Modal from '../Modal';
 import PayPalCheckout from '../../lib/paypal';
 import CountdownTimer from '../common/CountdownTimer';
+import { getGlobalOffers } from '@/lib/live-actions';
 import { revealVariants, staggerContainer, STEAM_SVG, WINDOWS_SVG } from '../../lib/constants';
 import styles from '../ExtraSections.module.css';
 import carouselStyles from '../GamesCarousel.module.css';
+import { Copy, Share2 } from 'lucide-react';
+
+interface SteamCardProps {
+    game: any;
+    user: any;
+    affiliateId: string | null;
+    purchasedOffers: any;
+    showKeys: any;
+    decryptedKeys: any;
+    isFetchingKey: any;
+    handleShowKey: (id: string) => void;
+    setSelectedSteamGame: (game: any) => void;
+    setModalState: (state: any) => void;
+    setOfferPayLock: (lock: any) => void;
+}
+
+function SteamCard({ 
+    game, 
+    user, 
+    affiliateId,
+    purchasedOffers, 
+    showKeys, 
+    decryptedKeys, 
+    isFetchingKey, 
+    handleShowKey, 
+    setSelectedSteamGame, 
+    setModalState,
+    setOfferPayLock 
+}: SteamCardProps) {
+    const { showToast } = useToast();
+    const isFree = parseFloat(game.discountPrice.replace('$', '')) === 0;
+    const [accumulatedDiscount, setAccumulatedDiscount] = useState(isFree ? 0 : 100);
+
+    // Track actual affiliates recruited since the offer was listed
+    useEffect(() => {
+        if (!user?.uid || !isFree || !game.listed) return;
+
+        const listedDate = new Date(game.listed);
+        if (isNaN(listedDate.getTime())) return;
+
+        // Fallback to Server Action to avoid Permission Denied on subcollections
+        const fetchProgress = async () => {
+            try {
+                const res = await getAffiliateProgress(user.uid, game.listed);
+                if (res.success) {
+                    const count = res.count || 0;
+                    const target = Number(game.targetAffiliates || 10);
+                    const progress = Math.min(100, Math.floor((count / target) * 100));
+                    setAccumulatedDiscount(progress);
+                }
+            } catch (err) {
+                console.error("Failed to fetch affiliate progress:", err);
+            }
+        };
+
+        fetchProgress();
+        // Since recruitment is a "slow" event, polling every 2 minutes is sufficient 
+        // to keep the UI interactive without hitting permission walls.
+        const interval = setInterval(fetchProgress, 120000);
+
+        return () => clearInterval(interval);
+    }, [user?.uid, game.id, game.listed, isFree, game.targetAffiliates]);
+
+    const handleCopyAffiliateLink = () => {
+        if (!affiliateId) {
+            showToast("Login to get your affiliate link!", "error");
+            return;
+        }
+        const link = `${window.location.origin}/?ref=${affiliateId}`;
+        navigator.clipboard.writeText(link);
+        showToast("Invite link copied! Share it to get recruits.", "success");
+    };
+
+    return (
+        <motion.div 
+            className={`${styles.steamCard} ${isFree ? styles.premiumCard : ''}`} 
+            variants={revealVariants}
+        >
+            <img src={game.image} alt={game.title} className={styles.cardImage} />
+            <div className={styles.platformRow}>
+                <div className={styles.platformIcons}>
+                    {game.platforms.includes('windows') && (
+                        <span className={styles.activeIcon} style={{ display: 'flex' }}>{WINDOWS_SVG}</span>
+                    )}
+                    <span className={styles.steamTag}>{STEAM_SVG} STEAM</span>
+                </div>
+                <motion.div className={styles.discountBadge} whileHover={{ scale: 1.1, rotate: 2 }}>{isFree ? 'GIVEAWAY' : game.discount}</motion.div>
+            </div>
+
+            <div className={styles.steamInfo}>
+                <div className={styles.titleArea}>
+                    <h3 className={styles.steamTitle}>{game.title}</h3>
+                    <CountdownTimer endTime={game.endTime} />
+                </div>
+
+                {!isFree && (
+                    <div className={styles.priceContainer}>
+                        <span className={styles.priceLabel}>Exclusive Price</span>
+                        <div className={styles.priceRow}>
+                            <span className={styles.discountPrice}>{game.discountPrice}</span>
+                            <span className={styles.originalPrice}>{game.originalPrice}</span>
+                        </div>
+                        <span className={styles.originalPrice} style={{ textDecoration: "none", color: game.quantity > 0 ? 'inherit' : '#ff4d4d', opacity: 0.5 }}>
+                            {game.quantity > 0 ? `${game.quantity} Steam Key${game.quantity === 1 ? '' : 's'} Left` : "Out of Stock"}
+                        </span>
+                    </div>
+                )}
+
+                {isFree && (
+                    <div className={styles.discountFillContainer} style={{ marginTop: '0.5rem' }}>
+                        <div className={styles.discountFillHeader}>
+                            <span className={styles.discountFillLabel}>Recruitment Progress</span>
+                            <span className={styles.discountFillValue}>{accumulatedDiscount}%</span>
+                        </div>
+                        <div className={styles.discountFillBar}>
+                            <div className={styles.discountFillProgress} style={{ width: `${accumulatedDiscount}%` }}></div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem' }}>
+                            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: 0 }}>
+                                {accumulatedDiscount < 100 ? "Get recruits before it's gone!" : "Goal Reached! Claim now."}
+                            </p>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--primary)', opacity: 0.9 }}>
+                                {Math.floor((accumulatedDiscount / 100) * (game.targetAffiliates || 10))} / {game.targetAffiliates || 10}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                <div className={styles.steamActions}>
+                    <div className={styles.keyContainer}>
+                        {(() => {
+                            const purchasedOffer = purchasedOffers[game.id];
+                            const hasPurchased = !!purchasedOffer;
+                            if (hasPurchased) {
+                                if (purchasedOffer.steamKey) {
+                                    return (
+                                        <>
+                                            <div className={styles.hiddenKey}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
+                                            <button className={styles.btnUnlock} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
+                                                {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
+                                            </button>
+                                        </>
+                                    );
+                                } else {
+                                    return (
+                                        <>
+                                            <div className={styles.hiddenKey} style={{ fontSize: '0.8rem' }}>PENDING VERIFICATION</div>
+                                            <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                                <Clock size={16} /> PENDING
+                                            </button>
+                                        </>
+                                    );
+                                }
+                            } else {
+                                const isExpired = new Date(game.endTime).getTime() < Date.now();
+                                const isOutOfStock = game.quantity <= 0;
+
+                                if (isExpired || isOutOfStock) {
+                                    return (
+                                        <>
+                                            <div className={styles.hiddenKey}>••••••••••</div>
+                                            <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid rgba(var(--primary-rgb), 0.2)', color: 'var(--text-muted)' }}>
+                                                <ShoppingCart size={16} /> {isExpired ? 'EXPIRED' : 'SOLD OUT'}
+                                            </button>
+                                        </>
+                                    );
+                                }
+
+                                if (isFree && accumulatedDiscount < 100) {
+                                    return (
+                                        <>
+                                            <button className={styles.btnUnlock} style={{ width: '100%', justifyContent: 'center', gap: '0.5rem', animation: 'timerPulse 1.5s ease-in-out infinite' }} onClick={handleCopyAffiliateLink}>
+                                                <Share2 size={16} /> INVITE & CLAIM ({game.quantity} LEFT)
+                                            </button>
+                                        </>
+                                    );
+                                }
+
+                                return (
+                                    <>
+                                        <div className={styles.hiddenKey}>••••••••••</div>
+                                        <button className={styles.btnUnlock} onClick={() => { setOfferPayLock('none'); setSelectedSteamGame(game); setModalState('idle'); }}>
+                                            <ShoppingCart size={16} /> {isFree ? 'CLAIM FREE' : 'PURCHASE'}
+                                        </button>
+                                    </>
+                                );
+                            }
+                        })()}
+                    </div>
+                    <a href={`https://store.steampowered.com/app/${game.id}/`} target="_blank" rel="noopener noreferrer" className="btnOutline" style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                        View on Steam
+                    </a>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
 
 export default function SteamMarketplace() {
-  const { user, login, country } = useAuth();
+  const { user, affiliateId } = useAuth();
   const { setIsAuthModalOpen } = useModals();
   const { showToast } = useToast();
   
@@ -31,7 +229,6 @@ export default function SteamMarketplace() {
   const [isFetchingKey, setIsFetchingKey] = useState<{ [key: string]: boolean }>({});
   const [isLoadingOffers, setIsLoadingOffers] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  /** One active path at a time */
   const [offerPayLock, setOfferPayLock] = useState<'none' | 'paypal'>('none');
 
   useEffect(() => {
@@ -67,14 +264,12 @@ export default function SteamMarketplace() {
             const originalPrice = Number(data.originalPrice || 0);
             const discountPrice = isNaN(discountPercent) ? originalPrice : originalPrice - (originalPrice * discountPercent / 100);
 
-            // Defensive Date parsing
             let endTimeStr = new Date(Date.now() + 86400000).toISOString();
             if (data.expire) {
               try {
                 if (typeof data.expire.toDate === 'function') {
                   endTimeStr = data.expire.toDate().toISOString();
                 } else if (data.expire.seconds) {
-                    // Manual timestamp conversion if toDate is missing
                     endTimeStr = new Date(data.expire.seconds * 1000).toISOString();
                 } else {
                   endTimeStr = new Date(data.expire).toISOString();
@@ -82,6 +277,25 @@ export default function SteamMarketplace() {
               } catch (e) {
                 console.warn("Date parsing failed for offer:", d.id, e);
               }
+            }
+
+            // Robust Listed Date parsing
+            let listedTimeStr = new Date().toISOString();
+            if (data.listed) {
+                try {
+                    if (typeof data.listed.toDate === 'function') {
+                        listedTimeStr = data.listed.toDate().toISOString();
+                    } else if (data.listed.seconds) {
+                        listedTimeStr = new Date(data.listed.seconds * 1000).toISOString();
+                    } else {
+                        const parsed = new Date(data.listed);
+                        if (!isNaN(parsed.getTime())) {
+                            listedTimeStr = parsed.toISOString();
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Listed date parsing failed for offer:", d.id, e);
+                }
             }
 
             return {
@@ -94,6 +308,8 @@ export default function SteamMarketplace() {
               platforms: data.operatingSystem ? [String(data.operatingSystem).toLowerCase()] : ['windows'],
               steamUrl: data.gameUrl || `https://store.steampowered.com/app/${d.id}/`,
               endTime: endTimeStr,
+              listed: listedTimeStr,
+              targetAffiliates: Number(data.targetAffiliates || 10),
               quantity: Number(data.quantity || 0),
             };
           } catch (itemErr) {
@@ -109,6 +325,12 @@ export default function SteamMarketplace() {
               return !isNaN(expireTime) && expireTime > Date.now();
           })
           .sort((a, b) => {
+            // Giveaways first
+            const aIsFree = parseFloat(a.discountPrice.replace('$', '')) === 0;
+            const bIsFree = parseFloat(b.discountPrice.replace('$', '')) === 0;
+            if (aIsFree && !bIsFree) return -1;
+            if (!aIsFree && bIsFree) return 1;
+
             const aIsOut = a.quantity <= 0;
             const bIsOut = b.quantity <= 0;
             if (aIsOut && !bIsOut) return 1;
@@ -130,9 +352,19 @@ export default function SteamMarketplace() {
         console.error("Critical error mapping offers: ", err);
         setIsLoadingOffers(false);
       }
-    }, (error) => {
+    }, async (error) => {
         console.error("Firestore onSnapshot error:", error);
-        showToast("Failed to connect to offers database. Please check your connection.", "error");
+        
+        // Fallback to Server Action if client-side listener fails (permission issues)
+        const fallbackOffers = await getGlobalOffers();
+        if (fallbackOffers && fallbackOffers.length > 0) {
+            setSteamGames(fallbackOffers);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('crack_origins_offers_cache', JSON.stringify(fallbackOffers));
+            }
+        } else {
+            showToast("Failed to connect to offers database. Please check your connection.", "error");
+        }
         setIsLoadingOffers(false);
     });
 
@@ -220,34 +452,7 @@ export default function SteamMarketplace() {
              <div key={i} className={`${styles.steamCard} ${styles.skeletonCard} skeletonPremium`}>
                 <div className="scanline" />
                 <div className={styles.skeletonPlatformRow}>
-                  <div className={styles.skeletonRow}>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonIcon}`}></div>
-                    <div className={styles.skeletonDivider}></div>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonTagBlock}`}></div>
-                  </div>
-                  <div className={`${styles.skeletonBlock} ${styles.skeletonBadge}`}></div>
-                </div>
-                <div className={styles.skeletonBody}>
-                  <div className={styles.skeletonTitleArea}>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonTitle}`}></div>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonTitleShort}`}></div>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonTimer}`}></div>
-                  </div>
-                  <div className={styles.skeletonPriceArea}>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonPriceLabel}`}></div>
-                    <div className={styles.skeletonRow}>
-                      <div className={`${styles.skeletonBlock} ${styles.skeletonBigPrice}`}></div>
-                      <div className={`${styles.skeletonBlock} ${styles.skeletonOldPrice}`}></div>
-                    </div>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonNote}`}></div>
-                  </div>
-                  <div className={styles.skeletonActions}>
-                    <div className={styles.skeletonRow} style={{ gap: '0.5rem' }}>
-                      <div className={`${styles.skeletonBlock} ${styles.skeletonKeyInput}`}></div>
-                      <div className={`${styles.skeletonBlock} ${styles.skeletonBtn}`}></div>
-                    </div>
-                    <div className={`${styles.skeletonBlock} ${styles.skeletonBtnFull}`}></div>
-                  </div>
+                  <div className={styles.skeletonRow}></div>
                 </div>
              </div>
           ))
@@ -255,92 +460,20 @@ export default function SteamMarketplace() {
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
         ) : (
           steamGames.map((game) => (
-            <motion.div key={game.id} className={styles.steamCard} variants={revealVariants}>
-              <img src={game.image} alt={game.title} className={styles.cardImage} />
-              <div className={styles.platformRow}>
-                <div className={styles.platformIcons}>
-                  {game.platforms.includes('windows') && (
-                    <span className={styles.activeIcon} style={{ display: 'flex' }}>{WINDOWS_SVG}</span>
-                  )}
-                  <span className={styles.steamTag}>{STEAM_SVG} STEAM</span>
-                </div>
-                <motion.div className={styles.discountBadge} whileHover={{ scale: 1.1, rotate: 2 }}>{game.discount}</motion.div>
-              </div>
-
-              <div className={styles.steamInfo}>
-                <div className={styles.titleArea}>
-                  <h3 className={styles.steamTitle}>{game.title}</h3>
-                  <CountdownTimer endTime={game.endTime} />
-                </div>
-
-                <div className={styles.priceContainer}>
-                  <span className={styles.priceLabel}>Exclusive Price</span>
-                  <div className={styles.priceRow}>
-                    <span className={styles.discountPrice}>{game.discountPrice}</span>
-                    <span className={styles.originalPrice}>{game.originalPrice}</span>
-                  </div>
-                  <span className={styles.originalPrice} style={{ textDecoration: "none", color: game.quantity > 0 ? 'inherit' : '#ff4d4d' }}>
-                    {game.quantity > 0 ? `${game.quantity} Steam Key${game.quantity === 1 ? '' : 's'} Left` : "Out of Stock"}
-                  </span>
-                </div>
-
-                <div className={styles.steamActions}>
-                  <div className={styles.keyContainer}>
-                    {(() => {
-                      const purchasedOffer = purchasedOffers[game.id];
-                      const hasPurchased = !!purchasedOffer;
-                      if (hasPurchased) {
-                        if (purchasedOffer.steamKey) {
-                          return (
-                            <>
-                              <div className={styles.hiddenKey}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
-                              <button className={styles.btnUnlock} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
-                                {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
-                              </button>
-                            </>
-                          );
-                        } else {
-                          return (
-                            <>
-                              <div className={styles.hiddenKey} style={{ fontSize: '0.8rem' }}>PENDING VERIFICATION</div>
-                              <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                                <Clock size={16} /> PENDING
-                              </button>
-                            </>
-                          );
-                        }
-                      } else {
-                        const isExpired = new Date(game.endTime).getTime() < Date.now();
-                        const isOutOfStock = game.quantity <= 0;
-
-                        if (isExpired || isOutOfStock) {
-                          return (
-                            <>
-                              <div className={styles.hiddenKey}>••••••••••</div>
-                              <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid rgba(var(--primary-rgb), 0.2)', color: 'var(--text-muted)' }}>
-                                <ShoppingCart size={16} /> {isExpired ? 'EXPIRED' : 'SOLD OUT'}
-                              </button>
-                            </>
-                          );
-                        }
-
-                        return (
-                          <>
-                            <div className={styles.hiddenKey}>••••••••••</div>
-                            <button className={styles.btnUnlock} onClick={() => { setOfferPayLock('none'); setSelectedSteamGame(game); setModalState('idle'); }}>
-                              <ShoppingCart size={16} /> PURCHASE
-                            </button>
-                          </>
-                        );
-                      }
-                    })()}
-                  </div>
-                  <a href={game.steamUrl} target="_blank" rel="noopener noreferrer" className="btnOutline" style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                    View on Steam
-                  </a>
-                </div>
-              </div>
-            </motion.div>
+            <SteamCard 
+                key={game.id} 
+                game={game} 
+                user={user} 
+                affiliateId={affiliateId}
+                purchasedOffers={purchasedOffers}
+                showKeys={showKeys}
+                decryptedKeys={decryptedKeys}
+                isFetchingKey={isFetchingKey}
+                handleShowKey={handleShowKey}
+                setSelectedSteamGame={setSelectedSteamGame}
+                setModalState={setModalState}
+                setOfferPayLock={setOfferPayLock}
+            />
           )))}
       </motion.div>
 
@@ -410,8 +543,9 @@ export default function SteamMarketplace() {
                           </div>
 
                             <PayPalCheckout
-                              amount={selectedSteamGame.discountPrice}
+                              amount={selectedSteamGame.discountPrice.replace(/[^0-9.]/g, '')}
                               game={selectedSteamGame.title}
+                              gameId={Number(selectedSteamGame.id)}
                               offerId={selectedSteamGame.id}
                               onSuccess={async () => { setModalState('success'); }}
                               onPaymentActivityChange={(active) => {

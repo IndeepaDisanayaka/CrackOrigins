@@ -6,18 +6,19 @@ import { ref, query, limitToLast, onValue } from 'firebase/database';
 import { rtdb } from '@/lib/firebase';
 import { ShoppingBag, Clock, User, CheckCircle, Activity } from 'lucide-react';
 import styles from './LiveTransactions.module.css';
+// import { getRealActivity } from '@/lib/live-actions'; // Removed fallback to fix ghost data issues
 
 interface Transaction {
   id: string;
   gameName: string;
   userName: string;
+  userPhoto?: string;
+  gameId?: string;
   amount: string;
   status: string;
   timestamp: number;
   type?: string;
 }
-
-import { getRealActivity } from '@/lib/live-actions';
 
 export default function LiveTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -25,15 +26,7 @@ export default function LiveTransactions() {
 
   useEffect(() => {
     const activityRef = ref(rtdb, 'live_activity');
-    const q = query(activityRef, limitToLast(10));
-
-    const loadRealFallback = async () => {
-        const history = await getRealActivity();
-        if (history && history.length > 0) {
-            setTransactions(history as any);
-        }
-        setIsLoaded(true);
-    };
+    const q = query(activityRef, limitToLast(12));
 
     const unsubscribe = onValue(q, (snapshot) => {
       const data = snapshot.val();
@@ -43,14 +36,13 @@ export default function LiveTransactions() {
           ...val,
         })).sort((a, b) => b.timestamp - a.timestamp) as Transaction[];
         setTransactions(docs);
-        setIsLoaded(true);
       } else {
-        // Fetch real historical data from Firestore if RTDB is empty
-        loadRealFallback();
+        setTransactions([]);
       }
+      setIsLoaded(true);
     }, (error) => {
       console.error("RTDB Error:", error);
-      loadRealFallback();
+      setIsLoaded(true);
     });
 
     return () => unsubscribe();
@@ -61,15 +53,9 @@ export default function LiveTransactions() {
   return (
     <section className={styles.wrapper}>
       <div className={styles.header}>
-        <motion.div 
-            className={styles.badge}
-            whileHover={{ scale: 1.15, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-            style={{ cursor: 'pointer' }}
-        >
-            <Activity size={12} className={styles.pulse} /> Live Protocol
-        </motion.div>
+        <div className={styles.badge}>
+          <Activity size={12} className={styles.pulse} /> Live Terminal
+        </div>
         <h2 className={styles.title}>Global <span className={styles.highlight}>Market Activity</span></h2>
       </div>
 
@@ -79,65 +65,66 @@ export default function LiveTransactions() {
             <motion.div
               key={tx.id}
               className={styles.transactionCard}
-              initial={{ rotateX: -90, opacity: 0 }}
-              animate={{ rotateX: 0, opacity: 1 }}
-              exit={{ rotateX: 90, opacity: 0 }}
-              transition={{ duration: 0.6, ease: "easeInOut" }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.4 }}
               layout
             >
               <div className={styles.cardInfo}>
                 <div className={styles.statusRow}>
-                   <motion.div 
-                     className={styles.userName}
-                     whileHover={{ scale: 1.1, rotate: -2 }}
-                    >
-                        <User size={14} /> {tx.userName}
-                   </motion.div>
-                   <motion.div 
-                     className={styles.statusBadge}
-                     whileHover={{ scale: 1.1, rotate: 2 }}
-                    >
-                        <CheckCircle size={10} /> {tx.status}
-                   </motion.div>
+                  <div className={styles.userName}>
+                    <User size={12} /> {tx.userName?.split(' ')[0] || "Comrade"}
+                  </div>
+                  <div className={`${styles.statusBadge} ${tx.status !== 'COMPLETED' ? styles.pending : ''}`}>
+                    {tx.status === 'COMPLETED' ? <CheckCircle size={10} /> : <Clock size={10} />}
+                    {tx.status === 'COMPLETED' ? 'Verified' : 'Processing'}
+                  </div>
                 </div>
-                
+
                 <div className={styles.mainInfo}>
                     <div className={styles.iconBox}>
-                        <ShoppingBag size={20} />
+                      {(tx.type === 'SPECIAL_OFFER' || tx.gameId) ? (
+                        <img
+                          src={`https://cdn.akamai.steamstatic.com/steam/apps/${tx.gameId || '440'}/header.jpg`}
+                          alt="game"
+                          className={styles.gameLogo}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/60/1a1a1a/feb60c?text=GAME';
+                          }}
+                        />
+                      ) : (
+                        tx.userPhoto ? (
+                          <img src={tx.userPhoto} alt="profile" className={styles.profileLogo} />
+                        ) : (
+                          <ShoppingBag size={20} />
+                        )
+                      )}
                     </div>
-                    <div className={styles.gameInfo}>
-                        <motion.span 
-                          className={styles.gameLabel}
-                          whileHover={{ scale: 1.1, rotate: 1 }}
-                        >
-                          {tx.type === 'SPECIAL_OFFER' ? 'Special Deal' : 'New Acquisition'}
-                        </motion.span>
-                        <h3 className={styles.gameTitle}>{tx.gameName}</h3>
-                    </div>
+                  <div className={styles.gameInfo}>
+                    <span className={styles.gameLabel}>
+                      {tx.type === 'SPECIAL_OFFER' ? 'Special Deal' : 'New Acquisition'}
+                    </span>
+                    <h3 className={styles.gameTitle}>{tx.gameName}</h3>
+                  </div>
                 </div>
 
                 <div className={styles.footerRow}>
-                    <motion.div 
-                      className={styles.priceTag}
-                      whileHover={{ scale: 1.1, rotate: -3 }}
-                    >
-                        ${tx.amount}
-                    </motion.div>
-                    <motion.div 
-                      className={styles.timeTag}
-                      whileHover={{ scale: 1.1, rotate: 3 }}
-                    >
-                        <Clock size={12} /> {tx.timestamp ? formatTime(new Date(tx.timestamp)) : 'Recent'}
-                    </motion.div>
+                  <div className={styles.priceTag}>
+                    ${tx.amount}
+                  </div>
+                  <div className={styles.timeTag}>
+                    <Clock size={12} /> {tx.timestamp ? formatTime(new Date(tx.timestamp)) : 'Recent'}
+                  </div>
                 </div>
               </div>
             </motion.div>
           ))}
           {transactions.length === 0 && (
-             <div className={styles.emptyState}>
-                <div className={styles.loader}></div>
-                Waiting for incoming transmissions...
-             </div>
+            <div className={styles.emptyState}>
+              <div className={styles.loader}></div>
+              Waiting for incoming transmissions...
+            </div>
           )}
         </AnimatePresence>
       </div>
@@ -147,8 +134,8 @@ export default function LiveTransactions() {
 
 function formatTime(date: Date) {
   const now = new Date();
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // seconds
-  
+  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+
   if (diff < 60) return 'Just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
