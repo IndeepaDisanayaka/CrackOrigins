@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Roboto } from 'next/font/google';
 import './globals.css';
 import { GlobalProvider } from '../components/providers/GlobalProvider';
@@ -10,6 +10,12 @@ const roboto = Roboto({
   variable: '--font-roboto',
 });
 
+export const viewport: Viewport = {
+  themeColor: '#feb60c',
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: {
     default: 'Crack Origins | Indie Game Development & Chronicles',
@@ -20,7 +26,6 @@ export const metadata: Metadata = {
   keywords: ['indie game dev', 'gaming blog', 'pc games', 'game development studio', 'crack origins', 'gaming chronicles'],
   authors: [{ name: 'Crack Origins Studio' }],
   creator: 'Crack Origins',
-  themeColor: '#feb60c',
   icons: {
     icon: '/favicon.svg',
     apple: '/apple-touch-icon.png',
