@@ -13,6 +13,8 @@ interface ModalContextType {
   setIsAddOfferModalOpen: (open: boolean) => void;
   isListGameOpen: boolean;
   setIsListGameOpen: (open: boolean) => void;
+  isDispatchModalOpen: boolean;
+  setIsDispatchModalOpen: (open: boolean) => void;
   isBugReportOpen: boolean;
   setIsBugReportOpen: (open: boolean) => void;
   selectedBugGame: any | null;
@@ -28,6 +30,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [isAddOfferModalOpen, setIsAddOfferModalOpen] = useState(false);
   const [isListGameOpen, setIsListGameOpen] = useState(false);
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [selectedBugGame, setSelectedBugGame] = useState<any | null>(null);
 
@@ -37,6 +40,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     setIsCouponModalOpen(false);
     setIsAddOfferModalOpen(false);
     setIsListGameOpen(false);
+    setIsDispatchModalOpen(false);
     setIsBugReportOpen(false);
     setSelectedBugGame(null);
   };
@@ -53,6 +57,8 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       setIsAddOfferModalOpen,
       isListGameOpen,
       setIsListGameOpen,
+      isDispatchModalOpen,
+      setIsDispatchModalOpen,
       isBugReportOpen,
       setIsBugReportOpen,
       selectedBugGame,

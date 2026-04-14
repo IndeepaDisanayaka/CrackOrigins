@@ -2,21 +2,45 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
-import { 
-  Users, CreditCard, TrendingUp, Gamepad2,
-  Search, Shield, Key, ChevronDown, ChevronUp, ExternalLink,
-  RefreshCw, CheckCircle2, AlertCircle, DollarSign, CheckSquare, Square,
-  MousePointer2, MessageSquare, X, Clock
+import {
+  Shield,
+  Users,
+  CreditCard,
+  Gamepad2,
+  TrendingUp,
+  Search,
+  RefreshCw,
+  MoreVertical,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  X,
+  Plus,
+  ArrowRight,
+  DollarSign,
+  MessageSquare,
+  Key,
+  MousePointer2,
+  CheckSquare,
+  Square,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink
 } from 'lucide-react';
+import { StatCard } from './admin/StatCard';
 import { 
   getAdminDashboardData,
   updateUserOwnerStatus,
-  updateUserKey
+  updateUserKey,
+  deleteBlogPost,
+  getBlogPostsAction
 } from '@/lib/admin-actions';
 import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
 import { rtdb } from '../lib/firebase';
 import { ref, onValue, remove } from 'firebase/database';
+import Link from 'next/link';
+import { formatDate } from 'date-fns';
 
 interface AdminPanelProps {
   userUid: string;
@@ -24,7 +48,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -44,6 +68,7 @@ export default function AdminPanel({
   const [paypalBalance, setPaypalBalance] = useState<string | null>(null);
   const [showPaypalBalance, setShowPaypalBalance] = useState(false);
   const [isPaypalLoading, setIsPaypalLoading] = useState(false);
+  const [blogData, setBlogData] = useState<any[]>([]);
 
   // Live Cursor Users
   const [showLiveCursors, setShowLiveCursors] = useState(false);
@@ -72,6 +97,12 @@ export default function AdminPanel({
       showToast(res.error || "Failed to load dashboard.", "error");
     }
     setLoading(false);
+    
+    // Fetch blogs separately via server action to keep the main data fetch quick
+    const resBlogs = await getBlogPostsAction();
+    if (resBlogs.success && resBlogs.posts) {
+      setBlogData(resBlogs.posts);
+    }
   };
 
   useEffect(() => {
@@ -207,6 +238,18 @@ export default function AdminPanel({
     } else showToast(res.error || "Error", "error");
   };
 
+  const handleDeleteBlog = async (slug: string) => {
+    if (!confirm(`Are you sure you want to delete "${slug}"? This action cannot be undone.`)) return;
+    
+    const res = await deleteBlogPost(userUid, slug);
+    if (res.success) {
+      showToast("Blog post deleted successfully.", "success");
+      fetchData();
+    } else {
+      showToast(res.error || "Failed to delete blog.", "error");
+    }
+  };
+
   // Filter Logic
   const filteredUsers = data?.users?.filter((u: any) => 
     u.name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -231,6 +274,26 @@ export default function AdminPanel({
     g.id?.toLowerCase().includes(search.toLowerCase())
   ) || [];
 
+  const filteredBlogs = blogData.filter((b: any) =>
+    b.title?.toLowerCase().includes(search.toLowerCase()) ||
+    b.slug?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return { formatted: '0 B', bits: '0 bits' };
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const bits = bytes * 8;
+    return {
+      formatted: `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`,
+      bits: `${bits.toLocaleString()} bits`
+    };
+  };
+
+  const totalBlogsSize = blogData.reduce((acc, b) => acc + (b.fileSize || 0), 0);
+  const totalFormatted = formatFileSize(totalBlogsSize);
+
   return (
     <>
     <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} maxWidth="1200px">
@@ -251,6 +314,7 @@ export default function AdminPanel({
                { id: 'users', icon: <Users size={18} />, label: 'Users' },
                { id: 'payments', icon: <CreditCard size={18} />, label: 'Payments' },
                { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games' },
+               { id: 'blogs', icon: <MessageSquare size={18} />, label: 'Blogs' },
              ].map(item => (
                <button
                  key={item.id}
@@ -296,21 +360,13 @@ export default function AdminPanel({
               {activeTab === 'overview' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
-                      <Users size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                      <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>{data?.users?.length || 0}</div>
-                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Users</div>
-                    </div>
-                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
-                      <CreditCard size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                      <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>{data?.payments?.length || 0}</div>
-                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Orders</div>
-                    </div>
-                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
-                      <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
-                      <div style={{ fontSize: '1.8rem', fontWeight: 900 }}>${data?.payments?.reduce((acc: number, p: any) => acc + (parseFloat(p.amount) || 0), 0).toFixed(2)}</div>
-                      <div style={{ fontSize: '0.7rem', opacity: 0.75, textTransform: 'uppercase' }}>Total Revenue (EST)</div>
-                    </div>
+                    <StatCard icon={Users} value={data?.users?.length || 0} label="Total Users" />
+                    <StatCard icon={CreditCard} value={data?.payments?.length || 0} label="Total Orders" />
+                    <StatCard 
+                      icon={DollarSign} 
+                      value={`$${data?.payments?.reduce((acc: number, p: any) => acc + (parseFloat(p.amount) || 0), 0).toFixed(2)}`} 
+                      label="Total Revenue (EST)" 
+                    />
                     <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
                       <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
                       <div style={{ fontSize: '1.3rem', fontWeight: 900 }}>
@@ -732,6 +788,18 @@ export default function AdminPanel({
               {/* Items List Rendering */}
               {activeTab !== 'overview' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                   {activeTab === 'blogs' && (
+                     <div style={{ background: 'rgba(var(--primary-rgb), 0.05)', border: '1px solid var(--primary)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                       <div>
+                         <div style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.1em' }}>Total Archive Size</div>
+                         <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--primary)' }}>{totalFormatted.formatted}</div>
+                       </div>
+                       <div style={{ textAlign: 'right' }}>
+                         <div style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.1em' }}>Raw Bitstream</div>
+                         <div style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.9 }}>{totalFormatted.bits}</div>
+                       </div>
+                     </div>
+                   )}
                    {activeTab === 'payments' && (
                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                        <button
@@ -966,7 +1034,45 @@ export default function AdminPanel({
                                 </td>
                               </tr>
                             ))}
-                         </tbody>
+
+                            {/* Blogs Rendering */}
+                            {activeTab === 'blogs' && filteredBlogs.map((b: any) => (
+                              <tr key={b.slug} style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                                <td style={{ padding: '1rem' }}>
+                                  <div style={{ fontWeight: 700 }}>{b.title}</div>
+                                  <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Slug: {b.slug}</div>
+                                </td>
+                                <td style={{ padding: '1rem' }}>
+                                  <div>{formatDate(new Date(b.date), 'dd MMM yyyy')}</div>
+                                  <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{b.author} • {b.readingTime}</div>
+                                  <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.2rem' }}>
+                                    {formatFileSize(b.fileSize || 0).formatted}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '1rem' }}>
+                                  <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                                    {b.tags?.slice(0, 3).map((t: string) => (
+                                      <span key={t} style={{ fontSize: '0.6rem', padding: '0.1rem 0.3rem', background: 'var(--outline-color)', borderRadius: '2px' }}>{t}</span>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '1rem' }}>
+                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <Link href={`/blog/${b.slug}`} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', textDecoration: 'none' }}>
+                                      <ExternalLink size={12} /> View
+                                    </Link>
+                                    <button 
+                                      onClick={() => handleDeleteBlog(b.slug)} 
+                                      className="btnOutline" 
+                                      style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                    >
+                                      <X size={12} /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
                       </table>
                    </div>
                 </div>

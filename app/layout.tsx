@@ -11,11 +11,39 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: 'Crack Origins - Indie Game Development Team',
-  description: 'Crack Origins is a small indie game dev team crafting the design and user experience for awesome games.',
+  title: {
+    default: 'Crack Origins | Indie Game Development & Chronicles',
+    template: '%s | Crack Origins'
+  },
+  description: 'Crack Origins is a premier indie game development studio crafting immersive experiences and high-performance chronicles. Join our community and explore the future of gaming.',
+  metadataBase: new URL('https://crackorigins.com'),
+  keywords: ['indie game dev', 'gaming blog', 'pc games', 'game development studio', 'crack origins', 'gaming chronicles'],
+  authors: [{ name: 'Crack Origins Studio' }],
+  creator: 'Crack Origins',
+  themeColor: '#feb60c',
   icons: {
     icon: '/favicon.svg',
+    apple: '/apple-touch-icon.png',
   },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://crackorigins.com',
+    siteName: 'Crack Origins',
+    title: 'Crack Origins | Premium Indie Game Development',
+    description: 'Immersive indie games and high-performance chronicles from the Crack Origins studio.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Crack Origins | Indie Game Development',
+    description: 'Explore the future of indie gaming and chronicles with Crack Origins.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  }
 };
 
 export default function RootLayout({

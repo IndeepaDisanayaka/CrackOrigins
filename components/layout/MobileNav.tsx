@@ -31,6 +31,9 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         <a href="#project" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Gamepad2 size={18} /> Games
         </a>
+        <Link href="/blog" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+          <MessageSquare size={18} /> Blog
+        </Link>
         <a href="#projects" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Briefcase size={18} /> Projects
         </a>
