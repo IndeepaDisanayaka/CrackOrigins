@@ -3,6 +3,7 @@
 import { getAdminDb } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { encrypt, decrypt } from './crypto';
+import { getBlogPosts } from './blog';
 
 /**
  * Server Action: Generate a unique 3-digit Game ID
@@ -669,3 +670,40 @@ export async function getAffiliateProgress(uid: string, listedDateIso: string) {
         return { success: false, error: error.message };
     }
 }
+/**
+ * Server Action: Delete a blog post file (Owner only)
+ */
+export async function deleteBlogPost(adminUid: string, slug: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        const fs = await import('fs');
+        const path = await import('path');
+        const blogPath = path.join(process.cwd(), 'content/blog', `${slug}.md`);
+
+        if (fs.existsSync(blogPath)) {
+            fs.unlinkSync(blogPath);
+            return { success: true };
+        }
+        return { success: false, error: "Post file not found." };
+    } catch (error: any) {
+        console.error("Error deleting blog post:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Fetch all blog posts for management
+ */
+export async function getBlogPostsAction() {
+    try {
+        const posts = await getBlogPosts();
+        return { success: true, posts };
+    } catch (error: any) {
+        console.error("Error fetching blogs in action:", error);
+        return { success: false, error: error.message };
+    }
+}
+

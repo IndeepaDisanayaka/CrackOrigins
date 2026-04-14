@@ -1,142 +1,52 @@
-'use client';
+import React, { Suspense } from 'react';
+import { Metadata } from 'next';
+import HomeContent from '../components/HomeContent';
 
-import React, { useState, Suspense } from 'react';
-import styles from './page.module.css';
-import GamesCarousel from '../components/GamesCarousel';
-import ExtraSections from '../components/ExtraSections';
-import AffiliateSection from '../components/AffiliateSection';
-import { useAuth } from '../lib/contexts/AuthContext';
-import { useModals } from '../lib/contexts/ModalContext';
-import { motion } from 'framer-motion';
-import LiveCursors from '../components/LiveCursors';
-import AuthModal from '../components/AuthModal';
-import AdminPanel from '@/components/AdminPanel';
-import Header from '../components/layout/Header';
-import MobileNav from '../components/layout/MobileNav';
-import Footer from '../components/layout/Footer';
-import Hero from '../components/sections/Hero';
-import StatsBar from '../components/sections/StatsBar';
-import Features from '../components/sections/Features';
-import LiveTransactions from '../components/sections/LiveTransactions';
-import SplashScreen from '../components/layout/SplashScreen';
-import SubHeader from '../components/layout/SubHeader';
-import CouponModal from '../components/admin/CouponModal';
-import AddOfferModal from '../components/admin/AddOfferModal';
-import ListGameModal from '../components/admin/ListGameModal';
-import { useSearchParams } from 'next/navigation';
+export const metadata: Metadata = {
+  title: 'Crack Origins | Premium Indie Game Development & Chronicles',
+  description: 'Welcome to Crack Origins, the ultimate hub for indie game development, chronicles, and community-driven projects. Explore our latest creations and gaming insights.',
+  openGraph: {
+    title: 'Crack Origins | Premium Indie Game Development',
+    description: 'The ultimate hub for indie game dev, chronicles, and community projects.',
+    url: 'https://crackorigins.com',
+    siteName: 'Crack Origins',
+    images: [{ url: '/hero-og-image.png', width: 1200, height: 630 }],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Crack Origins | Indie Game Development',
+    description: 'Explore the future of indie gaming and chronicles with Crack Origins.',
+    images: ['/hero-og-image.png'],
+  },
+  alternates: {
+    canonical: 'https://crackorigins.com',
+  },
+};
 
-function HomeContent() {
-  const { user, isAdmin, login, isAuthLoading, affiliateId, affiliateCount, discount, refreshStatus } = useAuth();
-  const { 
-    isAuthModalOpen, setIsAuthModalOpen, 
-    isAdminModalOpen, setIsAdminModalOpen,
-    isCouponModalOpen, setIsCouponModalOpen,
-    isAddOfferModalOpen, setIsAddOfferModalOpen,
-    isListGameOpen, setIsListGameOpen
-  } = useModals();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const searchParams = useSearchParams();
-
-  const handleLogin = async () => {
-    const refId = searchParams?.get('ref');
-    const res = await login(refId);
-    if (res?.success !== false) {
-      setIsAuthModalOpen(false);
-    }
+export default function Home() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Crack Origins',
+    url: 'https://crackorigins.com',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://crackorigins.com/blog?q={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
   };
 
   return (
     <>
-      <SplashScreen />
-      <LiveCursors />
-      <div className={styles.backgroundAnimation}></div>
-
-      <main className={styles.main}>
-        <Header 
-          isMobileMenuOpen={isMobileMenuOpen} 
-          setIsMobileMenuOpen={setIsMobileMenuOpen} 
-        />
-
-        <MobileNav 
-          isOpen={isMobileMenuOpen} 
-          setIsOpen={setIsMobileMenuOpen} 
-        />
-
-        <AuthModal 
-          isOpen={isAuthModalOpen} 
-          onClose={() => setIsAuthModalOpen(false)} 
-          onLogin={handleLogin} 
-        />
-
-        <CouponModal 
-          isOpen={isCouponModalOpen} 
-          onClose={() => setIsCouponModalOpen(false)} 
-        />
-
-        <AddOfferModal 
-          isOpen={isAddOfferModalOpen} 
-          onClose={() => setIsAddOfferModalOpen(false)} 
-        />
-        
-        <ListGameModal 
-          isOpen={isListGameOpen} 
-          onClose={() => setIsListGameOpen(false)} 
-        />
-
-        {user && isAdmin && (
-          <AdminPanel
-            userUid={user.uid}
-            isOpen={isAdminModalOpen}
-            setIsOpen={setIsAdminModalOpen}
-          />
-        )}
-
-        <SubHeader />
-
-        <Hero />
-
-        <StatsBar />
-
-        <Features />
-        <LiveTransactions />
-        <div className={styles.sectionDivider}></div>
-
-        <motion.div
-          style={{ width: "100%" }}
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-        >
-          <GamesCarousel />
-        </motion.div>
-
-        <AffiliateSection
-          affiliateId={affiliateId}
-          friendsCount={affiliateCount}
-          discount={discount}
-          onRefresh={refreshStatus}
-        />
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <ExtraSections />
-        </motion.div>
-
-        <Footer />
-
-      </main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0a0f', color: '#fff' }}>Loading Crack Origins...</div>}>
+        <HomeContent />
+      </Suspense>
     </>
-  );
-}
-
-export default function Home() {
-  return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0a0f', color: '#fff' }}>Loading Crack Origins...</div>}>
-      <HomeContent />
-    </Suspense>
   );
 }

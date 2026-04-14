@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Shield, Clock, CheckCircle2, CheckSquare, Square, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
-import { collection, onSnapshot, query, where, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot} from "firebase/firestore";
 import { fireStore } from "../../lib/firebase";
 import { getUserKey, getAffiliateProgress } from '@/lib/admin-actions';
 import { useAuth } from '../../lib/contexts/AuthContext';
@@ -17,7 +17,7 @@ import { getGlobalOffers } from '@/lib/live-actions';
 import { revealVariants, staggerContainer, STEAM_SVG, WINDOWS_SVG } from '../../lib/constants';
 import styles from '../ExtraSections.module.css';
 import carouselStyles from '../GamesCarousel.module.css';
-import { Copy, Share2 } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 
 interface SteamCardProps {
     game: any;

@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Gamepad2, Menu, X, User, Shield, Tag, Swords, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { Gamepad2, Menu, X, User, Shield, Tag, Swords, Plus, FileUp } from 'lucide-react';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useModals } from '../../lib/contexts/ModalContext';
 import ThemeToggle from '../ThemeToggle';
@@ -9,17 +9,18 @@ import styles from '../../app/page.module.css';
 
 export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (v: boolean) => void }) {
   const { user, isAdmin, isAuthLoading, logout } = useAuth();
-  const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen } = useModals();
+  const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen, setIsDispatchModalOpen } = useModals();
 
   return (
     <header className={styles.header}>
       <div className={styles.navLinks}>
-        <a href="#about" className={styles.link}>About</a>
-        <a href="#project" className={styles.link}>Games</a>
-        <a href="#Affiliates" className={styles.link}>Affiliates</a>
-        <a href="#Keys" className={styles.link}>Keys</a>
-
-        <a href="#teams" className={styles.link}>Community</a>
+        <Link href="/" className={styles.link}>Home</Link>
+        <Link href="/blog" className={styles.link}>Blog</Link>
+        <Link href="/#about" className={styles.link}>About</Link>
+        <Link href="/#project" className={styles.link}>Games</Link>
+        <Link href="/#Affiliates" className={styles.link}>Affiliates</Link>
+        <Link href="/#Keys" className={styles.link}>Keys</Link>
+        <Link href="/#teams" className={styles.link}>Community</Link>
       </div>
 
       <div className={styles.logo}>
@@ -39,6 +40,14 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             {isAdmin && (
               <>
+                <button
+                  className={`${styles.desktopOnlyAction} btnOutline`}
+                  onClick={() => setIsDispatchModalOpen(true)}
+                  title="List New Dispatch (Blog)"
+                  style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                >
+                  <FileUp size={18} />
+                </button>
                 <button
                   className={`${styles.desktopOnlyAction} btnOutline`}
                   onClick={() => setIsListGameOpen(true)}
