@@ -8,7 +8,6 @@ import styles from '../../app/page.module.css';
 export default function Features() {
   return (
     <motion.div
-      id="features"
       className={styles.featuresWrapper}
       initial={{ opacity: 0 }}
       whileInView={{ opacity: 1 }}

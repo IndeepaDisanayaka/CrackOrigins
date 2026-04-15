@@ -180,7 +180,7 @@ export default function GamesCarousel() {
   if (games.length === 0) return null;
 
   return (
-    <div className={`${styles.carouselContainer} ${modalState !== 'closed' ? styles.modalOpenContext : ''}`} id="project">
+    <div className={`${styles.carouselContainer} ${modalState !== 'closed' ? styles.modalOpenContext : ''}`} id="games">
       <div className={styles.headerRow}>
         <span className="sectionLabel">Our Creations</span>
         <h2 className={styles.mainTitle}>Featured Game Studio Works</h2>

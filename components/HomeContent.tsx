@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from '../app/page.module.css';
 import GamesCarousel from './GamesCarousel';
 import ExtraSections from './ExtraSections';
@@ -40,6 +40,18 @@ export default function HomeContent() {
   } = useModals();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash) {
+      setTimeout(() => {
+        const element = document.querySelector(hash);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 800); // Wait for splash screen / loading
+    }
+  }, []);
 
   const handleLogin = async () => {
     const refId = searchParams?.get('ref');

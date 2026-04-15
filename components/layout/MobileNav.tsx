@@ -28,17 +28,20 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         <Link href="/#about" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Users size={18} /> About
         </Link>
-        <Link href="/#project" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        <Link href="/#games" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Gamepad2 size={18} /> Games
         </Link>
         <Link href="/blog" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Blog
         </Link>
+        <Link href="/#projects" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+          <Briefcase size={18} /> Projects
+        </Link>
         <Link href="/#affiliates" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Briefcase size={18} /> Affiliates
         </Link>
-        <Link href="/#deals" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
-          <Briefcase size={18} /> Deals
+        <Link href="/#keys" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+          <Briefcase size={18} /> Keys
         </Link>
         {isAdmin && (
           <>
@@ -68,7 +71,7 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
               {user.photoURL ? (
                 <img src={user.photoURL} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
               ) : (
-                <User size={20} />
+                <User size={32} />
               )}
               <span>{user.displayName}</span>
             </div>

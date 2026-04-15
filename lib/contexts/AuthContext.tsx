@@ -56,14 +56,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchCountry();
     const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
+      if (u && !u.isAnonymous) {
+        setUser(u);
         const res = await checkAdminStatus(u.uid);
         setIsAdmin(res.isOwner);
         setAffiliateId(res.affiliateId);
         setDiscount(res.discount || 0);
         setAffiliateCount(res.affiliateCount || 0);
       } else {
+        setUser(null);
         setIsAdmin(false);
         setAffiliateId(null);
         setDiscount(0);

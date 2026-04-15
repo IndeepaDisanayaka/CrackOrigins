@@ -435,7 +435,7 @@ export default function SteamMarketplace() {
   return (
     <motion.section
       className={styles.section}
-      id="deals"
+      id="keys"
       initial="hidden"
       animate="visible"
       variants={revealVariants}
