@@ -788,12 +788,14 @@ export default function AdminPanel({
                    {activeTab === 'blogs' && (
                      <div style={{ background: 'rgba(var(--primary-rgb), 0.05)', border: '1px solid var(--primary)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                        <div>
-                         <div style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.1em' }}>Total Archive Size</div>
-                         <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--primary)' }}>{totalFormatted.formatted}</div>
+                         <div style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.1em' }}>Total Active Dispatches</div>
+                         <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--primary)' }}>{blogData.length} POSTS</div>
                        </div>
                        <div style={{ textAlign: 'right' }}>
-                         <div style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.1em' }}>Raw Bitstream</div>
-                         <div style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.9 }}>{totalFormatted.bits}</div>
+                         <div style={{ fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.1em' }}>Total Engagements</div>
+                         <div style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.9 }}>
+                           {(blogData.reduce((acc, b) => acc + (b.views || 0), 0)).toLocaleString()} VIEWS / {(blogData.reduce((acc, b) => acc + (b.likes || 0), 0)).toLocaleString()} LIKES
+                         </div>
                        </div>
                      </div>
                    )}
@@ -866,17 +868,17 @@ export default function AdminPanel({
                       />
                    </div>
 
-                   <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                         <thead>
-                            <tr style={{ borderBottom: '1px solid var(--outline-color)', opacity: 0.75 }}>
-                               <th style={{ padding: '1rem' }}>Record</th>
-                               <th style={{ padding: '1rem' }}>Details</th>
-                               <th style={{ padding: '1rem' }}>Status</th>
-                               <th style={{ padding: '1rem' }}>Actions</th>
-                            </tr>
-                         </thead>
-                         <tbody>
+                   <div style={{ border: '1px solid var(--outline-color)', background: 'rgba(0,0,0,0.2)', overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <thead>
+                             <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'rgba(255,255,255,0.02)' }}>
+                                <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Record</th>
+                                <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Details</th>
+                                <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Status/Tags</th>
+                                <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Actions</th>
+                             </tr>
+                          </thead>
+                          <tbody>
                             {/* User Rendering */}
                             {activeTab === 'users' && filteredUsers.map((u: any) => (
                               <React.Fragment key={u.uid}>
@@ -884,7 +886,6 @@ export default function AdminPanel({
                                   <td style={{ padding: '1rem' }}>
                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                         {u.photoURL ? (
-                                          // Avoid next/image remote host config runtime failures for Google avatars
                                           <img
                                             src={u.photoURL}
                                             alt="avatar"
@@ -1041,12 +1042,18 @@ export default function AdminPanel({
                                 </td>
                                 <td style={{ padding: '1rem' }}>
                                   <div>{formatDate(new Date(b.date), 'dd MMM yyyy')}</div>
-                                  <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{b.author} • {b.readingTime}</div>
-                                  <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.2rem' }}>
-                                    {formatFileSize(b.fileSize || 0).formatted}
-                                  </div>
+                                  <div style={{ fontSize: '0.7rem', opacity: 0.8, color: 'var(--primary)', fontWeight: 700 }}>{b.authorName}</div>
+                                  <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>{b.readingTime}</div>
                                 </td>
                                 <td style={{ padding: '1rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', fontWeight: 700 }}>
+                                      <TrendingUp size={10} /> {b.views || 0}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', fontWeight: 700 }}>
+                                      <CheckCircle2 size={10} /> {b.likes || 0}
+                                    </div>
+                                  </div>
                                   <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                                     {b.tags?.slice(0, 3).map((t: string) => (
                                       <span key={t} style={{ fontSize: '0.6rem', padding: '0.1rem 0.3rem', background: 'var(--outline-color)', borderRadius: '2px' }}>{t}</span>

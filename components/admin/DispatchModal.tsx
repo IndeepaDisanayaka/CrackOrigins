@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Send, FileText, CheckCircle2, XCircle, FileUp, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '../Toast';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import Modal from '../Modal';
 import styles from '../../app/page.module.css';
 
@@ -25,6 +26,7 @@ export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const isFullyValid = formData.title && formData.image && formData.author && formData.description && formData.content.length > 50;
 
@@ -77,6 +79,10 @@ export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      showToast('Authentication required.', 'error');
+      return;
+    }
     setIsSubmitting(true);
     
     try {
@@ -85,6 +91,7 @@ export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          userId: user.uid,
           tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
           date: new Date().toISOString()
         })

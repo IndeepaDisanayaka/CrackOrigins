@@ -25,43 +25,43 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         </button>
       </div>
       <div className={styles.mobileNavLinks}>
-        <a href="#about" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        <Link href="/#about" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Users size={18} /> About
-        </a>
-        <a href="#project" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        </Link>
+        <Link href="/#project" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Gamepad2 size={18} /> Games
-        </a>
+        </Link>
         <Link href="/blog" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Blog
         </Link>
-        <a href="#projects" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        <Link href="/#projects" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Briefcase size={18} /> Projects
-        </a>
-        <a href="#Affiliates" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        </Link>
+        <Link href="/#Affiliates" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Briefcase size={18} /> Affiliates
-        </a>
-        <a href="#Keys" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        </Link>
+        <Link href="/#Keys" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Briefcase size={18} /> Keys
-        </a>
+        </Link>
         {isAdmin && (
           <>
-            <a href="#list-game" onClick={() => { setIsOpen(false); setIsListGameOpen(true); }} className={styles.mobileLink}>
+            <button onClick={() => { setIsOpen(false); setIsListGameOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <Plus size={18} /> List a Game
-            </a>
-            <a href="#coupons" onClick={() => { setIsOpen(false); setIsCouponModalOpen(true); }} className={styles.mobileLink}>
+            </button>
+            <button onClick={() => { setIsOpen(false); setIsCouponModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <Tag size={18} /> Discount
-            </a>
-            <a href="#offers" onClick={() => { setIsOpen(false); setIsAddOfferModalOpen(true); }} className={styles.mobileLink}>
+            </button>
+            <button onClick={() => { setIsOpen(false); setIsAddOfferModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <Swords size={18} /> Offers
-            </a>
-            <a href="#admin" onClick={() => { setIsOpen(false); setIsAdminModalOpen(true); }} className={styles.mobileLink}>
+            </button>
+            <button onClick={() => { setIsOpen(false); setIsAdminModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <Shield size={18} /> Admin Panel
-            </a>
+            </button>
           </>
         )}
-        <a href="#teams" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        <Link href="/#teams" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Community
-        </a>
+        </Link>
       </div>
 
       <div className={styles.mobileNavFooter}>

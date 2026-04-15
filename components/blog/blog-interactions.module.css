@@ -1,0 +1,68 @@
+.interactionBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--outline-color);
+    border-bottom: 1px solid var(--outline-color);
+    margin: 2rem 0;
+}
+
+.statGroup, .actionGroup {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.statItem {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--foreground);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0.8;
+}
+
+.statItem:hover {
+    opacity: 1;
+    color: var(--primary);
+}
+
+.liked {
+    color: var(--primary);
+    opacity: 1;
+}
+
+.actionBtn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--outline-color);
+    padding: 0.6rem;
+    border-radius: 8px;
+    color: var(--foreground);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.actionBtn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #000;
+}
+
+@media (max-width: 768px) {
+    .interactionBar {
+        flex-direction: column;
+        gap: 1.5rem;
+        align-items: flex-start;
+    }
+}
