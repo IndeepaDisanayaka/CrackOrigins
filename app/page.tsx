@@ -2,28 +2,45 @@ import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import HomeContent from '../components/HomeContent';
 
-export const metadata: Metadata = {
-  title: 'Crack Origins | Premium Indie Game Development & Chronicles',
-  description: 'Welcome to Crack Origins, the ultimate hub for indie game development, chronicles, and community-driven projects. Explore our latest creations and gaming insights.',
-  openGraph: {
-    title: 'Crack Origins | Premium Indie Game Development',
-    description: 'The ultimate hub for indie game dev, chronicles, and community projects.',
-    url: 'https://crackorigins.com',
-    siteName: 'Crack Origins',
-    images: [{ url: '/hero-og-image.png', width: 1200, height: 630 }],
-    locale: 'en_US',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Crack Origins | Indie Game Development',
-    description: 'Explore the future of indie gaming and chronicles with Crack Origins.',
-    images: ['/hero-og-image.png'],
-  },
-  alternates: {
-    canonical: 'https://crackorigins.com',
-  },
-};
+interface Props {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await searchParams;
+  const referralId = params.ref as string;
+
+  const title = referralId 
+    ? `Join the Tribe | Crack Origins Affiliate Program` 
+    : 'Crack Origins | Premium Indie Game Development & Chronicles';
+    
+  const description = referralId 
+    ? `Your comrade invited you to join the quest. Track your progress, unlock rewards, and explore high-performance chronicles.`
+    : 'Welcome to Crack Origins, the ultimate hub for indie game development, chronicles, and community-driven projects.';
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: 'https://crackorigins.com' + (referralId ? `?ref=${referralId}` : ''),
+      siteName: 'Crack Origins',
+      images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+      locale: 'en_US',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['/og-image.png'],
+    },
+    alternates: {
+      canonical: 'https://crackorigins.com',
+    },
+  };
+}
 
 export default function Home() {
   const jsonLd = {

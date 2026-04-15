@@ -11,8 +11,17 @@ import styles from '../page.module.css';
 import blogStyles from './blog.module.css';
 
 export const metadata: Metadata = {
-  title: 'Blog | Crack Origins - Gaming News & Developer Insights',
+  title: 'Dispatch Archive | Crack Origins Chronicles',
   description: 'Stay updated with the latest gaming news, development updates, and technical insights from the Crack Origins team.',
+  openGraph: {
+    title: 'Dispatch Archive | Crack Origins Chronicles',
+    description: 'Archived transmissions and development chronicles from the Crack Origins studio.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og-image.png'],
+  }
 };
 
 export default async function BlogPage() {
