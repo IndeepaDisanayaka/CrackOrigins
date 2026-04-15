@@ -8,6 +8,7 @@ import styles from '../../app/page.module.css';
 export default function StatsBar() {
   return (
     <motion.div
+      id="stats"
       className={styles.statsBar}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}

@@ -21,12 +21,18 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return {
     title,
     description,
+    keywords: [
+      'Crack Origins', 'Indie Games', 'Game Development', 'Steam Deals', 
+      'Free Game Keys', 'Gaming Community', 'Premium Gaming Chronicles',
+      'Affiliate Program', 'Unity Developers', 'Unreal Engine Developers'
+    ],
+    authors: [{ name: 'Crack Origins Team' }],
     openGraph: {
       title,
       description,
       url: 'https://crackorigins.com' + (referralId ? `?ref=${referralId}` : ''),
       siteName: 'Crack Origins',
-      images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Crack Origins - A New Page in History' }],
       locale: 'en_US',
       type: 'website',
     },
@@ -35,9 +41,21 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       title,
       description,
       images: ['/og-image.png'],
+      creator: '@crackorigins',
     },
     alternates: {
-      canonical: 'https://crackorigins.com',
+      canonical: 'https://crackorigins.com' + (referralId ? `?ref=${referralId}` : ''),
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
   };
 }

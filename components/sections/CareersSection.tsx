@@ -10,7 +10,7 @@ export default function CareersSection() {
   return (
     <motion.section
       className={styles.section}
-      id="join"
+      id="careers"
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "-100px" }}
