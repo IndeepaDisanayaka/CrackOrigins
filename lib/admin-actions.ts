@@ -699,6 +699,14 @@ export async function deleteBlogPost(adminUid: string, slug: string) {
         
         await batch.commit();
         
+        try {
+            const { revalidatePath } = await import('next/cache');
+            revalidatePath('/blog');
+            revalidatePath(`/blog/${slug}`);
+        } catch (e) {
+            console.error('Revalidation failed:', e);
+        }
+        
         return { success: true };
     } catch (error: any) {
         console.error("Error deleting blog post from Firestore:", error);
