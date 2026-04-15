@@ -65,7 +65,11 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         {user ? (
           <>
             <div className={styles.mobileUser}>
-              <img src={user.photoURL || ""} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+              ) : (
+                <User size={20} />
+              )}
               <span>{user.displayName}</span>
             </div>
             <button 
