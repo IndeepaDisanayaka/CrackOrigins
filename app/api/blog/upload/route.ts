@@ -51,12 +51,20 @@ export async function POST(req: NextRequest) {
 
     await blogRef.set(mainDocData);
 
-    // Content storage in sub-collection
     await blogRef.collection('contents').doc(userId).set({
       body: content,
       isApproved: true,
       editedTime: Timestamp.now(),
     });
+
+    // Revalidate the blog list page and the individual blog page
+    try {
+      const { revalidatePath } = await import('next/cache');
+      revalidatePath('/blog');
+      revalidatePath(`/blog/${slug}`);
+    } catch (e) {
+      console.error('Revalidation failed:', e);
+    }
 
     return NextResponse.json({ 
       success: true, 
