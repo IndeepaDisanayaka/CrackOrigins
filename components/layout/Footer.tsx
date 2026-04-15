@@ -17,8 +17,9 @@ export default function Footer() {
       <div className={styles.footerLinks}>
         <a href="#about">About</a>
         <a href="#project">Games</a>
-        <a href="#projects">Projects</a>
-        <a href="#teams">Community</a>
+        <a href="#affiliates">Affiliates</a>
+        <a href="#deals">Deals</a>
+        <a href="#community">Community</a>
         <a href="#contact">Contact</a>
         <Link href="/terms">Terms & Privacy</Link>
       </div>

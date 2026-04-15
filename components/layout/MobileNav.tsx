@@ -34,14 +34,11 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         <Link href="/blog" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Blog
         </Link>
-        <Link href="/#projects" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
-          <Briefcase size={18} /> Projects
-        </Link>
-        <Link href="/#Affiliates" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        <Link href="/#affiliates" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Briefcase size={18} /> Affiliates
         </Link>
-        <Link href="/#Keys" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
-          <Briefcase size={18} /> Keys
+        <Link href="/#deals" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+          <Briefcase size={18} /> Deals
         </Link>
         {isAdmin && (
           <>
@@ -59,7 +56,7 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
             </button>
           </>
         )}
-        <Link href="/#teams" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+        <Link href="/#community" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Community
         </Link>
       </div>

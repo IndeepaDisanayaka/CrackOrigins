@@ -117,7 +117,7 @@ export default function ListGameModal({ isOpen, onClose }: ListGameModalProps) {
               </p>
             </div>
 
-            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
+            <div style={{ padding: '1rem', background: 'transparent', borderRadius: '8px', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <CheckCircle size={14} color="#4ade80" />
                 <span style={{ fontSize: '0.8rem' }}>Google Authentication Verified</span>

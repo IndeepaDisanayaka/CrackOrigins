@@ -81,6 +81,9 @@ export default function AdminPanel({
   const [roleConfirm, setRoleConfirm] = useState<{ open: boolean; targetUid: string; nextOwner: boolean; name: string }>({
     open: false, targetUid: "", nextOwner: false, name: ""
   });
+  const [blogDeleteConfirm, setBlogDeleteConfirm] = useState<{ open: boolean; slug: string; title: string }>({
+    open: false, slug: "", title: ""
+  });
   const [keyModal, setKeyModal] = useState<{ open: boolean; targetUid: string; paymentId: string; key: string }>({
     open: false, targetUid: "", paymentId: "", key: ""
   });
@@ -235,12 +238,13 @@ export default function AdminPanel({
     } else showToast(res.error || "Error", "error");
   };
 
-  const handleDeleteBlog = async (slug: string) => {
-    if (!confirm(`Are you sure you want to delete "${slug}"? This action cannot be undone.`)) return;
+  const handleDeleteBlog = async () => {
+    if (!blogDeleteConfirm.slug) return;
     
-    const res = await deleteBlogPost(userUid, slug);
+    const res = await deleteBlogPost(userUid, blogDeleteConfirm.slug);
     if (res.success) {
       showToast("Blog post deleted successfully.", "success");
+      setBlogDeleteConfirm({ open: false, slug: "", title: "" });
       fetchData();
     } else {
       showToast(res.error || "Failed to delete blog.", "error");
@@ -364,7 +368,7 @@ export default function AdminPanel({
                       value={`$${data?.payments?.reduce((acc: number, p: any) => acc + (parseFloat(p.amount) || 0), 0).toFixed(2)}`} 
                       label="Total Revenue (EST)" 
                     />
-                    <div style={{ background: 'rgba(var(--primary-rgb), 0.02)', border: '1px solid rgba(var(--primary-rgb), 0.2)', padding: '1.5rem', borderRadius: '16px' }}>
+                    <div style={{ background: 'transparent', border: '1px solid var(--outline-color)', padding: '1.5rem', borderRadius: '16px' }}>
                       <DollarSign size={24} style={{ marginBottom: '1rem', color: 'var(--primary)' }} />
                       <div style={{ fontSize: '1.3rem', fontWeight: 900 }}>
                         {showPaypalBalance ? (paypalBalance || (isPaypalLoading ? 'Loading...' : 'N/A')) : '••••••'}
@@ -696,12 +700,13 @@ export default function AdminPanel({
                                 {pairedBlocks.map(({ a, b }) => (
                                   <div key={`pair-${a[0]}-${b[0]}`} style={{ 
                                     border: '1px solid var(--primary)',
-                                    background: 'rgba(254, 182, 12, 0.04)',
+                                    background: 'transparent',
                                     overflow: 'hidden'
                                   }}>
                                     <div style={{ 
                                       padding: '0.3rem 0.7rem', 
-                                      background: 'rgba(254, 182, 12, 0.1)', 
+                                      background: 'transparent', 
+                                      borderBottom: '1px solid var(--primary)',
                                       fontSize: '0.6rem', fontWeight: 800, 
                                       textTransform: 'uppercase', letterSpacing: '0.06em',
                                       color: 'var(--primary)',
@@ -738,7 +743,7 @@ export default function AdminPanel({
                               <div style={{ 
                                 padding: '0.7rem 0.85rem', borderBottom: '1px solid var(--outline-color)', 
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                background: 'rgba(254, 182, 12, 0.05)'
+                                background: 'transparent'
                               }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   <MessageSquare size={14} style={{ color: 'var(--primary)' }} />
@@ -868,10 +873,10 @@ export default function AdminPanel({
                       />
                    </div>
 
-                   <div style={{ border: '1px solid var(--outline-color)', background: 'rgba(0,0,0,0.2)', overflowX: 'auto' }}>
+                   <div style={{ border: '1px solid var(--outline-color)', background: 'transparent', overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                           <thead>
-                             <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'rgba(255,255,255,0.02)' }}>
+                             <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'transparent' }}>
                                 <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Record</th>
                                 <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Details</th>
                                 <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Status/Tags</th>
@@ -1056,7 +1061,7 @@ export default function AdminPanel({
                                   </div>
                                   <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
                                     {b.tags?.slice(0, 3).map((t: string) => (
-                                      <span key={t} style={{ fontSize: '0.6rem', padding: '0.1rem 0.3rem', background: 'var(--outline-color)', borderRadius: '2px' }}>{t}</span>
+                                      <span key={t} style={{ fontSize: '0.6rem', padding: '0.1rem 0.3rem', border: '1px solid var(--outline-color)', borderRadius: '2px' }}>{t}</span>
                                     ))}
                                   </div>
                                 </td>
@@ -1066,7 +1071,7 @@ export default function AdminPanel({
                                       <ExternalLink size={12} /> View
                                     </Link>
                                     <button 
-                                      onClick={() => handleDeleteBlog(b.slug)} 
+                                      onClick={() => setBlogDeleteConfirm({ open: true, slug: b.slug, title: b.title })} 
                                       className="btnOutline" 
                                       style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
                                     >
@@ -1110,6 +1115,17 @@ export default function AdminPanel({
         <div style={{ display: 'flex', gap: '0.6rem' }}>
           <button className="btnOutline" style={{ flex: 1 }} onClick={() => setKeyModal({ open: false, targetUid: "", paymentId: "", key: "" })}>Cancel</button>
           <button className="btnSolid" style={{ flex: 1 }} onClick={handleUpdateKey}><Key size={14} /> Save Key</button>
+        </div>
+      </div>
+    </Modal>
+    <Modal isOpen={blogDeleteConfirm.open} onClose={() => setBlogDeleteConfirm({ open: false, slug: "", title: "" })} title="Delete Dispatch">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
+          Are you sure you want to delete <strong>{blogDeleteConfirm.title}</strong>? This action is permanent and cannot be undone.
+        </p>
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setBlogDeleteConfirm({ open: false, slug: "", title: "" })}>Cancel</button>
+          <button className="btnSolid" style={{ flex: 1, backgroundColor: '#ff4d4d', borderColor: '#ff4d4d' }} onClick={handleDeleteBlog}>Confirm Delete</button>
         </div>
       </div>
     </Modal>

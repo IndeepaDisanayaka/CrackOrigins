@@ -11,7 +11,7 @@ export default function CommunitySection() {
     <div className={styles.bottomWrapper}>
       <motion.section
         className={styles.section}
-        id="teams"
+        id="community"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}

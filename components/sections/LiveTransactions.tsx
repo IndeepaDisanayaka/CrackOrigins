@@ -51,7 +51,7 @@ export default function LiveTransactions() {
   if (!isLoaded && transactions.length === 0) return null;
 
   return (
-    <section className={styles.wrapper}>
+    <section id="activity" className={styles.wrapper}>
       <div className={styles.header}>
         <div className={styles.badge}>
           <Activity size={12} className={styles.pulse} /> Live Terminal

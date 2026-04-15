@@ -90,7 +90,7 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
                 alignItems: 'center', 
                 gap: '0.75rem', 
                 padding: '1rem', 
-                background: offerForm.isGiveaway ? 'rgba(var(--primary-rgb), 0.1)' : 'rgba(255,255,255,0.02)',
+                background: 'transparent',
                 border: `1px solid ${offerForm.isGiveaway ? 'var(--primary)' : 'var(--outline-color)'}`,
                 borderRadius: '8px',
                 cursor: 'pointer',

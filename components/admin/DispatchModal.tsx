@@ -173,7 +173,7 @@ export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
           </div>
 
           {isFileLoaded && (
-             <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--outline-color)' }}>
+             <div style={{ padding: '1.25rem', background: 'transparent', borderRadius: '12px', border: '1px solid var(--outline-color)' }}>
                 <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <Sparkles size={14} color="var(--primary)" /> Quality Control Check
                 </h4>
@@ -196,7 +196,7 @@ export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
                    readOnly
                    rows={6}
                    className={styles.adminInput}
-                   style={{ fontFamily: 'monospace', fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)' }}
+                   style={{ fontFamily: 'monospace', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--outline-color)' }}
                    value={formData.content}
                 />
              </div>
