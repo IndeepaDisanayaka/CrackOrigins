@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
+import readingTime from 'reading-time';
 
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const { title, description, content, image, author, tags, date } = data;
+    const { title, description, content, image, author, tags, date, userId } = data;
 
-    if (!title || !content) {
-      return NextResponse.json({ error: 'Title and Content are required' }, { status: 400 });
+    if (!title || !content || !userId) {
+      return NextResponse.json({ error: 'Title, Content, and User ID are required' }, { status: 400 });
     }
 
     // Create a slug from the title
@@ -18,31 +19,50 @@ export async function POST(req: NextRequest) {
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    const blogDir = path.join(process.cwd(), 'content', 'blog');
+    const db = await getAdminDb();
     
-    // Ensure directory exists
-    if (!fs.existsSync(blogDir)) {
-      fs.mkdirSync(blogDir, { recursive: true });
-    }
+    // Create a new document reference with an auto-generated ID
+    const blogRef = db.collection('blogs').doc();
+    const blogId = blogRef.id;
 
-    // Prepare frontmatter
-    const frontmatter = `---
-title: "${title}"
-date: "${date}"
-description: "${description}"
-image: "${image}"
-author: "${author}"
-tags: ${JSON.stringify(tags)}
----
+    // Status and Metatags
+    const metatags = {
+      title,
+      description,
+      image,
+      date: date || new Date().toISOString(),
+      tags: tags || [],
+      readingTime: readingTime(content).text,
+    };
 
-${content}`;
+    const isApproved = true; // Auto-approving all uploads for now as per simplicity? 
+    // Actually the user said "author nam update karanne auto approve wenawa".
+    // Since we don't have a lookup for "is the current user the author" for a BRAND NEW doc (they are by definition), we set it.
 
-    const filePath = path.join(blogDir, `${slug}.md`);
+    // Main document update
+    const mainDocData: any = {
+      slug,
+      authorId: userId,
+      metatags,
+      status: { views: 0, likes: 0 },
+      createdAt: Timestamp.now(),
+      lastUpdated: Timestamp.now(),
+    };
 
-    // Check if exists already to avoid overwriting unless intended (simple version: always write)
-    fs.writeFileSync(filePath, frontmatter, 'utf8');
+    await blogRef.set(mainDocData);
 
-    return NextResponse.json({ success: true, slug });
+    // Content storage in sub-collection
+    await blogRef.collection('contents').doc(userId).set({
+      body: content,
+      isApproved: true,
+      editedTime: Timestamp.now(),
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      slug,
+      blogId
+    });
   } catch (error) {
     console.error('Error uploading blog post:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

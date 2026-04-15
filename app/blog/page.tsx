@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { formatDate } from 'date-fns';
-import { ChevronRight, MessageCircle, SendHorizontal, MessageSquare, Share2 } from 'lucide-react';
+import { ChevronRight, MessageCircle, SendHorizontal, MessageSquare, Share2, Eye, Heart } from 'lucide-react';
 import HeaderWrapper from '@/components/blog/HeaderWrapper';
 import Footer from '@/components/layout/Footer';
 import SubHeader from '@/components/layout/SubHeader';
@@ -87,6 +87,15 @@ export default async function BlogPage() {
                         <p className={blogStyles.description}>
                           {post.description}
                         </p>
+
+                        <div className={blogStyles.statsRow}>
+                            <div className={blogStyles.stat}>
+                                <Eye size={12} /> {post.views}
+                            </div>
+                            <div className={blogStyles.stat}>
+                                <Heart size={12} /> {post.likes}
+                            </div>
+                        </div>
                       </div>
                     </Link>
 

@@ -679,17 +679,29 @@ export async function deleteBlogPost(adminUid: string, slug: string) {
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
         if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
 
-        const fs = await import('fs');
-        const path = await import('path');
-        const blogPath = path.join(process.cwd(), 'content/blog', `${slug}.md`);
-
-        if (fs.existsSync(blogPath)) {
-            fs.unlinkSync(blogPath);
-            return { success: true };
-        }
-        return { success: false, error: "Post file not found." };
+        // Find document by slug field since doc ID is now auto-generated
+        const blogQuery = await adminDb.collection('blogs').where('slug', '==', slug).limit(1).get();
+        
+        if (blogQuery.empty) return { success: false, error: "Post not found." };
+        
+        const blogDoc = blogQuery.docs[0];
+        const blogRef = blogDoc.ref;
+        
+        // Delete all contents in the sub-collection first
+        const contentsSnapshot = await blogRef.collection('contents').get();
+        const batch = adminDb.batch();
+        contentsSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        
+        // Delete the main blog document
+        batch.delete(blogRef);
+        
+        await batch.commit();
+        
+        return { success: true };
     } catch (error: any) {
-        console.error("Error deleting blog post:", error);
+        console.error("Error deleting blog post from Firestore:", error);
         return { success: false, error: error.message };
     }
 }

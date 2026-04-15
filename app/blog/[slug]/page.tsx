@@ -7,6 +7,7 @@ import HeaderWrapper from '@/components/blog/HeaderWrapper';
 import Footer from '@/components/layout/Footer';
 import SubHeader from '@/components/layout/SubHeader';
 import { getBlogPostBySlug, getBlogPosts } from '@/lib/blog';
+import BlogInteractions from '@/components/blog/BlogInteractions';
 import { Metadata } from 'next';
 import styles from '../../page.module.css';
 import blogPostStyles from './blog-post.module.css';
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: post.description,
       type: 'article',
       publishedTime: post.date,
-      authors: [post.author || 'Crack Origins'],
+      authors: [post.authorId || 'Crack Origins'],
       images: post.image ? [{ url: post.image }] : [],
     },
     twitter: {
@@ -65,7 +66,7 @@ export default async function BlogPostPage({ params }: Props) {
     datePublished: post.date,
     author: {
       '@type': 'Organization',
-      name: post.author || 'Crack Origins',
+      name: post.authorId || 'Crack Origins',
     },
   };
 
@@ -119,10 +120,24 @@ export default async function BlogPostPage({ params }: Props) {
 
           {/* Content Wrapper */}
           <div className={blogPostStyles.mainContent}>
+            <BlogInteractions 
+              blogId={post.blogId}
+              slug={slug} 
+              initialViews={post.views} 
+              initialLikes={post.likes} 
+            />
+
             {/* Markdown Content */}
             <div 
               className="blog-content"
               dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+
+            <BlogInteractions 
+              blogId={post.blogId}
+              slug={slug} 
+              initialViews={post.views} 
+              initialLikes={post.likes} 
             />
 
             {/* Simple Footer Dispatch */}
