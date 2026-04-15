@@ -12,27 +12,22 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
   const title = referralId 
     ? `Join the Tribe | Crack Origins Affiliate Program` 
-    : 'Crack Origins | Premium Indie Game Development & Chronicles';
+    : 'Crack Origins | Premium Indie Game Development & Gaming Chronicles';
     
   const description = referralId 
-    ? `Your comrade invited you to join the quest. Track your progress, unlock rewards, and explore high-performance chronicles.`
-    : 'Welcome to Crack Origins, the ultimate hub for indie game development, chronicles, and community-driven projects.';
+    ? `Your comrade invited you to join the quest. Track your progress, unlock rewards, and explore high-performance chronicles on Crack Origins.`
+    : 'Welcome to Crack Origins, the ultimate hub for indie game development, in-depth chronicles, limited Steam keys, and community-driven gaming projects.';
 
   return {
     title,
     description,
-    keywords: [
-      'Crack Origins', 'Indie Games', 'Game Development', 'Steam Deals', 
-      'Free Game Keys', 'Gaming Community', 'Premium Gaming Chronicles',
-      'Affiliate Program', 'Unity Developers', 'Unreal Engine Developers'
-    ],
-    authors: [{ name: 'Crack Origins Team' }],
+    keywords: ['Indie Games', 'Steam Keys', 'Game Development', 'Crack Origins', 'Gaming Community', 'Free Steam Games', 'PC Gaming'],
     openGraph: {
       title,
       description,
       url: 'https://crackorigins.com' + (referralId ? `?ref=${referralId}` : ''),
       siteName: 'Crack Origins',
-      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Crack Origins - A New Page in History' }],
+      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Crack Origins Cover' }],
       locale: 'en_US',
       type: 'website',
     },
@@ -44,7 +39,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       creator: '@crackorigins',
     },
     alternates: {
-      canonical: 'https://crackorigins.com' + (referralId ? `?ref=${referralId}` : ''),
+      canonical: 'https://crackorigins.com',
     },
     robots: {
       index: true,

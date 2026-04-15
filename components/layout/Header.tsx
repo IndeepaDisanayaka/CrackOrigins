@@ -25,9 +25,9 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
         <Link href="/" className={styles.link}>Home</Link>
         <Link href="/blog" className={styles.link}>Blog</Link>
         <Link href="/#about" className={styles.link}>About</Link>
-        <Link href="/#project" className={styles.link}>Games</Link>
+        <Link href="/#games" className={styles.link}>Games</Link>
         <Link href="/#affiliates" className={styles.link}>Affiliates</Link>
-        <Link href="/#deals" className={styles.link}>Deals</Link>
+        <Link href="/#keys" className={styles.link}>Keys</Link>
         <Link href="/#community" className={styles.link}>Community</Link>
       </div>
 

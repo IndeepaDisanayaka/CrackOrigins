@@ -41,7 +41,9 @@ export default function LiveTransactions() {
       }
       setIsLoaded(true);
     }, (error) => {
-      console.error("RTDB Error:", error);
+      if (!error.message.includes('permission_denied')) {
+        console.error("RTDB Error:", error);
+      }
       setIsLoaded(true);
     });
 
@@ -51,7 +53,7 @@ export default function LiveTransactions() {
   if (!isLoaded && transactions.length === 0) return null;
 
   return (
-    <section id="activity" className={styles.wrapper}>
+    <section className={styles.wrapper}>
       <div className={styles.header}>
         <div className={styles.badge}>
           <Activity size={12} className={styles.pulse} /> Live Terminal
@@ -94,7 +96,7 @@ export default function LiveTransactions() {
                           }}
                         />
                       ) : (
-                        (tx.userPhoto && tx.userPhoto !== "") ? (
+                        tx.userPhoto ? (
                           <img src={tx.userPhoto} alt="profile" className={styles.profileLogo} />
                         ) : (
                           <ShoppingBag size={20} />

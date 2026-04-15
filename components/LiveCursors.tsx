@@ -84,11 +84,6 @@ export default function LiveCursors() {
     const prefix = GUEST_PREFIXES[Math.floor(Math.random() * GUEST_PREFIXES.length)];
     const suffix = Math.floor(100 + Math.random() * 899);
     setUserName(`${prefix}#${suffix}`);
-
-    // Trigger anonymous authentication so RTDB rules (if any) are satisfied without a real account
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch(() => console.warn("Cursor sync restricted to standard mode."));
-    }
   }, []);
 
   useEffect(() => {
@@ -96,11 +91,30 @@ export default function LiveCursors() {
   }, [userName]);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => {
-      if (u?.displayName) setUserName(u.displayName.split(' ')[0]);
-      setUserUid(u?.uid || null);
+    let isMounted = true;
+
+    // Wait until Firebase absolutely finishes loading the initial session from IndexedDB
+    auth.authStateReady().then(() => {
+      if (!isMounted) return;
+      if (!auth.currentUser) {
+        // Only if absolutely no user is logged in, trigger anonymous log in
+        signInAnonymously(auth).catch(() => console.warn("Cursor sync restricted to standard mode."));
+      }
     });
-    return () => unsub();
+
+    const unsub = auth.onAuthStateChanged((u) => {
+      if (u) {
+        if (u.displayName) setUserName(u.displayName.split(' ')[0]);
+        setUserUid(u.uid);
+      } else {
+        setUserUid(null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
