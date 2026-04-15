@@ -5,6 +5,7 @@ import styles from './LiveCursors.module.css';
 import { MousePointer2, Eye, EyeOff } from 'lucide-react';
 import { auth, rtdb } from '../lib/firebase';
 import { ref, onValue, set, onDisconnect, push, remove, update, runTransaction } from 'firebase/database';
+import { signInAnonymously } from 'firebase/auth';
 
 interface PresenceData {
   id: string;
@@ -21,6 +22,8 @@ interface PresenceData {
 const COLORS = [
   '#feb60c', '#ff4d4d', '#4ade80', '#60a5fa', '#c084fc', '#f472b6'
 ];
+
+const GUEST_PREFIXES = ['Operative', 'Recruit', 'Shadow', 'Ghost', 'Specter', 'Agent', 'Runner', 'Infiltrator', 'Stalker', 'Wraith'];
 
 export default function LiveCursors() {
   const [mounted, setMounted] = useState(false);
@@ -69,7 +72,6 @@ export default function LiveCursors() {
         }
     });
   }, [cleanupPartnerWatch]);
-
   useEffect(() => {
     const mobileOS = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     setIsMobileOS(mobileOS);
@@ -77,6 +79,16 @@ export default function LiveCursors() {
     if (saved === 'false') setIsEnabled(false);
     setMounted(true);
     setUserColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+
+    // Generate random guest identity
+    const prefix = GUEST_PREFIXES[Math.floor(Math.random() * GUEST_PREFIXES.length)];
+    const suffix = Math.floor(100 + Math.random() * 899);
+    setUserName(`${prefix}#${suffix}`);
+
+    // Trigger anonymous authentication so RTDB rules (if any) are satisfied without a real account
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch(() => console.warn("Cursor sync restricted to standard mode."));
+    }
   }, []);
 
   useEffect(() => {
@@ -92,7 +104,7 @@ export default function LiveCursors() {
   }, []);
 
   useEffect(() => {
-    if (!mounted || isMobileOS || !isEnabled) {
+    if (!mounted || isMobileOS || !isEnabled || !userUid) {
         if (myIdRef.current) {
             remove(ref(rtdb, `presence/${myIdRef.current}`));
             myIdRef.current = null;
@@ -182,7 +194,7 @@ export default function LiveCursors() {
       cleanupPartnerWatch();
       if (myIdRef.current) remove(ref(rtdb, `presence/${myIdRef.current}`));
     };
-  }, [mounted, userColor, isMobileOS, isEnabled, cleanupPartnerWatch, setupPartnerWatch]);
+  }, [mounted, userColor, isMobileOS, isEnabled, userName, userUid, cleanupPartnerWatch, setupPartnerWatch]);
 
   useEffect(() => {
     if (!mounted || isMobileOS || !isEnabled) return;

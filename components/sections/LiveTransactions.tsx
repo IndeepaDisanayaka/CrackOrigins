@@ -94,7 +94,7 @@ export default function LiveTransactions() {
                           }}
                         />
                       ) : (
-                        tx.userPhoto ? (
+                        (tx.userPhoto && tx.userPhoto !== "") ? (
                           <img src={tx.userPhoto} alt="profile" className={styles.profileLogo} />
                         ) : (
                           <ShoppingBag size={20} />
