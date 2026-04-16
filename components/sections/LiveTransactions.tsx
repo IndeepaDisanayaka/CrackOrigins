@@ -6,6 +6,7 @@ import { ref, query, limitToLast, onValue } from 'firebase/database';
 import { rtdb } from '@/lib/firebase';
 import { ShoppingBag, Clock, User, CheckCircle, Activity } from 'lucide-react';
 import styles from './LiveTransactions.module.css';
+import Image from 'next/image';
 // import { getRealActivity } from '@/lib/live-actions'; // Removed fallback to fix ghost data issues
 
 interface Transaction {
@@ -87,17 +88,17 @@ export default function LiveTransactions() {
                 <div className={styles.mainInfo}>
                     <div className={styles.iconBox}>
                       {(tx.type === 'SPECIAL_OFFER' || tx.gameId) ? (
-                        <img
+                        <Image
                           src={`https://cdn.akamai.steamstatic.com/steam/apps/${tx.gameId || '440'}/header.jpg`}
                           alt="game"
+                          width={60}
+                          height={28}
+                          quality={75}
                           className={styles.gameLogo}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/60/1a1a1a/feb60c?text=GAME';
-                          }}
                         />
                       ) : (
                         tx.userPhoto ? (
-                          <img src={tx.userPhoto} alt="profile" className={styles.profileLogo} />
+                          <Image src={tx.userPhoto} alt="profile" width={20} height={20} quality={75} className={styles.profileLogo} />
                         ) : (
                           <ShoppingBag size={20} />
                         )

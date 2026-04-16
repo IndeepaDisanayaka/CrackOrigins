@@ -5,6 +5,7 @@ import Modal from './Modal';
 import { User, ShieldCheck, CheckSquare, Square, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -96,7 +97,7 @@ export default function AuthModal({
             <div className="glitchLoader">INITIALIZING...</div>
           ) : (
             <>
-              <img src="https://www.google.com/favicon.ico" alt="Google" style={{ width: '16px', height: '16px' }} />
+              <Image src="https://www.google.com/favicon.ico" alt="Google" width={16} height={16} quality={75} />
               {actionText}
             </>
           )}

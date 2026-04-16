@@ -7,6 +7,7 @@ import { useModals } from '../../lib/contexts/ModalContext';
 import ThemeToggle from '../ThemeToggle';
 import styles from '../../app/page.module.css';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (v: boolean) => void }) {
   const { user, isAdmin, isAuthLoading, logout } = useAuth();
@@ -98,7 +99,7 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
                 style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer' }}
               >
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt="avatar" style={{ width: 18, height: 18, borderRadius: '50%' }} />
+                  <Image width={18} height={18} quality={75} src={user.photoURL} alt="avatar" style={{ borderRadius: '50%' }} />
                 ) : (
                   <User size={18} />
                 )}

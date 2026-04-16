@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
+import Image from 'next/image';
 import HeaderWrapper from '@/components/blog/HeaderWrapper';
 import Footer from '@/components/layout/Footer';
 import SubHeader from '@/components/layout/SubHeader';
@@ -109,11 +110,15 @@ export default async function BlogPostPage({ params }: Props) {
 
           {/* Full Width Banner */}
           {post.image && (
-            <div className={blogPostStyles.bannerContainer}>
-              <img
+            <div className={blogPostStyles.bannerContainer} style={{ position: 'relative', width: '100%', height: '400px' }}>
+              <Image
                 src={post.image}
                 alt={post.title}
+                fill
+                priority
+                quality={75}
                 className={blogPostStyles.bannerImage}
+                style={{ objectFit: 'cover' }}
               />
             </div>
           )}

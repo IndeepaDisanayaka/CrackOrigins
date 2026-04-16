@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Shield, Clock, CheckCircle2, CheckSquare, Square, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { collection, onSnapshot} from "firebase/firestore";
 import { fireStore } from "../../lib/firebase";
 import { getUserKey, getAffiliateProgress } from '@/lib/admin-actions';
@@ -481,7 +482,7 @@ export default function SteamMarketplace() {
         {modalState === 'idle' && selectedSteamGame ? (
           <div className={carouselStyles.checkoutModal} style={{ paddingTop: 0 }}>
             <div className={carouselStyles.modalHeader}>
-              <img src={selectedSteamGame.image} className={carouselStyles.modalPreviewImg} alt="preview" style={{ width: '80px', height: '80px', objectFit: 'cover' }} />
+              <Image src={selectedSteamGame.image} className={carouselStyles.modalPreviewImg} alt="preview" width={80} height={80} quality={75} style={{ objectFit: 'cover' }} />
               <div className={carouselStyles.modalHeaderInfo}>
                 <span className={carouselStyles.gameTitle}>{selectedSteamGame.title}</span>
                 <span className={carouselStyles.gamePrice}>{selectedSteamGame.discountPrice}</span>
