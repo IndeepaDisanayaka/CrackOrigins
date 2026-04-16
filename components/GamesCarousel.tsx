@@ -12,6 +12,7 @@ import { useToast } from './Toast';
 import PayPalCheckout from '@/lib/paypal';
 import { CheckSquare, Square } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // GAMES constant removed, now using state
 
@@ -242,7 +243,7 @@ export default function GamesCarousel() {
                       onClick={() => setActiveIndex(idx)}
                       onMouseDown={(e) => e.stopPropagation()}
                     >
-                      <img src={game.logo || `https://img.youtube.com/vi/${game.video}/mqdefault.jpg`} alt={game.title} className={styles.navThumb} />
+                      <Image width={60} height={40} quality={75} src={game.logo || `https://img.youtube.com/vi/${game.video}/mqdefault.jpg`} alt={game.title} className={styles.navThumb} />
                       <div className={styles.navInfo}>
                         <div className={styles.navTitleRow}>
                           <span className={styles.navTitle}>{game.title}</span>
@@ -349,7 +350,7 @@ export default function GamesCarousel() {
         {modalState === 'idle' && selectedGame ? (
           <div className={styles.checkoutModal} style={{ paddingTop: 0 }}>
             <div className={styles.modalHeader}>
-              <img src={selectedGame.image} className={styles.modalPreviewImg} alt="preview" />
+              <Image width={400} height={200} quality={75} src={selectedGame.image} className={styles.modalPreviewImg} alt="preview" />
               <div className={styles.modalHeaderInfo}>
                 <span className={styles.gameTitle}>{selectedGame.title}</span>
                 <span className={styles.gamePrice}>
@@ -458,7 +459,7 @@ export default function GamesCarousel() {
           <div className={styles.checkoutModal} style={{ paddingTop: 0 }}>
             <h2 className={styles.modalTitle} style={{ marginTop: '1rem' }}>Game Details</h2>
             <div className={styles.modalHeader}>
-              <img src={selectedGame.image} className={styles.modalPreviewImg} alt="preview" style={{ width: '80px', height: '80px', borderRadius: '8px' }} />
+              <Image width={80} height={80} quality={75} src={selectedGame.image} className={styles.modalPreviewImg} alt="preview" style={{ borderRadius: '8px', objectFit: 'cover' }} />
               <div className={styles.modalHeaderInfo}>
                 <span className={styles.gameTitle}>{selectedGame.title}</span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Purchased on: {new Date(purchasedDetails[selectedGame.title]?.purchaseDate).toLocaleDateString()}</span>

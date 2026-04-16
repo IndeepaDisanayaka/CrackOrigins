@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/contexts/AuthContext';
 import { useModals } from '../../lib/contexts/ModalContext';
 import Link from 'next/link';
 import styles from '../../app/page.module.css';
+import Image from 'next/image';
 
 export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolean) => void }) {
   const { user, isAdmin, logout } = useAuth();
@@ -69,7 +70,7 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
           <>
             <div className={styles.mobileUser}>
               {user.photoURL ? (
-                <img src={user.photoURL} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                <Image width={32} height={32} quality={75} src={user.photoURL} alt="avatar" style={{ borderRadius: '50%' }} />
               ) : (
                 <User size={32} />
               )}
