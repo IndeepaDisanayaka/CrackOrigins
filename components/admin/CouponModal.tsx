@@ -11,9 +11,10 @@ import styles from '../../app/page.module.css';
 interface CouponModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function CouponModal({ isOpen, onClose }: CouponModalProps) {
+export default function CouponModal({ isOpen, onClose, onSuccess }: CouponModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -39,6 +40,7 @@ export default function CouponModal({ isOpen, onClose }: CouponModalProps) {
       if (result.success && result.couponCode) {
         setGeneratedCode(result.couponCode);
         showToast("Coupon generated!", "success");
+        if (onSuccess) onSuccess();
       } else {
         showToast(result.error || "Failed to create coupon.", "error");
       }

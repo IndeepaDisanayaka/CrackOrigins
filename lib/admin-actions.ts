@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminDb } from './firebase-admin';
+import { getAdminDb, ensureFirebaseAdminInitialized } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { encrypt, decrypt } from './crypto';
 import { getBlogPosts } from './blog';
@@ -355,22 +355,55 @@ export async function getAdminDashboardData(adminUid: string) {
             return { success: false, error: "Unauthorized." };
         }
 
-        // Users
+        // 1. Fetch Firestore users
         const accountsSnap = await adminDb.collection("accounts").get();
-        const users = accountsSnap.docs.map(d => {
+        const firestoreUsersMap = new Map();
+        
+        accountsSnap.forEach(d => {
             const data = d.data() || {};
             let decryptedEmail = data.email || null;
             if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
                 try { decryptedEmail = decrypt(decryptedEmail); } catch { }
             }
-            return {
+            firestoreUsersMap.set(d.id, {
                 uid: d.id,
                 name: data.name || null,
                 email: decryptedEmail,
                 photoURL: data.photoURL || null,
                 isOwner: data.isOwner === true,
                 country: data.country || "Unknown",
-            };
+            });
+        });
+
+        // 2. Fetch Auth users
+        await ensureFirebaseAdminInitialized();
+        const { getAuth } = await import('firebase-admin/auth');
+        const authUsersResult = await getAuth().listUsers(1000);
+        
+        const users: any[] = [];
+        const seenUids = new Set();
+
+        authUsersResult.users.forEach(authUser => {
+            const fsUser = firestoreUsersMap.get(authUser.uid);
+            users.push({
+                uid: authUser.uid,
+                name: fsUser?.name || authUser.displayName || null,
+                email: fsUser?.email || authUser.email || (authUser.providerData.length === 0 ? "anonymous" : null),
+                photoURL: fsUser?.photoURL || authUser.photoURL || null,
+                isOwner: fsUser?.isOwner === true,
+                country: fsUser?.country || "Unknown",
+                lastLoginAt: authUser.metadata.lastSignInTime,
+                createdAt: authUser.metadata.creationTime,
+                isAnonymous: authUser.providerData.length === 0
+            });
+            seenUids.add(authUser.uid);
+        });
+
+        // Add Firestore users that might not have been in the Auth list (unlikely but safe)
+        firestoreUsersMap.forEach((user, uid) => {
+            if (!seenUids.has(uid)) {
+                users.push(user);
+            }
         });
 
         // Global Offers + Coupons
@@ -727,3 +760,179 @@ export async function getBlogPostsAction() {
     }
 }
 
+
+/**
+ * Server Action: Delete a specific user account (Owner only)
+ */
+export async function deleteUserAccount(adminUid: string, targetUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        const userRef = adminDb.collection("accounts").doc(targetUid);
+        
+        // Delete from Firebase Auth
+        await ensureFirebaseAdminInitialized();
+        const { getAuth } = await import('firebase-admin/auth');
+        try {
+            await getAuth().deleteUser(targetUid);
+        } catch (authError) {
+            console.warn("User already gone from Auth or error:", authError);
+        }
+
+        // Delete subcollections
+        const [payments, offers, affiliates] = await Promise.all([
+            userRef.collection("payments").get(),
+            userRef.collection("offers").get(),
+            userRef.collection("affiliates").get()
+        ]);
+
+        const batch = adminDb.batch();
+        payments.forEach(d => batch.delete(d.ref));
+        offers.forEach(d => batch.delete(d.ref));
+        affiliates.forEach(d => batch.delete(d.ref));
+        batch.delete(userRef);
+        
+        await batch.commit();
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error deleting user account:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Bulk delete anonymous users (Owner only)
+ */
+export async function deleteAnonymousUsers(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        const accountsSnap = await adminDb.collection("accounts").get();
+        const anonymousUids: string[] = [];
+
+        // 1. Collect from Firestore
+        for (const doc of accountsSnap.docs) {
+            const data = doc.data();
+            let email = data.email || "";
+            if (email.includes(':')) {
+                try { email = decrypt(email); } catch { }
+            }
+            if (!email || email === "unknown" || email === "anonymous") {
+                anonymousUids.push(doc.id);
+            }
+        }
+
+        // 2. Collect from Auth (to catch those not in Firestore)
+        await ensureFirebaseAdminInitialized();
+        const { getAuth } = await import('firebase-admin/auth');
+        const authUsers = await getAuth().listUsers(1000);
+        authUsers.users.forEach(u => {
+            if (u.providerData.length === 0 && !anonymousUids.includes(u.uid)) {
+                anonymousUids.push(u.uid);
+            }
+        });
+
+        if (anonymousUids.length === 0) return { success: true, count: 0 };
+
+        // Delete in chunks of 500
+        let totalDeleted = 0;
+        for (let i = 0; i < anonymousUids.length; i += 400) {
+            const batch = adminDb.batch();
+            const chunk = anonymousUids.slice(i, i + 400);
+            for (const uid of chunk) {
+                batch.delete(adminDb.collection("accounts").doc(uid));
+                try { await getAuth().deleteUser(uid); } catch(e) {}
+            }
+            await batch.commit();
+            totalDeleted += chunk.length;
+        }
+
+        return { success: true, count: totalDeleted };
+    } catch (error: any) {
+        console.error("Error bulk deleting anonymous users:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Cleanup deactivated/stale accounts (Owner only)
+ * For now, "deactivated" is defined as accounts with no email and no payments.
+ */
+export async function cleanupDeactivatedUsers(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        const accountsSnap = await adminDb.collection("accounts").get();
+        const uidsToDelete: string[] = [];
+        const seenUids = new Set<string>();
+
+        // 1. Check all Firestore users for activity
+        for (const doc of accountsSnap.docs) {
+            const data = doc.data();
+            const isOwner = data.isOwner === true;
+            if (isOwner) {
+                seenUids.add(doc.id);
+                continue;
+            }
+
+            const userRef = adminDb.collection("accounts").doc(doc.id);
+            const [payments, offers] = await Promise.all([
+                userRef.collection("payments").limit(1).get(),
+                userRef.collection("offers").limit(1).get()
+            ]);
+
+            const hasActivity = !payments.empty || !offers.empty;
+            
+            if (!hasActivity) {
+                let email = data.email || "";
+                if (email.includes(':')) {
+                    try { email = decrypt(email); } catch { }
+                }
+                // If anonymous AND no activity
+                if (!email || email === "unknown" || email === "anonymous") {
+                    uidsToDelete.push(doc.id);
+                }
+            }
+            seenUids.add(doc.id);
+        }
+
+        // 2. Check Auth for users that DON'T have a Firestore record (Ghost anonymous users)
+        await ensureFirebaseAdminInitialized();
+        const { getAuth } = await import('firebase-admin/auth');
+        const authUsersResult = await getAuth().listUsers(1000);
+        
+        for (const authUser of authUsersResult.users) {
+            if (seenUids.has(authUser.uid)) continue;
+            
+            // If it's an anonymous account in Auth with NO Firestore record, delete it
+            if (authUser.providerData.length === 0) {
+                uidsToDelete.push(authUser.uid);
+            }
+        }
+
+        if (uidsToDelete.length === 0) return { success: true, count: 0 };
+
+        let totalDeleted = 0;
+        for (let i = 0; i < uidsToDelete.length; i += 400) {
+            const batch = adminDb.batch();
+            const chunk = uidsToDelete.slice(i, i + 400);
+            for (const uid of chunk) {
+                batch.delete(adminDb.collection("accounts").doc(uid));
+                try { await getAuth().deleteUser(uid); } catch(e) {}
+            }
+            await batch.commit();
+            totalDeleted += chunk.length;
+        }
+
+        return { success: true, count: totalDeleted };
+    } catch (error: any) {
+        console.error("Error cleaning up deactivated users:", error);
+        return { success: false, error: error.message };
+    }
+}

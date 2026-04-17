@@ -216,7 +216,7 @@ function SteamCard({
     );
 }
 
-export default function SteamMarketplace() {
+export default function SteamMarketplace({ showAll = false }: { showAll?: boolean }) {
   const { user, affiliateId } = useAuth();
   const { setIsAuthModalOpen } = useModals();
   const { showToast } = useToast();
@@ -460,7 +460,7 @@ export default function SteamMarketplace() {
         ) : steamGames.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
         ) : (
-          steamGames.map((game) => (
+          (showAll ? steamGames : steamGames.slice(0, 3)).map((game) => (
             <SteamCard 
                 key={game.id} 
                 game={game} 
@@ -477,6 +477,14 @@ export default function SteamMarketplace() {
             />
           )))}
       </motion.div>
+
+      {!showAll && steamGames.length > 3 && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+          <Link href="/offers" className="btnOutline" style={{ padding: '0.75rem 2rem' }}>
+            View All Offers
+          </Link>
+        </div>
+      )}
 
       <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">
         {modalState === 'idle' && selectedSteamGame ? (
