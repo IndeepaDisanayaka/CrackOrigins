@@ -12,7 +12,6 @@ import BlogInteractions from '@/components/blog/BlogInteractions';
 import { Metadata } from 'next';
 import styles from '../../page.module.css';
 import blogPostStyles from './blog-post.module.css';
-import BlogAd from '@/components/ads/BlogAd';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -126,8 +125,6 @@ export default async function BlogPostPage({ params }: Props) {
 
           {/* Content Wrapper */}
           <div className={blogPostStyles.mainContent}>
-            <BlogAd />
-            
             <BlogInteractions 
               blogId={post.blogId}
               slug={slug} 
