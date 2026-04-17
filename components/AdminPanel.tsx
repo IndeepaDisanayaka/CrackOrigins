@@ -22,15 +22,25 @@ import {
   Square,
   ChevronDown,
   ChevronUp,
-  ExternalLink
+  ExternalLink,
+  Trash2,
+  Filter
 } from 'lucide-react';
+
 import { StatCard } from './admin/StatCard';
+import AddOfferModal from './admin/AddOfferModal';
+import CouponModal from './admin/CouponModal';
+import DispatchModal from './admin/DispatchModal';
+import ListGameModal from './admin/ListGameModal';
 import { 
   getAdminDashboardData,
   updateUserOwnerStatus,
   updateUserKey,
   deleteBlogPost,
-  getBlogPostsAction
+  getBlogPostsAction,
+  deleteUserAccount,
+  deleteAnonymousUsers,
+  cleanupDeactivatedUsers
 } from '@/lib/admin-actions';
 import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
@@ -60,6 +70,7 @@ export default function AdminPanel({
   const [search, setSearch] = useState("");
   const [paymentView, setPaymentView] = useState<PaymentView>('payments');
   const [onlyKeyNotSet, setOnlyKeyNotSet] = useState(false);
+  const [userView, setUserView] = useState<'all' | 'google' | 'anonymous'>('all');
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [expandedPayments, setExpandedPayments] = useState<Record<string, boolean>>({});
   const [paypalBalance, setPaypalBalance] = useState<string | null>(null);
@@ -84,9 +95,25 @@ export default function AdminPanel({
   const [blogDeleteConfirm, setBlogDeleteConfirm] = useState<{ open: boolean; slug: string; title: string }>({
     open: false, slug: "", title: ""
   });
+  const [userDeleteConfirm, setUserDeleteConfirm] = useState<{ open: boolean; uid: string; name: string }>({
+    open: false, uid: "", name: ""
+  });
+  const [bulkCleanupConfirm, setBulkCleanupConfirm] = useState<{ open: boolean; type: 'anonymous' | 'deactivated' }>({
+    open: false, type: 'anonymous'
+  });
   const [keyModal, setKeyModal] = useState<{ open: boolean; targetUid: string; paymentId: string; key: string }>({
     open: false, targetUid: "", paymentId: "", key: ""
   });
+  
+  // Creation Modals
+  const [showAddOffer, setShowAddOffer] = useState(false);
+  const [showAddCoupon, setShowAddCoupon] = useState(false);
+  const [showAddBlog, setShowAddBlog] = useState(false);
+  const [showAddGame, setShowAddGame] = useState(false);
+
+  // Progress tracking
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleaningProgress, setCleaningProgress] = useState(0);
 
   const fetchData = async () => {
     setLoading(true);
@@ -238,6 +265,50 @@ export default function AdminPanel({
     } else showToast(res.error || "Error", "error");
   };
 
+  const handleDeleteUser = async () => {
+    if (!userDeleteConfirm.uid) return;
+    const res = await deleteUserAccount(userUid, userDeleteConfirm.uid);
+    if (res.success) {
+      showToast("User record deleted.", "success");
+      setUserDeleteConfirm({ open: false, uid: "", name: "" });
+      fetchData();
+    } else showToast(res.error || "Error", "error");
+  };
+
+  const handleBulkCleanup = async () => {
+    setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false });
+    setIsCleaning(true);
+    setCleaningProgress(10);
+    
+    try {
+      const timer = setInterval(() => {
+        setCleaningProgress(prev => (prev < 90 ? prev + 5 : prev));
+      }, 500);
+
+      const result = bulkCleanupConfirm.type === 'anonymous' 
+        ? await deleteAnonymousUsers(userUid)
+        : await cleanupDeactivatedUsers(userUid);
+      
+      clearInterval(timer);
+      setCleaningProgress(100);
+      
+      setTimeout(() => {
+        setIsCleaning(false);
+        setCleaningProgress(0);
+        if (result.success) {
+          showToast(`Successfully removed ${result.count} accounts.`, 'success');
+          fetchData();
+        } else {
+          showToast(result.error || "Failed to cleanup.", 'error');
+        }
+      }, 500);
+    } catch (err) {
+      setIsCleaning(false);
+      setCleaningProgress(0);
+      showToast("An error occurred during cleanup.", "error");
+    }
+  };
+
   const handleDeleteBlog = async () => {
     if (!blogDeleteConfirm.slug) return;
     
@@ -252,11 +323,19 @@ export default function AdminPanel({
   };
 
   // Filter Logic
-  const filteredUsers = data?.users?.filter((u: any) => 
-    u.name?.toLowerCase().includes(search.toLowerCase()) || 
-    u.email?.toLowerCase().includes(search.toLowerCase()) ||
-    u.uid?.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  const filteredUsers = (data?.users || []).filter((u: any) => {
+    const matchesSearch = u.name?.toLowerCase().includes(search.toLowerCase()) || 
+                          u.email?.toLowerCase().includes(search.toLowerCase()) ||
+                          u.uid?.toLowerCase().includes(search.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    const isAnonymous = !u.email || u.email === "unknown" || u.email === "anonymous";
+    if (userView === 'google' && isAnonymous) return false;
+    if (userView === 'anonymous' && !isAnonymous) return false;
+
+    return true;
+  });
 
   const filteredPaymentsAll = data?.payments?.filter((p: any) => 
     p.game?.toLowerCase().includes(search.toLowerCase()) || 
@@ -320,13 +399,14 @@ export default function AdminPanel({
                <button
                  key={item.id}
                  onClick={() => { setActiveTab(item.id as Tab); setSearch(""); }}
-                 className="btnOutline"
+                 className={activeTab === item.id ? "btnSolid" : "btnOutline"}
                  style={{
                    width: '100%',
                    justifyContent: 'flex-start',
                    padding: '0.65rem 0.9rem',
                    borderColor: activeTab === item.id ? 'var(--primary)' : 'var(--foreground)',
-                   color: activeTab === item.id ? 'var(--primary)' : 'var(--foreground)',
+                   color: activeTab === item.id ? "#000" : "var(--foreground)",
+                    background: activeTab === item.id ? "var(--primary)" : "transparent",
                    transform: 'none',
                  }}
                >
@@ -352,9 +432,26 @@ export default function AdminPanel({
               {/* Top Header Content Area */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
-                   <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
-                   <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Manage your studio's ecosystem records.</p>
-                </div>
+                                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
+                    <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Manage your studio's ecosystem records.</p>
+                 </div>
+                 <div style={{ display: 'flex', gap: '0.8rem' }}>
+                    {activeTab === 'overview' && (
+                      <button onClick={() => setShowAddOffer(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                        <Gamepad2 size={14} style={{ marginRight: '0.4rem' }} /> Add Offer
+                      </button>
+                    )}
+                    {activeTab === 'games' && (
+                      <button onClick={() => setShowAddGame(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                        <ExternalLink size={14} style={{ marginRight: '0.4rem' }} /> List New Game
+                      </button>
+                    )}
+                    {activeTab === 'blogs' && (
+                      <button onClick={() => setShowAddBlog(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                        <ExternalLink size={14} style={{ marginRight: '0.4rem' }} /> Post Dispatch
+                      </button>
+                    )}
+                 </div>
               </div>
 
               {/* Overview Tab */}
@@ -804,6 +901,41 @@ export default function AdminPanel({
                        </div>
                      </div>
                    )}
+                   {activeTab === 'users' && (
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                       {[
+                         { id: 'all', label: 'All Users' },
+                         { id: 'google', label: 'Google Logins' },
+                         { id: 'anonymous', label: 'Anonymous' }
+                       ].map(v => (
+                         <button
+                           key={v.id}
+                           onClick={() => setUserView(v.id as any)}
+                           className={userView === v.id ? "btnSolid" : "btnOutline"}
+                           style={{
+                             padding: '0.45rem 0.8rem',
+                             borderColor: userView === v.id ? 'var(--primary)' : 'var(--foreground)',
+                             color: userView === v.id ? '#000' : 'var(--foreground)',
+                             background: userView === v.id ? 'var(--primary)' : 'transparent',
+                             transform: 'none'
+                           }}
+                         >
+                           {v.label}
+                         </button>
+                       ))}
+                       {userView === 'anonymous' && (
+                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
+                            <button 
+                              onClick={() => setBulkCleanupConfirm({ open: true, type: 'deactivated' })}
+                              className="btnOutline" 
+                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', borderColor: '#ff4d4d', color: '#ff4d4d' }}
+                            >
+                              <Trash2 size={13} /> Remove Deactivated
+                            </button>
+                         </div>
+                       )}
+                     </div>
+                   )}
                    {activeTab === 'payments' && (
                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                        <button
@@ -922,7 +1054,14 @@ export default function AdminPanel({
                                        className="btnOutline"
                                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}
                                      >
-                                        Switch Role
+                                        Role
+                                     </button>
+                                     <button
+                                       onClick={() => setUserDeleteConfirm({ open: true, uid: u.uid, name: u.name || u.email || 'Anonymous' })}
+                                       className="btnOutline"
+                                       style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                     >
+                                        <Trash2 size={13} />
                                      </button>
                                      <button onClick={() => setExpandedUsers(prev => ({ ...prev, [u.uid]: !prev[u.uid] }))} className="btnOutline" style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem' }}>
                                        {expandedUsers[u.uid] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -1129,6 +1268,48 @@ export default function AdminPanel({
         </div>
       </div>
     </Modal>
+    <Modal isOpen={userDeleteConfirm.open} onClose={() => setUserDeleteConfirm({ open: false, uid: "", name: "" })} title="Delete User Account">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
+          Delete everything for <strong>{userDeleteConfirm.name}</strong>? This will remove their record and all purchase history.
+        </p>
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setUserDeleteConfirm({ open: false, uid: "", name: "" })}>Cancel</button>
+          <button className="btnSolid" style={{ flex: 1, backgroundColor: '#ff4d4d', borderColor: '#ff4d4d' }} onClick={handleDeleteUser}>Delete User</button>
+        </div>
+      </div>
+    </Modal>
+    <Modal isOpen={bulkCleanupConfirm.open} onClose={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })} title="Bulk Database Cleanup">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
+          {bulkCleanupConfirm.type === 'anonymous' 
+            ? "Delete ALL anonymous accounts (no email) from the database?"
+            : "Remove ALL deactivated accounts (no email AND no purchase history)?"}
+        </p>
+        <p style={{ fontSize: '0.75rem', color: '#ff4d4d', fontWeight: 700 }}>⚠️ This action is permanent and cannot be reversed.</p>
+        <div style={{ display: 'flex', gap: '0.6rem' }}>
+          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })}>Cancel</button>
+          <button className="btnSolid" style={{ flex: 1, backgroundColor: '#ff4d4d', borderColor: '#ff4d4d' }} onClick={handleBulkCleanup}>Confirm Clean</button>
+        </div>
+      </div>
+    </Modal>
+    <Modal isOpen={isCleaning} onClose={() => {}} title="Database Optimization">
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p style={{ marginBottom: '1.5rem', fontWeight: 600, color: 'var(--primary)' }}>Optimizing User Records...</p>
+        <div style={{ width: '100%', height: '8px', background: 'var(--outline-color)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
+          <div style={{ width: `${cleaningProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary), #fff)', transition: 'width 0.3s ease' }} />
+        </div>
+        <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 700 }}>
+          {cleaningProgress < 100 ? `CLEANING: ${cleaningProgress}%` : 'COMPLETED'}
+        </div>
+      </div>
+    </Modal>
+
+    {/* Creation Modals */}
+    <AddOfferModal isOpen={showAddOffer} onClose={() => setShowAddOffer(false)} onSuccess={() => { setShowAddOffer(false); fetchData(); }} />
+    <CouponModal isOpen={showAddCoupon} onClose={() => setShowAddCoupon(false)} onSuccess={() => { setShowAddCoupon(false); fetchData(); }} />
+    <DispatchModal isOpen={showAddBlog} onClose={() => setShowAddBlog(false)} onSuccess={() => { setShowAddBlog(false); fetchData(); }} />
+    <ListGameModal isOpen={showAddGame} onClose={() => setShowAddGame(false)} onSuccess={() => { setShowAddGame(false); fetchData(); }} />
     </>
   );
 }

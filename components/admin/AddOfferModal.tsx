@@ -11,9 +11,10 @@ import styles from '../../app/page.module.css';
 interface AddOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
+export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -53,6 +54,7 @@ export default function AddOfferModal({ isOpen, onClose }: AddOfferModalProps) {
       });
       if (result.success) {
         showToast("Offer added successfully!", "success");
+        if (onSuccess) onSuccess();
         onClose();
         setOfferForm({ 
             id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, 

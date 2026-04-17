@@ -11,9 +11,10 @@ import styles from '../../app/page.module.css';
 interface ListGameModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function ListGameModal({ isOpen, onClose }: ListGameModalProps) {
+export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [step, setStep] = useState(1);
@@ -70,6 +71,7 @@ export default function ListGameModal({ isOpen, onClose }: ListGameModalProps) {
       const result = await listGame(user.uid, formattedData);
       if (result.success) {
         showToast("Game listed successfully!", "success");
+        if (onSuccess) onSuccess();
         onClose();
         setStep(1);
         setGameForm({

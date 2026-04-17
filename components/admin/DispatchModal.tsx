@@ -11,9 +11,10 @@ import styles from '../../app/page.module.css';
 interface DispatchModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
+export default function DispatchModal({ isOpen, onClose, onSuccess }: DispatchModalProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -99,6 +100,7 @@ export default function DispatchModal({ isOpen, onClose }: DispatchModalProps) {
 
       if (response.ok) {
         showToast('Dispatch Authorized. Deployment initiated.', 'success');
+        if (onSuccess) onSuccess();
         onClose();
         setFormData({ title: '', description: '', content: '', image: '', author: 'Crack Origins Core', tags: '' });
       } else {
