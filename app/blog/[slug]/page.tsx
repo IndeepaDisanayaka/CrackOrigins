@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { formatDate } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
+import Script from 'next/script';
 import HeaderWrapper from '@/components/blog/HeaderWrapper';
 import Footer from '@/components/layout/Footer';
 import SubHeader from '@/components/layout/SubHeader';
@@ -47,6 +48,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: post.description,
       images: post.image ? [post.image] : [],
     },
+    other: {
+      'google-adsense-account': 'ca-pub-1235859654015353',
+    },
   };
 }
 
@@ -73,6 +77,12 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <>
+      <Script
+        async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1235859654015353"
+        crossOrigin="anonymous"
+        strategy="afterInteractive"
+      />
       <div className={styles.backgroundAnimation}></div>
 
       <main className={styles.main}>
