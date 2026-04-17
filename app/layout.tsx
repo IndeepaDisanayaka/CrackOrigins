@@ -59,14 +59,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={roboto.variable}>
-      <head>
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1235859654015353"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-      </head>
+      <Script
+        async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1235859654015353"
+        crossOrigin="anonymous"
+        strategy="beforeInteractive"
+      />
       <body style={{ fontFamily: 'var(--font-roboto), sans-serif' }}>
         <GlobalProvider>
           {children}
