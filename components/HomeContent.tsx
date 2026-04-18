@@ -30,6 +30,7 @@ const AuthModal = dynamic(() => import('./AuthModal'), { ssr: false });
 
 export default function HomeContent() {
   const { user, isAdmin, login, isAuthLoading, affiliateId, affiliateCount, discount, refreshStatus } = useAuth();
+  const [showSplash, setShowSplash] = useState(false);
   const { 
     isAuthModalOpen, setIsAuthModalOpen, 
     isAdminModalOpen, setIsAdminModalOpen,
@@ -40,6 +41,17 @@ export default function HomeContent() {
   } = useModals();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const hasBeenShown = sessionStorage.getItem('crack_origins_splash_shown');
+    if (!hasBeenShown) {
+      setShowSplash(true);
+      sessionStorage.setItem('crack_origins_splash_shown', 'true');
+      // Hide splash after animation
+      const timer = setTimeout(() => setShowSplash(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -63,7 +75,7 @@ export default function HomeContent() {
 
   return (
     <>
-      <SplashScreen />
+      {showSplash && <SplashScreen />}
       <LiveCursors />
       <div className={styles.backgroundAnimation}></div>
 

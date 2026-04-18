@@ -73,7 +73,7 @@ export const getBlogPosts = cache(
       return posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
     ['blog-posts-cache'],
-    { revalidate: 3600, tags: ['blogs'] }
+    { revalidate: 60, tags: ['blogs'] }
   )
 );
 
@@ -146,7 +146,7 @@ export const getBlogPostBySlug = cache(
         }
       },
       [`blog-post-${slug}`],
-      { revalidate: 3600, tags: [`blog-${slug}`] }
+      { revalidate: 60, tags: [`blog-${slug}`] }
     )();
   }
 );

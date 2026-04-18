@@ -31,14 +31,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchCountry = async () => {
     try {
-      const res = await fetch("https://ipapi.co/json/");
+      const res = await fetch("https://ipwho.is/");
       if (res.ok) {
         const data = await res.json();
-        setCountry(data.country_name || 'Unknown');
-        return data.country_name || 'Unknown';
+        const countryName = data.country || 'Unknown';
+        setCountry(countryName);
+        return countryName;
       }
     } catch (e) {
-      console.warn("Geolocation failed, using default.");
+      console.warn("Geolocation failed via ipwho.is, using default.");
     }
     return 'Unknown';
   };

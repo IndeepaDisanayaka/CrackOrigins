@@ -32,6 +32,7 @@ import AddOfferModal from './admin/AddOfferModal';
 import CouponModal from './admin/CouponModal';
 import DispatchModal from './admin/DispatchModal';
 import ListGameModal from './admin/ListGameModal';
+import AdminSupport from './admin/AdminSupport';
 import { 
   getAdminDashboardData,
   updateUserOwnerStatus,
@@ -44,6 +45,7 @@ import {
 } from '@/lib/admin-actions';
 import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { rtdb } from '../lib/firebase';
 import { ref, onValue, remove } from 'firebase/database';
 import Link from 'next/link';
@@ -55,7 +57,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'support';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -64,6 +66,7 @@ export default function AdminPanel({
   setIsOpen,
 }: AdminPanelProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -295,11 +298,11 @@ export default function AdminPanel({
       setTimeout(() => {
         setIsCleaning(false);
         setCleaningProgress(0);
-        if (result.success) {
+        if (result && result.success) {
           showToast(`Successfully removed ${result.count} accounts.`, 'success');
           fetchData();
         } else {
-          showToast(result.error || "Failed to cleanup.", 'error');
+          showToast(result?.error || "Failed to cleanup.", 'error');
         }
       }, 500);
     } catch (err) {
@@ -395,6 +398,7 @@ export default function AdminPanel({
                { id: 'payments', icon: <CreditCard size={18} />, label: 'Payments' },
                { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games' },
                { id: 'blogs', icon: <MessageSquare size={18} />, label: 'Blogs' },
+               { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries' },
              ].map(item => (
                <button
                  key={item.id}
@@ -885,7 +889,7 @@ export default function AdminPanel({
               )}
 
               {/* Items List Rendering */}
-              {activeTab !== 'overview' && (
+              {activeTab !== 'overview' && activeTab !== 'support' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                    {activeTab === 'blogs' && (
                      <div style={{ background: 'rgba(var(--primary-rgb), 0.05)', border: '1px solid var(--primary)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -939,7 +943,7 @@ export default function AdminPanel({
                    {activeTab === 'payments' && (
                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                        <button
-                         className="btnOutline"
+                         className={paymentView === "payments" ? "btnSolid" : "btnOutline"}
                          onClick={() => { setPaymentView('payments'); setOnlyKeyNotSet(false); }}
                          style={{
                            padding: '0.45rem 0.8rem',
@@ -952,7 +956,7 @@ export default function AdminPanel({
                          Payments
                        </button>
                        <button
-                         className="btnOutline"
+                         className={paymentView === "offerPayments" ? "btnSolid" : "btnOutline"}
                          onClick={() => setPaymentView('offerPayments')}
                          style={{
                            padding: '0.45rem 0.8rem',
@@ -1226,6 +1230,15 @@ export default function AdminPanel({
                 </div>
               )}
             </>
+          )}
+
+          {activeTab === 'support' && (
+            <div className="animateText" style={{ height: '100%', minHeight: '500px' }}>
+              <AdminSupport 
+                adminUid={userUid} 
+                adminName={user?.displayName || 'Administrator'} 
+              />
+            </div>
           )}
         </main>
       </div>

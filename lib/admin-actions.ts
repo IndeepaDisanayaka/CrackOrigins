@@ -1,6 +1,6 @@
 "use server";
 
-import { getAdminDb, ensureFirebaseAdminInitialized } from './firebase-admin';
+import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { encrypt, decrypt } from './crypto';
 import { getBlogPosts } from './blog';
@@ -195,6 +195,14 @@ export async function syncUserRecord(uid: string, data: {
         }
 
         await userRef.set(userPayload, { merge: true });
+        
+        // SYNC TO RTDB SECURELY (New)
+        try {
+            const rtdb = await getAdminRtdb();
+            await rtdb.ref(`accounts/${uid}/isOwner`).set(userPayload.isOwner);
+        } catch (rtdbErr) {
+            console.warn("RTDB Permission Sync Failed (syncUserRecord):", rtdbErr);
+        }
 
         return { success: true, affiliateId };
     } catch (error: any) {
@@ -332,9 +340,17 @@ export async function checkAdminStatus(uid: string) {
         const data = doc.data();
 
         const affiliatesSnapshot = await userRef.collection("affiliates").get();
+        const isOwner = data?.isOwner === true;
+
+        // Sync to RTDB for security rules during status check (covers existing users)
+        try {
+            const rtdb = await getAdminRtdb();
+            await rtdb.ref(`accounts/${uid}/isOwner`).set(isOwner);
+        } catch (e) {}
+
         return { 
             success: true, 
-            isOwner: data?.isOwner === true,
+            isOwner: isOwner,
             affiliateId: data?.affiliateId || null,
             discount: data?.discount || 0,
             affiliateCount: affiliatesSnapshot.size
@@ -500,6 +516,15 @@ export async function updateUserOwnerStatus(adminUid: string, targetUid: string,
         if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
 
         await adminDb.collection("accounts").doc(targetUid).set({ isOwner: isOwner === true }, { merge: true });
+        
+        // SYNC TO RTDB SECURELY (New)
+        try {
+            const rtdb = await getAdminRtdb();
+            await rtdb.ref(`accounts/${targetUid}/isOwner`).set(isOwner === true);
+        } catch (rtdbErr) {
+            console.warn("RTDB Permission Sync Failed (updateUserOwnerStatus):", rtdbErr);
+        }
+
         return { success: true };
     } catch (error: any) {
         console.error("Error updating owner status:", error);
@@ -933,6 +958,67 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
         return { success: true, count: totalDeleted };
     } catch (error: any) {
         console.error("Error cleaning up deactivated users:", error);
+    }
+}
+
+/**
+ * Server Action: Get user support profile and transaction history
+ */
+export async function getUserSupportData(adminUid: string, targetUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        const userRef = adminDb.collection("accounts").doc(targetUid);
+        const [userDoc, paymentsSnap, offersPurchSnap] = await Promise.all([
+            userRef.get(),
+            userRef.collection("payments").get(),
+            userRef.collection("offers").get()
+        ]);
+
+        if (!userDoc.exists) return { success: false, error: "User not found." };
+        const userData = userDoc.data()!;
+        
+        let decryptedEmail = userData.email || "unknown";
+        if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
+            try { decryptedEmail = decrypt(decryptedEmail); } catch { }
+        }
+
+        const payments: any[] = [];
+        const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
+            const data = doc.data() || {};
+            payments.push({
+                id: doc.id,
+                game: data.game || "",
+                amount: data.amount || "0",
+                status: data.status || "UNKNOWN",
+                purchaseDate: toIsoDate(data.purchaseDate) || new Date().toISOString(),
+                source,
+            });
+        };
+
+        paymentsSnap.forEach(doc => pushPayment(doc, "payment"));
+        offersPurchSnap.forEach(doc => pushPayment(doc, "offerPayment"));
+        payments.sort((a, b) => {
+            const dateA = a.purchaseDate || "";
+            const dateB = b.purchaseDate || "";
+            return dateB.localeCompare(dateA);
+        });
+
+        return {
+            success: true,
+            profile: {
+                uid: targetUid,
+                name: userData.name || "Unknown Operative",
+                email: decryptedEmail,
+                photoURL: userData.photoURL || null,
+                country: userData.country || "Unknown",
+                joined: toIsoDate(userData.created) || null,
+            },
+            payments
+        };
+    } catch (error: any) {
         return { success: false, error: error.message };
     }
 }

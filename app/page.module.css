@@ -107,7 +107,8 @@
   font-size: 0.95rem;
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 9999;
+  pointer-events: auto !important;
   background-color: rgba(var(--background-rgb), 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);

@@ -13,10 +13,22 @@ import styles from '@/app/page.module.css';
 import LiveCursors from '@/components/LiveCursors';
 
 const AuthModal = dynamic(() => import('@/components/AuthModal'), { ssr: false });
+const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
+const CouponModal = dynamic(() => import('./admin/CouponModal'), { ssr: false });
+const AddOfferModal = dynamic(() => import('./admin/AddOfferModal'), { ssr: false });
+const ListGameModal = dynamic(() => import('./admin/ListGameModal'), { ssr: false });
+const DispatchModal = dynamic(() => import('./admin/DispatchModal'), { ssr: false });
 
 export default function OffersContent() {
-  const { login } = useAuth();
-  const { isAuthModalOpen, setIsAuthModalOpen } = useModals();
+  const { user, isAdmin, login } = useAuth();
+  const { 
+    isAuthModalOpen, setIsAuthModalOpen,
+    isAdminModalOpen, setIsAdminModalOpen,
+    isCouponModalOpen, setIsCouponModalOpen,
+    isAddOfferModalOpen, setIsAddOfferModalOpen,
+    isListGameOpen, setIsListGameOpen,
+    isDispatchModalOpen, setIsDispatchModalOpen
+  } = useModals();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const searchParams = useSearchParams();
 
@@ -48,6 +60,34 @@ export default function OffersContent() {
           onClose={() => setIsAuthModalOpen(false)} 
           onLogin={handleLogin} 
         />
+
+        <CouponModal 
+          isOpen={isCouponModalOpen} 
+          onClose={() => setIsCouponModalOpen(false)} 
+        />
+
+        <AddOfferModal 
+          isOpen={isAddOfferModalOpen} 
+          onClose={() => setIsAddOfferModalOpen(false)} 
+        />
+        
+        <ListGameModal 
+          isOpen={isListGameOpen} 
+          onClose={() => setIsListGameOpen(false)} 
+        />
+
+        <DispatchModal
+          isOpen={isDispatchModalOpen}
+          onClose={() => setIsDispatchModalOpen(false)}
+        />
+
+        {user && isAdmin && (
+          <AdminPanel
+            userUid={user.uid}
+            isOpen={isAdminModalOpen}
+            setIsOpen={setIsAdminModalOpen}
+          />
+        )}
 
         <div style={{ paddingTop: '100px', minHeight: '100vh', paddingBottom: '40px', width: '100%', display: 'flex', flexDirection: 'column' }}>
           <SteamMarketplace showAll={true} />
