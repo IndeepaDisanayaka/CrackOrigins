@@ -96,7 +96,17 @@ function SteamCard({
             className={`${styles.steamCard} ${isFree ? styles.premiumCard : ''}`} 
             variants={revealVariants}
         >
-            <img src={game.image} alt={game.title} className={styles.cardImage} />
+            <div className={styles.cardImageContainer}>
+                <Image 
+                    src={game.image} 
+                    alt={game.title} 
+                    className={styles.cardImage} 
+                    width={460} 
+                    height={215} 
+                    quality={75}
+                    loading="lazy"
+                />
+            </div>
             <div className={styles.platformRow}>
                 <div className={styles.platformIcons}>
                     {game.platforms.includes('windows') && (

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { X, Send, FileText, CheckCircle2, XCircle, FileUp, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useToast } from '../Toast';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import Modal from '../Modal';

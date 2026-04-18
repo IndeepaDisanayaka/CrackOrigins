@@ -22,7 +22,7 @@ export default function SubHeader() {
         <span className={styles.typingText}>Building the next hit</span>
       </div>
       <div className={`${styles.badge} ${styles.badgeRight}`}>
-        {country}
+        {country === 'Unknown' ? 'UNKNOWN' : country}
       </div>
       <KoFi />
     </motion.div>

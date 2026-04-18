@@ -17,6 +17,8 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+export const revalidate = 60;
+
 export async function generateStaticParams() {
   const posts = await getBlogPosts();
   return posts.map((post) => ({
@@ -89,6 +91,12 @@ export default async function BlogPostPage({ params }: Props) {
         <SubHeader />
 
         <article className={blogPostStyles.blogPostWrapper}>
+          <div className={blogPostStyles.topNavigation}>
+            <Link href="/blog" className="btnOutline" style={{ marginBottom: '2rem', padding: '0.6rem 1.2rem', fontSize: '0.8rem' }}>
+              <ArrowLeft size={16} /> BACK TO DISPATCH
+            </Link>
+          </div>
+          
           {/* Main Header */}
           <header className={blogPostStyles.postHeader}>
             <div className={blogPostStyles.postMeta}>

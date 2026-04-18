@@ -4,6 +4,8 @@ import Script from 'next/script';
 import './globals.css';
 import { GlobalProvider } from '../components/providers/GlobalProvider';
 import { GoogleAnalytics } from '@next/third-parties/google';
+import FloatingControls from '../components/common/FloatingControls';
+import LoadingBar from '../components/layout/LoadingBar';
 
 const roboto = Roboto({
   subsets: ['latin'],
@@ -64,12 +66,14 @@ export default function RootLayout({
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1235859654015353"
           crossOrigin="anonymous"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
         />
       </head>
       <body style={{ fontFamily: 'var(--font-roboto), sans-serif' }}>
+        <LoadingBar />
         <GlobalProvider>
           {children}
+          <FloatingControls />
         </GlobalProvider>
         <GoogleAnalytics gaId="G-NMHZKWEC88" />
       </body>
