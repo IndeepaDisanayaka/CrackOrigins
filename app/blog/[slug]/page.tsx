@@ -40,17 +40,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: post.description,
       type: 'article',
       publishedTime: post.date,
+      modifiedTime: post.editedTime || post.date,
       authors: [post.authorId || 'Crack Origins'],
       images: post.image ? [{ url: post.image }] : [],
     },
-    twitter: {
-      card: 'summary_large_image',
-      title: post.title,
-      description: post.description,
-      images: post.image ? [post.image] : [],
-    },
-  };
-}
+      twitter: {
+        card: 'summary_large_image',
+        title: post.title,
+        description: post.description,
+        images: post.image ? [post.image] : [],
+      },
+      alternates: {
+        canonical: `https://crackorigins.com/blog/${slug}`,
+      },
+    };
+  }
 
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
@@ -67,6 +71,7 @@ export default async function BlogPostPage({ params }: Props) {
     description: post.description,
     image: post.image,
     datePublished: post.date,
+    dateModified: post.editedTime || post.date,
     author: {
       '@type': 'Organization',
       name: post.authorId || 'Crack Origins',
