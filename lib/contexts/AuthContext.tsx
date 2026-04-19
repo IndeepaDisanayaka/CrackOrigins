@@ -13,7 +13,7 @@ interface AuthContextType {
   affiliateCount: number;
   country: string;
   isAuthLoading: boolean;
-  login: (referralId?: string | null) => Promise<any>;
+  login: (type?: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }, referralId?: string | null) => Promise<any>;
   logout: () => Promise<void>;
   refreshStatus: () => Promise<void>;
 }
@@ -76,29 +76,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, []);
 
-  const login = async (referralId?: string | null) => {
-    const provider = new GoogleAuthProvider();
+  const login = async (type: 'google' | 'email-login' | 'email-signup' = 'google', credentials?: { email: string, password: string }, referralId?: string | null) => {
     try {
-      const result = await signInWithPopup(auth, provider);
-      const u = result.user;
+      let u: FirebaseUser;
+      const { signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
+
+      if (type === 'google') {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        u = result.user;
+      } else if (type === 'email-login' && credentials) {
+        const result = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+        u = result.user;
+      } else if (type === 'email-signup' && credentials) {
+        const result = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
+        u = result.user;
+      } else {
+        throw new Error("Invalid login type or credentials");
+      }
+
       const currentCountry = await fetchCountry();
 
       const res = await syncUserRecord(u.uid, {
         isOwner: false,
-        name: u.displayName,
+        name: u.displayName || u.email?.split('@')[0] || "User",
         email: u.email,
-        photoURL: u.photoURL,
+        photoURL: u.photoURL || null,
         created: u.metadata.creationTime,
         last: u.metadata.lastSignInTime,
         country: currentCountry,
-        referralId: referralId
+        referralId: referralId,
+        emailVerified: u.emailVerified || false
       });
 
       await refreshStatus();
       return res;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login Error:", error);
-      return { success: false, error: "Authentication failed" };
+      
+      // Auto-linking hints
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        return { success: false, error: "An account already exists with this email. Please log in using Email/Password to sync your account." };
+      }
+      if (error.code === 'auth/email-already-in-use') {
+        return { success: false, error: "An account already exists with this email. Please sign in (try Google if Email fails)." };
+      }
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        return { success: false, error: "Invalid email or password." };
+      }
+      
+      return { success: false, error: error.message || "Authentication failed" };
     }
   };
 

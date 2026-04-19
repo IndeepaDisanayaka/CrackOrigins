@@ -127,6 +127,7 @@ export async function syncUserRecord(uid: string, data: {
     last: string | undefined;
     country?: string;
     referralId?: string | null;
+    emailVerified?: boolean;
 }) {
     try {
         const adminDb = await getAdminDb();
@@ -186,7 +187,8 @@ export async function syncUserRecord(uid: string, data: {
             updatedAt: Timestamp.now(),
             affiliateId,
             discount,
-            country: data.country || "Unknown"
+            country: data.country || "Unknown",
+            emailVerified: data.emailVerified ?? false
         };
 
         // Only insert referredBy if it has a value (not null/undefined)

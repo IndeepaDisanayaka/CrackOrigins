@@ -65,12 +65,13 @@ export default function HomeContent() {
     }
   }, []);
 
-  const handleLogin = async () => {
+  const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
     const refId = searchParams?.get('ref');
-    const res = await login(refId);
+    const res = await login(type, credentials, refId);
     if (res?.success !== false) {
       setIsAuthModalOpen(false);
     }
+    return res;
   };
 
   return (

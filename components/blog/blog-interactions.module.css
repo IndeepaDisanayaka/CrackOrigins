@@ -8,6 +8,19 @@
     margin: 2rem 0;
 }
 
+.commentForm input,
+.commentForm textarea {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--foreground);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
 .statGroup, .actionGroup {
     display: flex;
     gap: 1.5rem;

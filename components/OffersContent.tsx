@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useModals } from '@/lib/contexts/ModalContext';
 import styles from '@/app/page.module.css';
+import extraStyles from '@/components/ExtraSections.module.css';
 import LiveCursors from '@/components/LiveCursors';
 
 const AuthModal = dynamic(() => import('@/components/AuthModal'), { ssr: false });
@@ -32,12 +33,13 @@ export default function OffersContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const searchParams = useSearchParams();
 
-  const handleLogin = async () => {
+  const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
     const refId = searchParams?.get('ref');
-    const res = await login(refId);
+    const res = await login(type, credentials, refId);
     if (res?.success !== false) {
       setIsAuthModalOpen(false);
     }
+    return res;
   };
 
   return (
@@ -89,7 +91,7 @@ export default function OffersContent() {
           />
         )}
 
-        <div style={{ paddingTop: '100px', minHeight: '100vh', paddingBottom: '40px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className={extraStyles.container} style={{ paddingTop: '100px', minHeight: '100vh', paddingBottom: '40px', width: '100%', display: 'flex', flexDirection: 'column' }}>
           <SteamMarketplace showAll={true} />
         </div>
 
