@@ -48,6 +48,9 @@ export const metadata: Metadata = {
     description: 'Explore the future of indie gaming and chronicles with Crack Origins.',
     images: ['/og-image.png'],
   },
+  alternates: {
+    canonical: 'https://crackorigins.com',
+  },
   robots: {
     index: true,
     follow: true,

@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next';
 import { getBlogPosts } from '@/lib/blog';
 
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const posts = await getBlogPosts();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://crackorigins.com';

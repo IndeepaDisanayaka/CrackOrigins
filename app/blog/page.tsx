@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { formatDate } from 'date-fns';
 import { ChevronRight, MessageCircle, SendHorizontal, MessageSquare, Share2, Eye, Heart } from 'lucide-react';
 import HeaderWrapper from '@/components/blog/HeaderWrapper';
@@ -18,11 +19,14 @@ export const metadata: Metadata = {
     description: 'Archived transmissions and development chronicles from the Crack Origins studio.',
     images: [{ url: '/og-image.png', width: 1200, height: 630 }],
   },
-  twitter: {
-    card: 'summary_large_image',
-    images: ['/og-image.png'],
-  }
-};
+    twitter: {
+      card: 'summary_large_image',
+      images: ['/og-image.png'],
+    },
+    alternates: {
+      canonical: 'https://crackorigins.com/blog',
+    }
+  };
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
@@ -49,7 +53,7 @@ export default async function BlogPage() {
           {/* Section Header - Styled like Home Sections */}
           <div className={blogStyles.blogHeader}>
              <span className="sectionLabel">Classified Database</span>
-             <h2 className={blogStyles.blogTitle}>Dispatch & <span>Chronicles</span></h2>
+             <h1 className={blogStyles.blogTitle}>Dispatch & <span>Chronicles</span></h1>
           </div>
 
           {sortedPosts.length === 0 ? (
@@ -64,9 +68,12 @@ export default async function BlogPage() {
                     <Link href={`/blog/${post.slug}`} className="block">
                       {/* Image Header */}
                       <div className={blogStyles.imageWrapper}>
-                        <img
+                        <Image
                           src={post.image || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80'}
                           alt={post.title}
+                          width={600}
+                          height={400}
+                          quality={75}
                           className={blogStyles.cardImage}
                         />
                         <div className={blogStyles.postBadge}>
