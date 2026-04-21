@@ -46,16 +46,17 @@ export default function OffersContent() {
     <>
       <LiveCursors />
       <div className={styles.backgroundAnimation}></div>
-      <main className={styles.main}>
-        <Header 
-          isMobileMenuOpen={isMobileMenuOpen} 
-          setIsMobileMenuOpen={setIsMobileMenuOpen} 
-        />
+      <Header 
+        isMobileMenuOpen={isMobileMenuOpen} 
+        setIsMobileMenuOpen={setIsMobileMenuOpen} 
+      />
 
-        <MobileNav 
-          isOpen={isMobileMenuOpen} 
-          setIsOpen={setIsMobileMenuOpen} 
-        />
+      <MobileNav 
+        isOpen={isMobileMenuOpen} 
+        setIsOpen={setIsMobileMenuOpen} 
+      />
+
+      <main className={styles.main}>
 
         <AuthModal 
           isOpen={isAuthModalOpen} 

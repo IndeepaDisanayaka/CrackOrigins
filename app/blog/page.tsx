@@ -42,12 +42,13 @@ export default async function BlogPage() {
     <>
       <div className={styles.backgroundAnimation}></div>
       
+      <React.Suspense fallback={<div className="h-20 bg-black/20 animate-pulse" />}>
+        <HeaderWrapper />
+      </React.Suspense>
+      
+      <SubHeader />
+
       <main className={styles.main}>
-        <React.Suspense fallback={<div className="h-20 bg-black/20 animate-pulse" />}>
-          <HeaderWrapper />
-        </React.Suspense>
-        
-        <SubHeader />
 
         <div className={blogStyles.blogContainer}>
           {/* Section Header - Styled like Home Sections */}

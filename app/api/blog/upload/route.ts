@@ -6,26 +6,52 @@ import readingTime from 'reading-time';
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const { title, description, content, image, author, tags, date, userId } = data;
+    const { title, description, content, image, author, tags, date, userId, type, gameId } = data;
 
     if (!title || !content || !userId) {
       return NextResponse.json({ error: 'Title, Content, and User ID are required' }, { status: 400 });
     }
 
-    // Create a slug from the title
+    const db = await getAdminDb();
+    
+    if (type === 'game-update') {
+      if (!gameId) return NextResponse.json({ error: 'Game ID is required for game updates' }, { status: 400 });
+      
+      // Validation for game update: version and image urls
+      const hasVersion = content.toLowerCase().includes('version') || content.toLowerCase().includes('v1.') || content.toLowerCase().includes('v0.');
+      if (!hasVersion) {
+        return NextResponse.json({ error: 'Game updates must include version info (e.g. v1.0.4).' }, { status: 400 });
+      }
+
+      // Save to game updates subcollection
+      const gameRef = db.collection('games').doc(gameId);
+      const updateRef = gameRef.collection('updates').doc();
+      
+      await updateRef.set({
+        title,
+        description,
+        body: content,
+        image,
+        author,
+        tags: tags || [],
+        date: date || new Date().toISOString(),
+        authorId: userId,
+        createdAt: Timestamp.now()
+      });
+
+      return NextResponse.json({ success: true, type: 'game-update', id: updateRef.id });
+    }
+
+    // Normal Blog Logic
     const slug = title
       .toLowerCase()
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    const db = await getAdminDb();
-    
-    // Create a new document reference with an auto-generated ID
     const blogRef = db.collection('blogs').doc();
     const blogId = blogRef.id;
 
-    // Status and Metatags
     const metatags = {
       title,
       description,
@@ -35,11 +61,6 @@ export async function POST(req: NextRequest) {
       readingTime: readingTime(content).text,
     };
 
-    const isApproved = true; // Auto-approving all uploads for now as per simplicity? 
-    // Actually the user said "author nam update karanne auto approve wenawa".
-    // Since we don't have a lookup for "is the current user the author" for a BRAND NEW doc (they are by definition), we set it.
-
-    // Main document update
     const mainDocData: any = {
       slug,
       authorId: userId,
@@ -57,7 +78,6 @@ export async function POST(req: NextRequest) {
       editedTime: Timestamp.now(),
     });
 
-    // Revalidate the blog list page and the individual blog page
     try {
       const { revalidatePath } = await import('next/cache');
       revalidatePath('/blog');

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import styles from './GamesCarousel.module.css';
-import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor, Smartphone, Laptop } from 'lucide-react';
+import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor, Smartphone, Laptop, Download, Shield, Share2 } from 'lucide-react';
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useModals } from '../lib/contexts/ModalContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +10,7 @@ import { getOwnedGames, validateCoupon, getGames } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
 import PayPalCheckout from '@/lib/paypal';
-import { CheckSquare, Square } from 'lucide-react';
+import CheckCircle from './CheckCircle';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -191,15 +191,23 @@ export default function GamesCarousel() {
         <div className={styles.mainStage}>
           <div className={styles.stageBackground}>
             <AnimatePresence mode="wait">
-              <motion.img
+              <motion.div
                 key={`bg-${activeIndex}`}
-                src={activeGame.image || `https://img.youtube.com/vi/${activeGame.video}/maxresdefault.jpg`}
-                className={styles.bgImage}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 1 }}
-              />
+                className={styles.bgImageContainer}
+                style={{ position: 'absolute', inset: 0 }}
+              >
+                <Image
+                  src={activeGame.images?.[0] || activeGame.image || `https://img.youtube.com/vi/${activeGame.video}/maxresdefault.jpg`}
+                  alt={activeGame.title || 'Game Backdrop'}
+                  fill
+                  style={{ objectFit: 'cover' }}
+                  priority
+                />
+              </motion.div>
             </AnimatePresence>
           </div>
 
@@ -301,26 +309,29 @@ export default function GamesCarousel() {
               <p className={styles.description}>{activeGame.description}</p>
 
               <div className={styles.actions}>
-                <button
-                  className="btnSolid"
-                  disabled={activeGame.price !== 'Free' && !purchasedTitles.includes(activeGame.title)}
-                  style={{ minWidth: '160px' }}
-                  onClick={() => {
-                    if (purchasedTitles.includes(activeGame.title) || activeGame.price === 'Free') {
-                      triggerDirectDownload(activeGame.downloadUrl, activeGame.title);
-                    }
-                  }}
-                >
-                  <Play size={14} fill="currentColor" />
-                  {activeGame.price === 'Free' || purchasedTitles.includes(activeGame.title) ? 'Download' : 'Unlock to Play'}
-                </button>
+                {/* 1. Primary Action (Download or Unlock) */}
+                {(purchasedTitles.includes(activeGame.title) || activeGame.price === 'Free') ? (
+                  <button
+                    className="btnSolid"
+                    style={{ minWidth: '150px' }}
+                    onClick={() => triggerDirectDownload(activeGame.downloadUrl, activeGame.title)}
+                  >
+                    <Download size={14} fill="currentColor" /> Download
+                  </button>
+                ) : (
+                  <button className="btnSolid" disabled style={{ minWidth: '150px', opacity: 0.5 }}>
+                    <Play size={14} fill="currentColor" /> Unlock to Play
+                  </button>
+                )}
 
+                {/* 2. Secondary Actions: Buy Now or View Key */}
                 {purchasedTitles.includes(activeGame.title) ? (
                   <button
-                    className="btnBuyNow"
-                    onClick={() => { setSelectedGame(activeGame); setModalState('details'); setIsKeyVisible(false); }}
+                    className="btnOutline"
+                    onClick={() => { setSelectedGame(activeGame); setModalState('details'); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.7rem 1.2rem' }}
                   >
-                    <Eye size={16} /> View Details
+                    <Shield size={16} /> View Key
                   </button>
                 ) : activeGame.price !== 'Free' && (
                   <button
@@ -331,6 +342,15 @@ export default function GamesCarousel() {
                     <ShoppingCart size={16} /> Buy Now - {activeGame.price}
                   </button>
                 )}
+
+                {/* 3. Global Action: Details (Always Visible) */}
+                <Link
+                  className="btnOutline"
+                  href={`/games/${activeGame.slug}`}
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.7rem 1.2rem' }}
+                >
+                  <Eye size={16} /> Details
+                </Link>
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button className="btnOutline" style={{ padding: '0.7rem' }} onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Auto-Play" : "Lock Auto-Play"}>
@@ -379,11 +399,23 @@ export default function GamesCarousel() {
             <div className={styles.requirementsSection}>
               <div className={styles.reqBlock}>
                 <span className={styles.reqLabel}>Minimum Requirements</span>
-                <p className={styles.reqText}>{selectedGame.requirements.min}</p>
+                <p className={styles.reqText} style={{ fontSize: '0.65rem', lineHeight: 1.4 }}>
+                  {typeof selectedGame.requirements?.min === 'object' ? (
+                    `${selectedGame.requirements.min.processor || ''} • ${selectedGame.requirements.min.memory || ''} • ${selectedGame.requirements.min.graphics || ''} • ${selectedGame.requirements.min.storage || ''}`
+                  ) : (
+                    selectedGame.requirements?.min || 'N/A'
+                  )}
+                </p>
               </div>
               <div className={styles.reqBlock}>
-                <span className={styles.reqLabel}>Recommended</span>
-                <p className={styles.reqText}>{selectedGame.requirements.max}</p>
+                <span className={styles.reqLabel}>Recommended Specs</span>
+                <p className={styles.reqText} style={{ fontSize: '0.65rem', lineHeight: 1.4 }}>
+                  {typeof selectedGame.requirements?.max === 'object' ? (
+                    `${selectedGame.requirements.max.processor || ''} • ${selectedGame.requirements.max.memory || ''} • ${selectedGame.requirements.max.graphics || ''} • ${selectedGame.requirements.max.storage || ''}`
+                  ) : (
+                    selectedGame.requirements?.max || 'N/A'
+                  )}
+                </p>
               </div>
             </div>
 
@@ -403,9 +435,16 @@ export default function GamesCarousel() {
             <div className={styles.modalFooter}>
               {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
-                    <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>{acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}</div>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.</span>
+                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ 
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', 
+                    border: acceptedTerms ? '1px solid var(--primary)' : '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)', 
+                    background: acceptedTerms ? 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)' : 'transparent',
+                    textAlign: 'left' 
+                  }}>
+                    <CheckCircle checked={acceptedTerms} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
+                      I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.
+                    </span>
                   </div>
                   {acceptedTerms ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
@@ -437,7 +476,7 @@ export default function GamesCarousel() {
                             return Math.max(0, finalAmt).toFixed(2);
                           })()} 
                           game={selectedGame.title} 
-                          gameId={selectedGame.gameId}
+                          gameId={selectedGame.id}
                           isOwned={purchasedTitles.includes(selectedGame.title)} 
                           onSuccess={() => fetchPurchases(user.uid)} 
                           appliedCoupon={appliedCoupon} 
@@ -456,27 +495,42 @@ export default function GamesCarousel() {
             </div>
           </div>
         ) : modalState === 'details' && selectedGame ? (
-          <div className={styles.checkoutModal} style={{ paddingTop: 0 }}>
-            <h2 className={styles.modalTitle} style={{ marginTop: '1rem' }}>Game Details</h2>
-            <div className={styles.modalHeader}>
-              <Image width={80} height={80} quality={75} src={selectedGame.image} className={styles.modalPreviewImg} alt="preview" style={{ borderRadius: '8px', objectFit: 'cover' }} />
-              <div className={styles.modalHeaderInfo}>
-                <span className={styles.gameTitle}>{selectedGame.title}</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Purchased on: {new Date(purchasedDetails[selectedGame.title]?.purchaseDate).toLocaleDateString()}</span>
+          <div className={styles.checkoutModal} style={{ paddingTop: 0, padding: '2rem' }}>
+            <h2 className={styles.screenshotModalTitle}>GAME DETAILS</h2>
+            <div className={styles.screenshotModalHeader}>
+              <div style={{ width: '80px', height: '110px', position: 'relative', borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
+                <Image width={80} height={110} quality={75} src={selectedGame.image} className={styles.modalPreviewImg} alt="preview" style={{ objectFit: 'cover', border: 'none' }} />
+              </div>
+              <div className={styles.screenshotModalHeaderInfo}>
+                <span className={styles.screenshotGameTitle}>{selectedGame.title}</span>
+                {purchasedDetails[selectedGame.title]?.purchaseDate && (
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Purchased on: {new Date(purchasedDetails[selectedGame.title].purchaseDate).toLocaleDateString()}</span>
+                )}
               </div>
             </div>
 
-            <div className={styles.detailsSection}>
-              <span style={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem', fontWeight: 800 }}>Activation Key</span>
+            <div className={styles.screenshotKeyContainer}>
+              <span className={styles.screenshotKeyLabel}>ACTIVATION KEY</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ flex: 1, padding: '0.8rem', background: 'var(--background)', fontFamily: 'monospace', fontSize: '1rem', color: 'var(--primary)', letterSpacing: '2px', borderRadius: '4px', overflow: 'hidden' }}>
-                  {isKeyVisible ? purchasedDetails[selectedGame.title]?.activationKey : '••••••••••••••••••••'}
+                <div className={styles.screenshotKeyBox}>
+                  {isKeyVisible ? (purchasedDetails[selectedGame.title]?.activationKey || 'NO-KEY-FOUND') : '••••••••••••••••••••••••'}
                 </div>
-                <button className="btnOutline" style={{ padding: '0.8rem' }} onClick={() => setIsKeyVisible(!isKeyVisible)}>{isKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-                <button className="btnSolid" style={{ padding: '0.8rem' }} onClick={() => { navigator.clipboard.writeText(purchasedDetails[selectedGame.title]?.activationKey); showToast("Activation key copied to clipboard!", "success"); }}><Copy size={16} /></button>
+                <button className={styles.screenshotVisibilityBtn} onClick={() => setIsKeyVisible(!isKeyVisible)}>
+                   {isKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+                <button className={styles.screenshotCopyBtn} onClick={() => { 
+                   if (purchasedDetails[selectedGame.title]?.activationKey) {
+                       navigator.clipboard.writeText(purchasedDetails[selectedGame.title].activationKey);
+                       showToast("Activation key copied to clipboard!", "success");
+                   }
+                }}>
+                   <Copy size={18} />
+                </button>
               </div>
             </div>
-            <div className={styles.modalFooter}><button className="btnSolid" style={{ width: '100%' }} onClick={() => setModalState('closed')}>Back to Hub</button></div>
+            <div style={{ marginTop: '2.5rem' }}>
+              <button className={styles.screenshotFooterBtn} onClick={() => setModalState('closed')}>BACK TO HUB</button>
+            </div>
           </div>
         ) : modalState === 'loading' ? (
           <div style={{ textAlign: 'center' }}>

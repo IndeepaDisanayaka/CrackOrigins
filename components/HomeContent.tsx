@@ -80,17 +80,19 @@ export default function HomeContent() {
       <LiveCursors />
       <div className={styles.backgroundAnimation}></div>
 
+      <Header 
+        isMobileMenuOpen={isMobileMenuOpen} 
+        setIsMobileMenuOpen={setIsMobileMenuOpen} 
+      />
+
+      <MobileNav 
+        isOpen={isMobileMenuOpen} 
+        setIsOpen={setIsMobileMenuOpen} 
+      />
+
+      <SubHeader />
+
       <main className={styles.main}>
-        <Header 
-          isMobileMenuOpen={isMobileMenuOpen} 
-          setIsMobileMenuOpen={setIsMobileMenuOpen} 
-        />
-
-        <MobileNav 
-          isOpen={isMobileMenuOpen} 
-          setIsOpen={setIsMobileMenuOpen} 
-        />
-
         <AuthModal 
           isOpen={isAuthModalOpen} 
           onClose={() => setIsAuthModalOpen(false)} 
@@ -124,8 +126,6 @@ export default function HomeContent() {
             setIsOpen={setIsAdminModalOpen}
           />
         )}
-
-        <SubHeader />
 
         <Hero />
 

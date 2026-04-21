@@ -30,17 +30,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const fetchCountry = async () => {
+    // Attempt 1: ipwho.is (Fast, No API key)
     try {
       const res = await fetch("https://ipwho.is/");
       if (res.ok) {
         const data = await res.json();
-        const countryName = data.country || 'Unknown';
-        setCountry(countryName);
-        return countryName;
+        if (data.success && data.country) {
+          setCountry(data.country);
+          return data.country;
+        }
       }
     } catch (e) {
-      console.warn("Geolocation failed via ipwho.is, using default.");
+      console.warn("Geolocation Tactic 1 failed, trying fallback...");
     }
+
+    // Attempt 2: ipapi.co (Reliable backup)
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.country_name) {
+          setCountry(data.country_name);
+          return data.country_name;
+        }
+      }
+    } catch (e) {
+      console.warn("Geolocation Tactic 2 failed.");
+    }
+
     return 'Unknown';
   };
 

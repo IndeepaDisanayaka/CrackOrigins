@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Gamepad2, Tag, DollarSign, Layers, Monitor, HardDrive, Plus, CheckCircle } from 'lucide-react';
+import { Gamepad2, Tag, DollarSign, Layers, Monitor, HardDrive, Plus, Image as ImageIcon, Cpu, MemoryStick, Box, Laptop, Activity, ToggleLeft as Toggle, HelpCircle } from 'lucide-react';
 import Modal from '../Modal';
-import { listGame, generateUniqueGameId } from '@/lib/admin-actions';
+import { listGame } from '@/lib/admin-actions';
 import { useToast } from '../Toast';
+import CheckCircle from '../CheckCircle';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import styles from '../../app/page.module.css';
 
@@ -17,43 +18,42 @@ interface ListGameModalProps {
 export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [gameForm, setGameForm] = useState({
-    gameId: "",
     title: "",
     description: "",
     price: "",
     genre: "",
     os: "windows",
-    image: "",
     logo: "",
     video: "",
     downloadUrl: "",
+    images: "",
+    storage: "",
+    vrSupported: false,
+    status: "released", // Default to released
     requirement: {
-      min: "",
-      max: ""
+      min: {
+        processor: "",
+        memory: "",
+        graphics: "",
+        directx: "Version 11"
+      },
+      max: {
+        processor: "",
+        memory: "",
+        graphics: "",
+        directx: "Version 11"
+      }
     }
   });
-
-  React.useEffect(() => {
-    if (isOpen && step === 2 && !gameForm.gameId) {
-      const fetchId = async () => {
-        const res = await generateUniqueGameId();
-        if (res.success && res.gameId) {
-          setGameForm(prev => ({ ...prev, gameId: String(res.gameId) }));
-        }
-      };
-      fetchId();
-    }
-  }, [isOpen, step, gameForm.gameId]);
 
   const handleListGame = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    if (!gameForm.gameId || !gameForm.title || !gameForm.description || !gameForm.price || !gameForm.downloadUrl) {
+    if (!gameForm.title || !gameForm.description || !gameForm.price || !gameForm.downloadUrl) {
       showToast("Please fill all required fields.", "error");
       return;
     }
@@ -62,10 +62,15 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
     try {
       const formattedData = {
         ...gameForm,
-        gameId: isNaN(parseInt(gameForm.gameId)) ? gameForm.gameId : parseInt(gameForm.gameId),
         price: parseFloat(gameForm.price),
         genre: gameForm.genre.split(',').map(s => s.trim().toLowerCase()),
-        os: gameForm.os.split(',').map(s => s.trim().toLowerCase())
+        os: gameForm.os.split(',').map(s => s.trim().toLowerCase()),
+        images: gameForm.images.split(',').map(s => s.trim()).filter(Boolean),
+        downloadCount: 0,
+        requirement: {
+            min: { ...gameForm.requirement.min, storage: gameForm.storage, vrSupported: gameForm.vrSupported },
+            max: { ...gameForm.requirement.max, storage: gameForm.storage, vrSupported: gameForm.vrSupported }
+        }
       };
 
       const result = await listGame(user.uid, formattedData);
@@ -73,19 +78,23 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
         showToast("Game listed successfully!", "success");
         if (onSuccess) onSuccess();
         onClose();
-        setStep(1);
         setGameForm({
-          gameId: "",
           title: "",
           description: "",
           price: "",
           genre: "",
           os: "windows",
-          image: "",
           logo: "",
           video: "",
           downloadUrl: "",
-          requirement: { min: "", max: "" }
+          images: "",
+          storage: "",
+          vrSupported: false,
+          status: "released",
+          requirement: {
+            min: { processor: "", memory: "", graphics: "", directx: "Version 11" },
+            max: { processor: "", memory: "", graphics: "", directx: "Version 11" }
+          }
         });
       } else {
         showToast(result.error || "Failed to list game.", "error");
@@ -97,47 +106,39 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
     }
   };
 
+  const updateRequirement = (type: 'min' | 'max', field: string, value: string) => {
+    setGameForm(prev => ({
+      ...prev,
+      requirement: {
+        ...prev.requirement,
+        [type]: {
+          ...prev.requirement[type],
+          [field]: value
+        }
+      }
+    }));
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={step === 1 ? "Setup Google Connection" : "List New Creation"}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
-
-        {step === 1 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center' }}>
-            <div style={{
-              width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'rgba(66, 133, 244, 0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', border: '1px solid rgba(66, 133, 244, 0.2)'
-            }}>
-              {/* Custom Google Drive Icon using lucide symbols or simple placeholder */}
-              <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#4285F4' }}>G</span>
-            </div>
-
-            <div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Google Drive Integration</h3>
-              <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.7, lineHeight: 1.5 }}>
-                To enable direct downloads, you must ensure your Google Drive files are accessible.
-                This setup verifies your connection and prepares the direct link engine.
-              </p>
-            </div>
-
-            <div style={{ padding: '1rem', background: 'transparent', borderRadius: '8px', border: '1px solid var(--outline-color)', textAlign: 'left' }}>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <CheckCircle size={14} color="#4ade80" />
-                <span style={{ fontSize: '0.8rem' }}>Google Authentication Verified</span>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                <CheckCircle size={14} color="#4ade80" />
-                <span style={{ fontSize: '0.8rem' }}>Drive API Permissions Ready</span>
-              </div>
-            </div>
-
-            <button className="btnSolid" style={{ width: '100%', padding: '1rem' }} onClick={() => setStep(2)}>
-              Continue to Listing <Plus size={16} />
-            </button>
-          </div>
-        ) : (
+    <Modal isOpen={isOpen} onClose={onClose} title="List New Creation">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0', maxHeight: '80vh', overflowY: 'auto' }}>
           <form onSubmit={handleListGame} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
             <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <HelpCircle size={12} /> Status
+                </label>
+                <select 
+                  className={styles.adminInput} 
+                  value={gameForm.status} 
+                  onChange={e => setGameForm({ ...gameForm, status: e.target.value })}
+                  style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--foreground)' }}
+                >
+                  <option value="released">Released</option>
+                  <option value="coming-soon">Coming Soon</option>
+                </select>
+              </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <DollarSign size={12} /> Price ($)
@@ -166,6 +167,13 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <ImageIcon size={12} /> Gallery Images (comma separated URLs)
+              </label>
+              <textarea placeholder="https://img1.jpg, https://img2.jpg..." className={styles.adminInput} rows={2} value={gameForm.images} onChange={e => setGameForm({ ...gameForm, images: e.target.value })} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Layers size={12} /> Description
               </label>
               <textarea placeholder="Game description..." className={styles.adminInput} rows={3} value={gameForm.description} onChange={e => setGameForm({ ...gameForm, description: e.target.value })} />
@@ -174,15 +182,42 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
             <div style={{ display: 'flex', gap: '1rem' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Layers size={12} /> Genre (comma separated)
+                  <Tag size={12} /> Genre (comma separated)
                 </label>
                 <input type="text" placeholder="survival, multiplayer" className={styles.adminInput} value={gameForm.genre} onChange={e => setGameForm({ ...gameForm, genre: e.target.value })} />
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Monitor size={12} /> OS (comma separated)
+                  <Monitor size={12} /> OS
                 </label>
                 <input type="text" placeholder="windows, mac os" className={styles.adminInput} value={gameForm.os} onChange={e => setGameForm({ ...gameForm, os: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+              <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Box size={12} /> Combined Storage Needed
+                </label>
+                <input type="text" placeholder="e.g. 60 GB available space" className={styles.adminInput} value={gameForm.storage} onChange={e => setGameForm({ ...gameForm, storage: e.target.value })} />
+              </div>
+              <div 
+                style={{ 
+                  flex: 1, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '1rem', 
+                  background: 'rgba(255,255,255,0.05)', 
+                  padding: '0.8rem 1rem', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  transition: 'all 0.2s ease'
+                }} 
+                onClick={() => setGameForm({ ...gameForm, vrSupported: !gameForm.vrSupported })}
+              >
+                <CheckCircle checked={gameForm.vrSupported} />
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>VR Supported</label>
               </div>
             </div>
 
@@ -195,39 +230,59 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
                 placeholder="https://drive.google.com/file/d/..." 
                 className={styles.adminInput} 
                 value={gameForm.downloadUrl} 
-                onChange={e => {
-                  const url = e.target.value;
-                  const driveMatch = url.match(/\/file\/d\/([^\/?#]+)/) || url.match(/[?&]id=([^\/?#&]+)/);
-                  const driveId = driveMatch ? driveMatch[1] : null;
-                  
-                  setGameForm(prev => ({ 
-                    ...prev, 
-                    downloadUrl: url,
-                    gameId: driveId || prev.gameId 
-                  }));
-                }} 
+                onChange={e => setGameForm({ ...gameForm, downloadUrl: e.target.value })} 
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75 }}>Min Requirements</label>
-                <input type="text" placeholder="Dual Core / 2GB RAM" className={styles.adminInput} value={gameForm.requirement.min} onChange={e => setGameForm({ ...gameForm, requirement: { ...gameForm.requirement, min: e.target.value } })} />
+            {/* Minimum Requirements */}
+            <h4 style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', marginTop: '1rem', color: 'var(--primary)' }}>Hardware Matrix (Minimum)</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Cpu size={10} /> Processor</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.processor} onChange={e => updateRequirement('min', 'processor', e.target.value)} />
               </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75 }}>Max Requirements</label>
-                <input type="text" placeholder="Quad Core / 4GB RAM" className={styles.adminInput} value={gameForm.requirement.max} onChange={e => setGameForm({ ...gameForm, requirement: { ...gameForm.requirement, max: e.target.value } })} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><MemoryStick size={10} /> Memory</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.memory} onChange={e => updateRequirement('min', 'memory', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Monitor size={10} /> Graphics</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.graphics} onChange={e => updateRequirement('min', 'graphics', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}>DirectX</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.directx} onChange={e => updateRequirement('min', 'directx', e.target.value)} />
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button type="button" className="btnOutline" onClick={() => setStep(1)} style={{ flex: 1 }}>Back</button>
+            {/* Recommended Requirements */}
+            <h4 style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', marginTop: '1rem', color: 'var(--primary)' }}>Hardware Matrix (Recommended)</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Cpu size={10} /> Processor</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.processor} onChange={e => updateRequirement('max', 'processor', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><MemoryStick size={10} /> Memory</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.memory} onChange={e => updateRequirement('max', 'memory', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Monitor size={10} /> Graphics</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.graphics} onChange={e => updateRequirement('max', 'graphics', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                 <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}>DirectX</label>
+                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.directx} onChange={e => updateRequirement('max', 'directx', e.target.value)} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+              <button type="button" className="btnOutline" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
               <button type="submit" className="btnSolid" disabled={isSubmitting} style={{ flex: 2 }}>
                 {isSubmitting ? "Lising..." : "Confirm & List Game"}
               </button>
             </div>
           </form>
-        )}
       </div>
     </Modal>
   );

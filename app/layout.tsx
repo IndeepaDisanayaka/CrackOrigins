@@ -71,6 +71,22 @@ export default function RootLayout({
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
+        <Script id="schema-structured-data" type="application/ld+json">
+          {`
+            {
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "Crack Origins",
+              "url": "https://crackorigins.com",
+              "description": "Crack Origins is a premier indie game development studio crafting immersive experiences.",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://crackorigins.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              }
+            }
+          `}
+        </Script>
       </head>
       <body style={{ fontFamily: 'var(--font-roboto), sans-serif' }}>
         <LoadingBar />
