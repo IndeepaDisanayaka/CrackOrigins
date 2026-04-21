@@ -453,9 +453,100 @@
   border: none;
 }
 
-.detailsSection {
-  background: rgba(var(--primary-rgb, 254, 182, 12), 0.05);
-  border: 1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.1);
-  padding: 1.5rem;
-  border-radius: 12px;
+.screenshotModalTitle {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0 0 2rem 0;
+    color: #1a1a1a;
+    text-align: left;
+}
+
+.screenshotModalHeader {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.screenshotModalHeaderInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.screenshotGameTitle {
+    font-size: 1.5rem;
+    font-weight: 950;
+    text-transform: uppercase;
+    color: #1a1a1a;
+    line-height: 1.1;
+}
+
+.screenshotKeyContainer {
+    background: #fdfbf2;
+    border: 1px solid #efe8d0;
+    padding: 1.5rem;
+    border-radius: 4px;
+}
+
+.screenshotKeyLabel {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 900;
+    color: #9c9276;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.screenshotKeyBox {
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    color: #feb60c;
+    letter-spacing: 1px;
+    font-weight: 700;
+    word-break: break-all;
+}
+
+.screenshotVisibilityBtn {
+    background: #fff;
+    border: 1px solid #1a1a1a;
+    padding: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.screenshotCopyBtn {
+    background: #feb60c;
+    border: 1px solid #1a1a1a;
+    padding: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+    color: #000;
+}
+
+.screenshotFooterBtn {
+    width: 100%;
+    background: #feb60c;
+    color: #000;
+    border: none;
+    padding: 1.25rem;
+    font-weight: 900;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.screenshotFooterBtn:hover {
+    background: #e5a40b;
+    transform: translateY(-2px);
 }

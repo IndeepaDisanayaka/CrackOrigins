@@ -6,29 +6,14 @@ import { encrypt, decrypt } from './crypto';
 import { getBlogPosts } from './blog';
 
 /**
- * Server Action: Generate a unique 3-digit Game ID
+ * Server Action: Generate a unique slug from title
  */
-export async function generateUniqueGameId() {
-    try {
-        const adminDb = await getAdminDb();
-        let gameId = 0;
-        let isUnique = false;
-        let attempts = 0;
-        
-        while (!isUnique && attempts < 100) {
-            gameId = Math.floor(100 + Math.random() * 900); // Generates 100-999
-            const existing = await adminDb.collection("games").where("gameId", "==", gameId).limit(1).get();
-            if (existing.empty) isUnique = true;
-            attempts++;
-        }
-        
-        if (!isUnique) throw new Error("Could not generate a unique ID. Registry may be full.");
-        
-        return { success: true, gameId };
-    } catch (error: any) {
-        console.error("Error generating game ID:", error);
-        return { success: false, error: error.message };
-    }
+export async function generateGameSlug(title: string) {
+    return title
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
 }
 
 function toIsoDate(value: any): string | null {
@@ -53,19 +38,9 @@ export async function listGame(adminUid: string, gameData: any) {
             return { success: false, error: "Unauthorized." };
         }
 
-        // Check for unique gameId again before saving by checking if document ID exists
-        if (gameData.gameId) {
-            const gameIdStr = String(gameData.gameId);
-            const existing = await adminDb.collection("games").doc(gameIdStr).get();
-            if (existing.exists) {
-                return { success: false, error: `Game ID ${gameIdStr} already exists. Please choose a different ID.` };
-            }
-        }
-
-        const gameIdStr = String(gameData.gameId);
-        const gameRef = adminDb.collection("games").doc(gameIdStr);
+        const gameRef = adminDb.collection("games").doc(); // Use auto-generated ID
         
-        // Remove redundant keys from the data object as requested
+        // Remove redundant keys from the data object - stop saving slug as requested
         const { gameId, image, ...cleanedData } = gameData;
         
         await gameRef.set({
@@ -73,7 +48,7 @@ export async function listGame(adminUid: string, gameData: any) {
             time: Timestamp.now(),
         });
 
-        return { success: true, id: gameIdStr };
+        return { success: true, id: gameRef.id };
     } catch (error: any) {
         console.error("Error listing game:", error);
         return { success: false, error: error.message };
@@ -87,12 +62,13 @@ export async function getGames() {
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("games").get();
-        const games = snapshot.docs.map(doc => {
+        const games = await Promise.all(snapshot.docs.map(async (doc) => {
             const data = doc.data();
+            const generatedSlug = await generateGameSlug(data.title || "");
+
             return {
-                // Ensure the fields match the component's expectations and the Firestore structure
                 id: doc.id,
-                gameId: data.gameId || doc.id, // Use doc.id as fallback if data.gameId is excluded
+                slug: generatedSlug,
                 title: data.title || "Untitled Game",
                 genre: Array.isArray(data.genre) ? data.genre.join(" & ") : (data.genre || "Action"),
                 description: data.description || "No description available.",
@@ -105,9 +81,10 @@ export async function getGames() {
                     max: data.requirement?.max || "Recommended requirements not specified."
                 },
                 os: Array.isArray(data.os) ? data.os.join(", ") : (data.os || "Windows"),
-                downloadUrl: data.downloadUrl || "" // Google Drive direct link
+                downloadUrl: data.downloadUrl || "",
+                images: data.images || []
             };
-        });
+        }));
         return { success: true, games };
     } catch (error: any) {
         console.error("Error fetching games:", error);
@@ -595,6 +572,36 @@ export async function getUserCoupons(uid: string) {
 }
 
 /**
+ * Server Action: Verify a coupon code
+ */
+export async function verifyCoupon(couponCode: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const doc = await adminDb.collection("coupons").doc(couponCode.toUpperCase()).get();
+        
+        if (!doc.exists) return { success: false, error: "Invalid coupon code." };
+        
+        const data = doc.data()!;
+        if (data.isExpired) return { success: false, error: "Coupon has expired." };
+        if (data.quantity <= 0) return { success: false, error: "Coupon is no longer available." };
+        
+        const expireDate = new Date(data.expire);
+        if (expireDate < new Date()) {
+            await adminDb.collection("coupons").doc(couponCode.toUpperCase()).update({ isExpired: true });
+            return { success: false, error: "Coupon has expired." };
+        }
+
+        return { 
+            success: true, 
+            discount: data.discount,
+            couponId: doc.id 
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Server Action: Create a new offer (Admin only)
  */
 export async function createOffer(adminUid: string, offerData: {
@@ -1021,6 +1028,167 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
             payments
         };
     } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Fetch a single game by its slug (generated from title)
+ */
+export async function getGameBySlug(slug: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const snapshot = await adminDb.collection("games").get();
+        
+        let targetDoc = null;
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            const generated = await generateGameSlug(data.title || "");
+            
+            if (generated === slug) {
+                targetDoc = doc;
+                break;
+            }
+        }
+
+        if (!targetDoc) return { success: false, error: "Game not found." };
+        
+        const data = targetDoc.data();
+        const game = {
+            id: targetDoc.id,
+            ...data,
+            slug: slug,
+            requirements: {
+                min: data.requirement?.min || {},
+                max: data.requirement?.max || {}
+            },
+            time: data.time?.toDate()?.toISOString() || new Date().toISOString(),
+            downloadCount: data.downloadCount || 0
+        };
+
+        // Fetch updates
+        const updatesSnap = await targetDoc.ref.collection("updates").orderBy("date", "desc").get();
+        const updates = await Promise.all(updatesSnap.docs.map(async (u) => {
+            const uData = u.data();
+            const uSlug = await generateGameSlug(uData.title || "");
+            return {
+                id: u.id,
+                ...uData,
+                slug: uSlug,
+                date: toIsoDate(uData.date) || new Date().toISOString(),
+                createdAt: toIsoDate(uData.createdAt) || new Date().toISOString()
+            };
+        }));
+
+        // Fetch reviews
+        const reviewsSnap = await targetDoc.ref.collection("reviews").orderBy("time", "desc").get();
+        const reviews = reviewsSnap.docs.map(r => ({ 
+            id: r.id, 
+            ...r.data(),
+            time: r.data().time?.toDate()?.toISOString() || new Date().toISOString()
+        }));
+
+        return { success: true, game, updates, reviews };
+    } catch (error: any) {
+        console.error("Error fetching game by slug:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Add a review to a game (Using user ID as document ID)
+ */
+export async function addGameReview(gameId: string, reviewData: {
+    userId: string,
+    userName?: string,
+    userPhoto?: string,
+    rating: string,
+    message: string
+}) {
+    try {
+        const adminDb = await getAdminDb();
+        const gameRef = adminDb.collection("games").doc(gameId);
+        const { userId, ...rest } = reviewData;
+        
+        await gameRef.collection("reviews").doc(userId).set({
+            ...rest,
+            time: Timestamp.now()
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error adding review:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Fetch a single game update
+ */
+export async function getGameUpdate(gameSlug: string, updateId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        
+        // Find game by slug
+        const gamesSnap = await adminDb.collection("games").get();
+        let targetGameDoc = null;
+        for (const doc of gamesSnap.docs) {
+            const data = doc.data();
+            const generated = await generateGameSlug(data.title || "");
+            if (generated === gameSlug) {
+                targetGameDoc = doc;
+                break;
+            }
+        }
+
+        if (!targetGameDoc) return { success: false, error: "Game not found." };
+
+        // Fetch specific update by checking all update slugs
+        const allUpdatesSnap = await targetGameDoc.ref.collection("updates").get();
+        let targetUpdateDoc = null;
+        for (const uDoc of allUpdatesSnap.docs) {
+            const uData = uDoc.data();
+            const uGenerated = await generateGameSlug(uData.title || "");
+            if (uGenerated === updateId) { // updateId is now the slug
+                targetUpdateDoc = uDoc;
+                break;
+            }
+        }
+
+        if (!targetUpdateDoc) return { success: false, error: "Update not found." };
+
+        const updateData = targetUpdateDoc.data();
+        const update = {
+            id: targetUpdateDoc.id,
+            ...updateData,
+            date: toIsoDate(updateData?.date) || new Date().toISOString(),
+            createdAt: toIsoDate(updateData?.createdAt) || new Date().toISOString(),
+            gameTitle: targetGameDoc.data().title
+        };
+
+        return { success: true, update };
+    } catch (error: any) {
+        console.error("Error fetching game update:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Increment game download count
+ */
+export async function incrementDownloadCount(gameId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const gameRef = adminDb.collection("games").doc(gameId);
+        
+        const { FieldValue } = await import('firebase-admin/firestore');
+        await gameRef.update({
+            downloadCount: FieldValue.increment(1)
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error incrementing download count:", error);
         return { success: false, error: error.message };
     }
 }

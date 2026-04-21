@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Clock } from 'lucide-react';
 import { JOIN_ROLES, revealVariants, staggerContainer } from '../../lib/constants';
 import styles from '../ExtraSections.module.css';
 
@@ -17,12 +17,18 @@ export default function CareersSection() {
       variants={revealVariants}
     >
       <span className="sectionLabel">Careers</span>
-      <h2 className={styles.sectionTitle}>Join With Us</h2>
+      <div className={styles.sectionTitleRow}>
+        <h2 className={styles.sectionTitle}>Join With Us</h2>
+        <span className={styles.comingSoonBadge}>
+          <Clock size={14} />
+          Coming Soon
+        </span>
+      </div>
       <p className={styles.sectionSubtext}>
         We&apos;re looking for talented individuals who share our passion for creating exceptional games.
       </p>
       <motion.div
-        className={styles.rolesGrid}
+        className={`${styles.rolesGrid} ${styles.comingSoonOverlay}`}
         variants={staggerContainer}
       >
         {JOIN_ROLES.map((role, i) => (
@@ -36,7 +42,7 @@ export default function CareersSection() {
             </div>
             <p className={styles.roleDesc}>{role.desc}</p>
             <div>
-              <button className="btnOutline">Apply Now <ArrowRight size={14} /></button>
+              <button className="btnOutline" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Apply Now <ArrowRight size={14} /></button>
             </div>
           </motion.div>
         ))}
@@ -44,3 +50,4 @@ export default function CareersSection() {
     </motion.section>
   );
 }
+

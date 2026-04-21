@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Shield, Clock, CheckCircle2, CheckSquare, Square, User as UserIcon } from 'lucide-react';
+import { ShoppingCart, Shield, Clock, CheckCircle2, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { collection, onSnapshot} from "firebase/firestore";
@@ -19,6 +19,7 @@ import { revealVariants, staggerContainer, STEAM_SVG, WINDOWS_SVG } from '../../
 import styles from '../ExtraSections.module.css';
 import carouselStyles from '../GamesCarousel.module.css';
 import { Share2 } from 'lucide-react';
+import CheckCircle from '../CheckCircle';
 
 interface SteamCardProps {
     game: any;
@@ -537,9 +538,7 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
                     background: acceptedTerms ? 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)' : 'transparent',
                     textAlign: 'left' 
                   }}>
-                    <div style={{ color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>
-                      {acceptedTerms ? <CheckSquare size={16} /> : <Square size={16} />}
-                    </div>
+                    <CheckCircle checked={acceptedTerms} />
                     <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
                       I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.
                     </span>

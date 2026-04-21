@@ -1,0 +1,214 @@
+.accountMain {
+  min-height: 100vh;
+  padding: 6rem 2rem 4rem;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+}
+
+.backBtn {
+  position: fixed;
+  top: 2rem;
+  left: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card-bg);
+  border: 1px solid var(--outline-color);
+  color: var(--foreground);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s;
+}
+
+.backBtn:hover {
+  border-color: var(--primary);
+}
+
+.wrapper {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--outline-color);
+  padding-bottom: 1.5rem;
+}
+
+.pageTitle {
+  font-size: 2.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--foreground);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 50, 50, 0.1);
+  border: 1px solid rgba(255, 50, 50, 0.3);
+  color: #ff6b6b;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  transition: all 0.3s;
+}
+
+.logoutBtn:hover {
+  background: rgba(255, 50, 50, 0.2);
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+}
+
+.profileCard {
+  background: var(--card-bg);
+  border: 1px solid var(--outline-color);
+  border-radius: 16px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  height: fit-content;
+}
+
+.statsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.affiliateBanner {
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0.02));
+  border: 1px solid var(--primary);
+  border-radius: 16px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.affiliateStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.optionsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.optionCard {
+  background: var(--card-bg);
+  border: 1px solid var(--outline-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.optionCard:hover {
+  border-color: var(--primary);
+}
+
+.optionCardDisabled {
+  background: var(--background);
+  border: 1px dashed var(--outline-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  opacity: 0.6;
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 768px) {
+  .accountMain {
+    padding: 5rem 1rem 3rem;
+  }
+
+  .backBtn {
+    top: 1rem;
+    left: 1rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .pageTitle {
+    font-size: 1.8rem;
+  }
+
+  .logoutBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .profileGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .profileCard {
+    flex-direction: row;
+    text-align: left;
+    gap: 1.25rem;
+    padding: 1.5rem;
+  }
+
+  .affiliateBanner {
+    padding: 1.5rem;
+  }
+
+  .affiliateStatsGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .optionsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+
+  .profileCard {
+    flex-direction: column;
+    text-align: center;
+  }
+}

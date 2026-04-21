@@ -92,19 +92,20 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
               </>
             )}
             <div style={{ display: 'flex', gap: '0.4rem' }} className={styles.desktopOnlyAction}>
-              <button
-                className="btnSolid"
-                onClick={logout}
-                title="Click to Sign Out"
-                style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer' }}
-              >
-                {user.photoURL ? (
-                  <Image width={18} height={18} quality={75} src={user.photoURL} alt="avatar" style={{ borderRadius: '50%' }} />
-                ) : (
-                  <User size={18} />
-                )}
-                <span className={styles.connectText}>{user.displayName?.split(' ')[0]}</span>
-              </button>
+              <Link href="/account" style={{ textDecoration: 'none' }}>
+                <button
+                  className="btnSolid"
+                  title="My Account"
+                  style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer' }}
+                >
+                  {user.photoURL ? (
+                    <Image width={18} height={18} quality={75} src={user.photoURL} alt="avatar" style={{ borderRadius: '50%' }} />
+                  ) : (
+                    <User size={18} />
+                  )}
+                  <span className={styles.connectText}>{user.displayName?.split(' ')[0] || "Account"}</span>
+                </button>
+              </Link>
             </div>
           </div>
         ) : (

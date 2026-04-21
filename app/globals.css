@@ -27,14 +27,15 @@
 }
 
 .light-theme {
-  --background: #ffffff;
-  --background-rgb: 255, 255, 255;
-  --foreground: #111111;
-  --foreground-rgb: 17, 17, 17;
-  --outline-color: #e2e8f0;
+  --background: #f8fafc; /* More premium off-white */
+  --background-rgb: 248, 250, 252;
+  --foreground: #0f172a; /* Deeper slate for text */
+  --foreground-rgb: 15, 23, 42;
+  --outline-color: #cbd5e1;
   --text-muted: #64748b;
-  --primary-rgb: 254, 182, 12;
-  --highlight-glow: rgba(254, 182, 12, 0.1);
+  --primary: #fbbf24;
+  --primary-rgb: 251, 191, 36;
+  --highlight-glow: rgba(251, 191, 36, 0.15);
 }
 
 html {
