@@ -218,7 +218,7 @@ function SteamCard({
                             }
                         })()}
                     </div>
-                    <a href={`https://store.steampowered.com/app/${game.id}/`} target="_blank" rel="noopener noreferrer" className="btnOutline" style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                    <a href={game.steamUrl} target="_blank" rel="noopener noreferrer" className="btnOutline" style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}>
                         View on Steam
                     </a>
                 </div>
@@ -310,15 +310,19 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
                 }
             }
 
+            // Extract real Steam App ID from the gameUrl the admin provides
+            // e.g. https://store.steampowered.com/app/1234567/GameName/
+            const steamAppId = data.gameUrl?.match(/\/app\/(\d+)/)?.[1] || d.id;
+
             return {
               id: d.id,
               title: data.title || 'Unknown Game',
               originalPrice: `$${originalPrice.toFixed(2)}`,
               discountPrice: `$${discountPrice.toFixed(2)}`,
               discount: (typeof data.discount === 'string' && data.discount.includes('-')) ? data.discount : `-${discountPercent}%`,
-              image: `https://cdn.akamai.steamstatic.com/steam/apps/${d.id}/header.jpg`,
+              image: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/header.jpg`,
               platforms: data.operatingSystem ? [String(data.operatingSystem).toLowerCase()] : ['windows'],
-              steamUrl: data.gameUrl || `https://store.steampowered.com/app/${d.id}/`,
+              steamUrl: data.gameUrl || `https://store.steampowered.com/app/${steamAppId}/`,
               endTime: endTimeStr,
               listed: listedTimeStr,
               targetAffiliates: Number(data.targetAffiliates || 10),

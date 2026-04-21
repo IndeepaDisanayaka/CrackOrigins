@@ -1,16 +1,14 @@
 .accountMain {
   min-height: 100vh;
-  padding: 6rem 2rem 4rem;
+  padding: 7rem 2rem 4rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   position: relative;
   z-index: 10;
 }
 
 .backBtn {
-  position: absolute;
-  top: 2rem;
-  left: 2rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -20,8 +18,9 @@
   padding: 0.5rem 1rem;
   border-radius: 8px;
   cursor: pointer;
-  z-index: 20;
   transition: all 0.2s;
+  align-self: flex-start;
+  margin-bottom: 1rem;
 }
 
 .backBtn:hover {

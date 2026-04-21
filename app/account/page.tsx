@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, Percent, ShoppingBag, MapPin, Hash, CheckCircle, Activity, Video } from 'lucide-react';
+import { User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, Percent, ShoppingBag, MapPin, CheckCircle, Activity } from 'lucide-react';
 import LiveCursors from '@/components/LiveCursors';
 import pageStyles from '@/app/page.module.css';
 import acct from './account.module.css';
@@ -171,15 +171,16 @@ export default function AccountPage() {
             )}
 
             <main className={acct.accountMain}>
-                <button 
-                    onClick={() => { if(window.history.length > 2) router.back(); else router.push('/'); }} 
-                    className={acct.backBtn}
-                >
-                    <ArrowLeft size={18} /> Back
-                </button>
 
                 <div className={acct.wrapper}>
                     
+                    <button 
+                        onClick={() => { if(window.history.length > 2) router.back(); else router.push('/'); }} 
+                        className={acct.backBtn}
+                    >
+                        <ArrowLeft size={18} /> Back
+                    </button>
+
                     <div className={acct.pageHeader}>
                         <div>
                             <span className="sectionLabel">Agent Profile</span>
@@ -233,10 +234,6 @@ export default function AccountPage() {
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><Mail size={16} /> Email</span>
                                     <span className={acct.detailValue}>{user.email}</span>
-                                </div>
-                                <div className={acct.detailRow}>
-                                    <span className={acct.detailLabel}><Hash size={16} /> User ID</span>
-                                    <span className={acct.detailValue} style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>{user.uid}</span>
                                 </div>
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><Key size={16} /> Affiliate ID</span>
