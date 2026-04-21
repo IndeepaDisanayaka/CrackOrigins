@@ -66,12 +66,15 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
     useEffect(() => {
         setIsMounted(true);
     }, []);
-    
     const mediaItems = [
-        { type: 'video', id: game.video },
-        { type: 'image', url: game.image || game.logo || '/placeholder-game.png' },
+        ...(game.video && game.showVideo !== false && game.showVideo !== 'false' ? [{ type: 'video', id: game.video }] : []),
         ...(game.images || []).map((url: string) => ({ type: 'image', url }))
     ].filter(item => item.id || item.url);
+
+    // If no media items were set up properly (e.g., missing images array and no video), inject fallback
+    if (mediaItems.length === 0) {
+        mediaItems.push({ type: 'image', url: game.image || '/placeholder-game.png' });
+    }
 
     useEffect(() => {
         if (user) {

@@ -231,28 +231,31 @@ export async function getPayPalBalance(adminUid: string) {
             return { success: false, error: "Unauthorized." };
         }
 
-        const accessToken = await getAccessToken();
-        const asOf = encodeURIComponent(new Date().toISOString());
-        const response = await fetch(`${PAYPAL_BASE_URL}/v1/reporting/balances?as_of_time=${asOf}`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
-            },
+        let totalAmount = 0;
+
+        // Double checking the system: Aggregate all purchases to calculate real balance
+        const accountsSnap = await adminDb.collection("accounts").get();
+        const promises = accountsSnap.docs.map(async (accountDoc) => {
+            const userRef = adminDb.collection("accounts").doc(accountDoc.id);
+            const [paymentsSnap, offersSnap] = await Promise.all([
+                userRef.collection("payments").where("status", "==", "COMPLETED").get(),
+                userRef.collection("offers").where("status", "==", "COMPLETED").get()
+            ]);
+
+            paymentsSnap.forEach(doc => {
+                const val = parseFloat(doc.data().amount);
+                if (!isNaN(val)) totalAmount += val;
+            });
+            offersSnap.forEach(doc => {
+                const val = parseFloat(doc.data().amount);
+                if (!isNaN(val)) totalAmount += val;
+            });
         });
 
-        const payload = await response.json();
-        if (!response.ok) {
-            return { success: false, error: payload?.message || "Failed to fetch PayPal balance." };
-        }
+        await Promise.all(promises);
 
-        const balances = payload?.balances || [];
-        const usd = balances.find((b: any) => b?.currency_code === "USD") || balances[0];
-        const available = usd?.available_balance?.value ?? usd?.total_balance?.value ?? "0.00";
-        const currency = usd?.currency_code || "USD";
-
-        return { success: true, amount: String(available), currency };
+        return { success: true, amount: totalAmount.toFixed(2), currency: "USD" };
     } catch (error: any) {
-        return { success: false, error: error.message || "Failed to fetch PayPal balance." };
+        return { success: false, error: error.message || "Failed to calculate system balance." };
     }
 }

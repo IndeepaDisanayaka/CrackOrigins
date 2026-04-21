@@ -1,25 +1,108 @@
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, Percent, ShoppingBag } from 'lucide-react';
+import { User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, Percent, ShoppingBag, MapPin, Hash, CheckCircle, Activity, Video } from 'lucide-react';
 import LiveCursors from '@/components/LiveCursors';
 import pageStyles from '@/app/page.module.css';
 import acct from './account.module.css';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getOwnedGames } from '@/lib/admin-actions';
+import { useModals } from '@/lib/contexts/ModalContext';
+import Header from '@/components/layout/Header';
+import MobileNav from '@/components/layout/MobileNav';
+import dynamic from 'next/dynamic';
+
+const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
+const CouponModal = dynamic(() => import('@/components/admin/CouponModal'), { ssr: false });
+const AddOfferModal = dynamic(() => import('@/components/admin/AddOfferModal'), { ssr: false });
+const ListGameModal = dynamic(() => import('@/components/admin/ListGameModal'), { ssr: false });
+const DispatchModal = dynamic(() => import('@/components/admin/DispatchModal'), { ssr: false });
+const AuthModal = dynamic(() => import('@/components/AuthModal'), { ssr: false });
+
+interface ActivityItem {
+    id: string;
+    type: 'purchase' | 'account' | 'reward';
+    title: string;
+    extra: string;
+    date: string;
+}
 
 export default function AccountPage() {
-    const { user, isAuthLoading, logout, affiliateId, affiliateCount, discount, isAdmin } = useAuth();
+    const { user, isAuthLoading, logout, affiliateId, affiliateCount, discount, isAdmin, login } = useAuth();
     const router = useRouter();
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
+    const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    
+    const { 
+        isAuthModalOpen, setIsAuthModalOpen, 
+        isAdminModalOpen, setIsAdminModalOpen,
+        isCouponModalOpen, setIsCouponModalOpen,
+        isAddOfferModalOpen, setIsAddOfferModalOpen,
+        isListGameOpen, setIsListGameOpen,
+        isDispatchModalOpen, setIsDispatchModalOpen
+    } = useModals();
 
     useEffect(() => {
         if (!isAuthLoading && !user) {
             router.push('/login?returnUrl=/account');
         }
     }, [user, isAuthLoading, router]);
+
+    useEffect(() => {
+        if (user) {
+            const fetchActivities = async () => {
+                try {
+                    const res = await getOwnedGames(user.uid);
+                    const mapped: ActivityItem[] = [];
+                    
+                    if (res.success && res.details) {
+                        Object.entries(res.details).forEach(([title, detail]: any) => {
+                            mapped.push({
+                                id: detail.activationKey || title,
+                                type: 'purchase',
+                                title: `Added game: ${title} to library`,
+                                extra: `Status changed to Verified. Transaction ID: ${detail.activationKey || 'Pending'}`,
+                                date: detail.purchaseDate
+                            });
+                        });
+                    }
+
+                    // Genesis event
+                    mapped.push({
+                        id: 'genesis',
+                        type: 'account',
+                        title: 'Joined Crack Origins',
+                        extra: 'Account successfully registered and verified on the platform.',
+                        date: user.metadata.creationTime || new Date().toISOString()
+                    });
+
+                    // Affiliate milestones
+                    if (affiliateCount && affiliateCount > 0) {
+                        mapped.push({
+                            id: 'milestone-1',
+                            type: 'reward',
+                            title: `Recruited ${affiliateCount} friend(s)`,
+                            extra: `Total points pooled: ${discount}%. Eligible for rewards.`,
+                            date: new Date().toISOString() 
+                        });
+                    }
+
+                    mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    setActivities(mapped);
+                } catch (err) {
+                    console.error("Failed to load activities", err);
+                } finally {
+                    setIsLoadingActivities(false);
+                }
+            };
+            fetchActivities();
+        }
+    }, [user, affiliateCount, discount]);
 
     if (isAuthLoading || !user) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>
@@ -30,13 +113,64 @@ export default function AccountPage() {
         router.push('/');
     };
 
+    const formatDate = (dateString: string) => {
+        const d = new Date(dateString);
+        return d.toLocaleString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
+        const res = await login(type, credentials);
+        if (res?.success !== false) {
+            setIsAuthModalOpen(false);
+        }
+        return res;
+    };
+
     return (
         <>
             <LiveCursors />
             <div className={pageStyles.backgroundAnimation}></div>
 
+            <Header 
+                isMobileMenuOpen={isMobileMenuOpen} 
+                setIsMobileMenuOpen={setIsMobileMenuOpen} 
+            />
+
+            <MobileNav 
+                isOpen={isMobileMenuOpen} 
+                setIsOpen={setIsMobileMenuOpen} 
+            />
+
+            <AuthModal 
+                isOpen={isAuthModalOpen} 
+                onClose={() => setIsAuthModalOpen(false)} 
+                onLogin={handleLogin} 
+            />
+            <CouponModal 
+                isOpen={isCouponModalOpen} 
+                onClose={() => setIsCouponModalOpen(false)} 
+            />
+            <AddOfferModal 
+                isOpen={isAddOfferModalOpen} 
+                onClose={() => setIsAddOfferModalOpen(false)} 
+            />
+            <ListGameModal 
+                isOpen={isListGameOpen} 
+                onClose={() => setIsListGameOpen(false)} 
+            />
+            <DispatchModal
+                isOpen={isDispatchModalOpen}
+                onClose={() => setIsDispatchModalOpen(false)}
+            />
+            {user && isAdmin && (
+                <AdminPanel
+                    userUid={user.uid}
+                    isOpen={isAdminModalOpen}
+                    setIsOpen={setIsAdminModalOpen}
+                />
+            )}
+
             <main className={acct.accountMain}>
-                {/* Back Button */}
                 <button 
                     onClick={() => { if(window.history.length > 2) router.back(); else router.push('/'); }} 
                     className={acct.backBtn}
@@ -46,116 +180,120 @@ export default function AccountPage() {
 
                 <div className={acct.wrapper}>
                     
-                    {/* Header Section */}
                     <div className={acct.pageHeader}>
                         <div>
-                            <span className="sectionLabel">Dashboard</span>
-                            <h1 className={acct.pageTitle}>Your <span style={{ color: 'var(--primary)' }}>Account</span></h1>
+                            <span className="sectionLabel">Agent Profile</span>
+                            <h1 className={acct.pageTitle}>User <span style={{ color: 'var(--primary)' }}>Workspace</span></h1>
                         </div>
                         <button onClick={handleLogout} className={acct.logoutBtn}>
                             <LogOut size={16} /> Logout
                         </button>
                     </div>
 
-                    {/* Profile Layout */}
                     <div className={acct.profileGrid}>
                         
-                        {/* Avatar & Main Info */}
+                        {/* LEFT COLUMN: Profile Details */}
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4 }}
                             className={acct.profileCard}
                         >
-                            <div style={{ position: 'relative', flexShrink: 0 }}>
-                                {user.photoURL ? (
-                                    <Image src={user.photoURL} alt="Profile Avatar" width={100} height={100} style={{ borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} unoptimized />
-                                ) : (
-                                    <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(var(--primary-rgb), 0.1)', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
-                                        <User size={40} />
-                                    </div>
-                                )}
-                                {isAdmin && (
-                                    <div style={{ position: 'absolute', bottom: -5, right: -5, background: 'var(--primary)', color: '#000', padding: '0.4rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(var(--primary-rgb), 0.5)' }} title="Administrator">
-                                        <Shield size={16} />
-                                    </div>
-                                )}
-                            </div>
-                            
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>{user.displayName || 'Gamer'}</h2>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', flexWrap: 'wrap' }}>
-                                    <Mail size={14} /> {user.email}
+                            <div className={acct.profileHeader}>
+                                <div style={{ position: 'relative' }}>
+                                    {user.photoURL ? (
+                                        <Image src={user.photoURL} alt="Profile Avatar" width={80} height={80} className={acct.profileAvatar} unoptimized />
+                                    ) : (
+                                        <div className={acct.profileAvatarFallback}>
+                                            <User size={30} />
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                                    <Calendar size={14} /> Joined {new Date(user.metadata.creationTime || Date.now()).toLocaleDateString()}
+                                <div className={acct.profileMeta}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <h2 className={acct.profileName}>{user.displayName || 'Gamers'}</h2>
+                                        {isAdmin && <Shield size={16} color="var(--primary)" />}
+                                    </div>
+                                    <span className={acct.profileRole}>{isAdmin ? 'Administrator' : 'Standard Member'} · Crack Origins</span>
+                                </div>
+                            </div>
+
+                            <div className={acct.profileStats}>
+                                <div className={acct.statItem}>
+                                    <span className={acct.statLabel}>Registered</span>
+                                    <span className={acct.statValue}>{new Date(user.metadata.creationTime || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                </div>
+                                <div className={acct.statItem}>
+                                    <span className={acct.statLabel}>Last Active</span>
+                                    <span className={acct.statValue}>{new Date(user.metadata.lastSignInTime || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                </div>
+                            </div>
+
+                            <div className={acct.profileDetails}>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Mail size={16} /> Email</span>
+                                    <span className={acct.detailValue}>{user.email}</span>
+                                </div>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Hash size={16} /> User ID</span>
+                                    <span className={acct.detailValue} style={{ fontSize: '0.8rem', fontFamily: 'monospace' }}>{user.uid}</span>
+                                </div>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Key size={16} /> Affiliate ID</span>
+                                    <span className={acct.detailValue} style={{ color: 'var(--primary)' }}>{affiliateId || 'N/A'}</span>
+                                </div>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Users size={16} /> Recruits</span>
+                                    <span className={acct.detailValue}>{affiliateCount || 0} Members</span>
+                                </div>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Percent size={16} /> Discount</span>
+                                    <span className={acct.detailValue}>{discount || 0}% Pool</span>
+                                </div>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><MapPin size={16} /> Region</span>
+                                    <span className={acct.detailValue}>Global (Auto)</span>
                                 </div>
                             </div>
                         </motion.div>
 
-                        {/* Stats & Actions */}
+                        {/* RIGHT COLUMN: Activity Panel */}
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: 0.1 }}
-                            className={acct.statsColumn}
+                            className={acct.activityCard}
                         >
-                            {/* Affiliate Stats Banner */}
-                            <div className={acct.affiliateBanner}>
-                                <div style={{ position: 'absolute', top: '-10%', right: '-5%', opacity: 0.1, color: 'var(--primary)', transform: 'rotate(15deg)' }}>
-                                    <Users size={150} />
-                                </div>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--foreground)', margin: '0 0 1.5rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Key size={18} color="var(--primary)" /> Affiliate Profile
-                                </h3>
-                                
-                                <div className={acct.affiliateStatsGrid}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Affiliate ID</span>
-                                        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--foreground)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{affiliateId || '---'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Recruits</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--foreground)' }}>{affiliateCount || 0}</span>
-                                            <Users size={20} color="var(--primary)" />
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Discount Pool</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--foreground)' }}>{discount || 0}%</span>
-                                            <Percent size={20} color="var(--primary)" />
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className={acct.activityTabs}>
+                                <div className={`${acct.activityTab} ${acct.active}`}>Activity</div>
+                                <div className={acct.activityTab} style={{ opacity: 0.5 }}>Library</div>
+                                <div className={acct.activityTab} style={{ opacity: 0.5 }}>Rewards</div>
                             </div>
 
-                            {/* Options */}
-                            <div className={acct.optionsGrid}>
-                                <Link href="/offers" style={{ textDecoration: 'none' }}>
-                                    <div className={acct.optionCard}>
-                                        <div style={{ background: 'rgba(var(--primary-rgb), 0.1)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
-                                            <ShoppingBag size={20} />
+                            <div className={acct.activityContent}>
+                                {isLoadingActivities ? (
+                                    <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Loading activity logs...</div>
+                                ) : activities.length > 0 ? (
+                                    activities.map(activity => (
+                                        <div key={activity.id} className={acct.timelineItem}>
+                                            <div className={acct.timelineIcon}>
+                                                {activity.type === 'purchase' ? <ShoppingBag size={18} /> : 
+                                                 activity.type === 'reward' ? <CheckCircle size={18} /> : 
+                                                 <Activity size={18} />}
+                                            </div>
+                                            <div className={acct.timelineDetails}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                    <h4 className={acct.timelineTitle}>{activity.title}</h4>
+                                                    <span className={acct.timelineMeta}>{formatDate(activity.date)}</span>
+                                                </div>
+                                                <p className={acct.timelineExtra}>{activity.extra}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 style={{ margin: '0 0 0.25rem', color: 'var(--foreground)', fontWeight: 800 }}>Explore Offers</h4>
-                                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>Find premium steam keys and check your purchased stock.</p>
-                                        </div>
-                                    </div>
-                                </Link>
-
-                                <div className={acct.optionCardDisabled}>
-                                    <div style={{ background: 'var(--outline-color)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                                        <Key size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 style={{ margin: '0 0 0.25rem', color: 'var(--foreground)', fontWeight: 800 }}>Library (Soon)</h4>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>Your entire collection of keys will be tracked here shortly.</p>
-                                    </div>
-                                </div>
+                                    ))
+                                ) : (
+                                    <div style={{ color: 'var(--text-muted)' }}>No recent activity to display.</div>
+                                )}
                             </div>
-
                         </motion.div>
                     </div>
                 </div>

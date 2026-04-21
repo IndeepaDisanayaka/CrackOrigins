@@ -132,7 +132,7 @@ export default function HomeContent() {
         <StatsBar />
 
         <Features />
-        <LiveTransactions />
+        {/* <LiveTransactions /> */}
         <div className={styles.sectionDivider}></div>
 
         <motion.div
