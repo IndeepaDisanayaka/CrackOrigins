@@ -30,7 +30,9 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
     video: "",
     downloadUrl: "",
     images: "",
-    storage: "",
+    storageValue: "",
+    storageUnit: "GB",
+    showVideo: true,
     vrSupported: false,
     status: "released", // Default to released
     requirement: {
@@ -67,9 +69,11 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
         os: gameForm.os.split(',').map(s => s.trim().toLowerCase()),
         images: gameForm.images.split(',').map(s => s.trim()).filter(Boolean),
         downloadCount: 0,
+        showVideo: gameForm.showVideo,
+        storage: `${gameForm.storageValue} ${gameForm.storageUnit} available space`,
         requirement: {
-            min: { ...gameForm.requirement.min, storage: gameForm.storage, vrSupported: gameForm.vrSupported },
-            max: { ...gameForm.requirement.max, storage: gameForm.storage, vrSupported: gameForm.vrSupported }
+            min: { ...gameForm.requirement.min, storage: `${gameForm.storageValue} ${gameForm.storageUnit} available space`, vrSupported: gameForm.vrSupported },
+            max: { ...gameForm.requirement.max, storage: `${gameForm.storageValue} ${gameForm.storageUnit} available space`, vrSupported: gameForm.vrSupported }
         }
       };
 
@@ -88,7 +92,9 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
           video: "",
           downloadUrl: "",
           images: "",
-          storage: "",
+          storageValue: "",
+          storageUnit: "GB",
+          showVideo: true,
           vrSupported: false,
           status: "released",
           requirement: {
@@ -199,25 +205,52 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
                 <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Box size={12} /> Combined Storage Needed
                 </label>
-                <input type="text" placeholder="e.g. 60 GB available space" className={styles.adminInput} value={gameForm.storage} onChange={e => setGameForm({ ...gameForm, storage: e.target.value })} />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input type="number" placeholder="60" className={styles.adminInput} value={gameForm.storageValue} onChange={e => setGameForm({ ...gameForm, storageValue: e.target.value })} style={{ flex: 2 }} />
+                  <select className={styles.adminInput} value={gameForm.storageUnit} onChange={e => setGameForm({ ...gameForm, storageUnit: e.target.value })} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
+                    <option value="MB">MB</option>
+                    <option value="GB">GB</option>
+                    <option value="TB">TB</option>
+                  </select>
+                </div>
               </div>
-              <div 
-                style={{ 
-                  flex: 1, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '1rem', 
-                  background: 'rgba(255,255,255,0.05)', 
-                  padding: '0.8rem 1rem', 
-                  borderRadius: '8px', 
-                  cursor: 'pointer',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  transition: 'all 0.2s ease'
-                }} 
-                onClick={() => setGameForm({ ...gameForm, vrSupported: !gameForm.vrSupported })}
-              >
-                <CheckCircle checked={gameForm.vrSupported} />
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>VR Supported</label>
+              <div style={{ flex: 1, display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+                <div 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '1rem', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    padding: '0.8rem 1rem', 
+                    borderRadius: '8px', 
+                    cursor: 'pointer',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    transition: 'all 0.2s ease',
+                    flex: 1
+                  }} 
+                  onClick={() => setGameForm({ ...gameForm, vrSupported: !gameForm.vrSupported })}
+                >
+                  <CheckCircle checked={gameForm.vrSupported} />
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>VR Supported</label>
+                </div>
+                <div 
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '1rem', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    padding: '0.8rem 1rem', 
+                    borderRadius: '8px', 
+                    cursor: 'pointer',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    transition: 'all 0.2s ease',
+                    flex: 1
+                  }} 
+                  onClick={() => setGameForm({ ...gameForm, showVideo: !gameForm.showVideo })}
+                >
+                  <CheckCircle checked={gameForm.showVideo} />
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>Show Video Header</label>
+                </div>
               </div>
             </div>
 

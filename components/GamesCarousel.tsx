@@ -35,6 +35,7 @@ export default function GamesCarousel() {
   const [bugTitle, setBugTitle] = useState('');
   const [bugDesc, setBugDesc] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [modalState, setModalState] = useState<'closed' | 'idle' | 'loading' | 'success' | 'details'>('closed');
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
   const [isLocked, setIsLocked] = useState(false); 
@@ -137,6 +138,26 @@ export default function GamesCarousel() {
     return () => clearInterval(timer);
   }, [modalState, isBugReportOpen, isLocked, games.length]);
 
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [activeIndex]);
+
+  useEffect(() => {
+    if (games.length === 0) return;
+    const activeGame = games[activeIndex];
+    const showVidVal = activeGame.showVideo;
+    const isVideoHidden = showVidVal === false || showVidVal === 'false';
+    const hasVideo = activeGame.video && !isVideoHidden;
+    
+    if (!hasVideo && activeGame.images && activeGame.images.length > 0) {
+      const imgTimer = setInterval(() => {
+        if (modalState !== 'closed' || isBugReportOpen || isLocked) return;
+        setActiveImageIndex((current) => (current + 1) % activeGame.images.length);
+      }, 4000);
+      return () => clearInterval(imgTimer);
+    }
+  }, [activeIndex, games, modalState, isBugReportOpen, isLocked]);
+
   const triggerDirectDownload = (url: string, title: string) => {
     if (!url) {
       showToast("Download link not available for this title.", "error");
@@ -192,7 +213,7 @@ export default function GamesCarousel() {
           <div className={styles.stageBackground}>
             <AnimatePresence mode="wait">
               <motion.div
-                key={`bg-${activeIndex}`}
+                key={`bg-${activeIndex}-${activeImageIndex}`}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
@@ -201,7 +222,7 @@ export default function GamesCarousel() {
                 style={{ position: 'absolute', inset: 0 }}
               >
                 <Image
-                  src={activeGame.images?.[0] || activeGame.image || `https://img.youtube.com/vi/${activeGame.video}/maxresdefault.jpg`}
+                  src={(activeGame.images && activeGame.images.length > 0) ? activeGame.images[activeImageIndex] : (activeGame.image || `https://img.youtube.com/vi/${activeGame.video}/maxresdefault.jpg`)}
                   alt={activeGame.title || 'Game Backdrop'}
                   fill
                   style={{ objectFit: 'cover' }}
@@ -211,28 +232,37 @@ export default function GamesCarousel() {
             </AnimatePresence>
           </div>
 
-          <div className={styles.activeMedia}>
-            <div className={styles.mediaWrapper}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeIndex}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.6 }}
-                  style={{ width: '100%', height: '100%' }}
-                >
-                  <iframe
-                    src={`https://www.youtube.com/embed/${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video}&loop=1`}
-                    className={styles.activeIframe}
-                    title={activeGame.title}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                </motion.div>
-              </AnimatePresence>
-            </div>
+            <div className={styles.activeMedia}>
+              <div className={styles.mediaWrapper}>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? `video-${activeIndex}` : `img-${activeIndex}-${activeImageIndex}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6 }}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    {activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video}&loop=1`}
+                        className={styles.activeIframe}
+                        title={activeGame.title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    ) : (
+                      <Image
+                        src={(activeGame.images && activeGame.images.length > 0) ? activeGame.images[activeImageIndex] : (activeGame.image || '/placeholder-game.png')}
+                        alt={activeGame.title}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                      />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
 
             <div className={styles.navRibbonContainer} ref={constraintsRef}>
               <motion.div 
@@ -306,7 +336,16 @@ export default function GamesCarousel() {
               </div>
               <h2 className={styles.title}>{activeGame.title}</h2>
               {renderOSIcons(activeGame.os)}
-              <p className={styles.description}>{activeGame.description}</p>
+              <p className={styles.description}>
+                {activeGame.description && activeGame.description.length > 200 
+                  ? activeGame.description.substring(0, 200)
+                  : activeGame.description}
+                {activeGame.description && activeGame.description.length > 200 && (
+                  <Link href={`/games/${activeGame.slug}`} style={{ color: 'var(--primary)', textDecoration: 'none', marginLeft: '5px', fontWeight: 'bold' }}>
+                    See more...
+                  </Link>
+                )}
+              </p>
 
               <div className={styles.actions}>
                 {/* 1. Primary Action (Download or Unlock) */}

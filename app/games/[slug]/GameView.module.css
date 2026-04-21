@@ -269,7 +269,7 @@
     margin: 0 auto;
     padding: 2rem 5%;
     display: grid;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: minmax(0, 1fr) 380px;
     gap: 5rem;
     min-height: 60vh;
 }
@@ -302,14 +302,17 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    width: 100%;
+    min-width: 0;
 }
 
 .mainMediaWrapper {
     position: relative;
     aspect-ratio: 16/9;
-    background: #000;
+    background: transparent;
     overflow: hidden;
     border: 1px solid var(--outline-color);
+    border-radius: 8px; /* Added subtle smoothing */
 }
 
 .mainMediaContainer {

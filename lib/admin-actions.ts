@@ -82,7 +82,8 @@ export async function getGames() {
                 },
                 os: Array.isArray(data.os) ? data.os.join(", ") : (data.os || "Windows"),
                 downloadUrl: data.downloadUrl || "",
-                images: data.images || []
+                images: data.images || [],
+                showVideo: data.showVideo ?? true
             };
         }));
         return { success: true, games };
