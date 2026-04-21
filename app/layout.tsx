@@ -65,6 +65,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={roboto.variable}>
       <head>
+        <meta name="p:domain_verify" content="0befd1f5e39624ae6b613192f4bcb59d" />
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1235859654015353"
