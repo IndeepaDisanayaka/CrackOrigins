@@ -132,10 +132,23 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
     };
 
     const handleDownload = async () => {
-        if (!game.downloadUrl) return;
+        if (!game.itchUploadId && !game.downloadUrl) {
+            showToast("Download link not available for this creation.", "error");
+            return;
+        }
+
         setDownloadCount((prev: number) => prev + 1);
-        incrementDownloadCount(game.id);
-        window.open(game.downloadUrl, '_blank');
+        incrementDownloadCount(game.id, user?.uid);
+
+        if (game.itchUploadId) {
+            // Use the secure server-side proxy for itch.io downloads
+            window.location.href = `/api/download?uploadId=${game.itchUploadId}`;
+        } else {
+            // Fallback for older games with direct links
+            window.open(game.downloadUrl, '_blank');
+        }
+
+        showToast(`Initializing secure download for ${game.title}...`, "success");
     };
 
     const handleApplyCoupon = async () => {
@@ -425,23 +438,29 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                             <Image src={mediaItems[currentMediaIndex].url!} alt={`${game.title} Visual`} fill className={styles.mainGalleryImg} />
                                         )}
                                     </div>
-                                    <button onClick={prevMedia} className={styles.carouselBtn} style={{ left: '0' }}><ChevronLeft size={24} /></button>
-                                    <button onClick={nextMedia} className={styles.carouselBtn} style={{ right: '0' }}><ChevronRight size={24} /></button>
+                                    {mediaItems.length > 1 && (
+                                        <>
+                                            <button onClick={prevMedia} className={styles.carouselBtn} style={{ left: '0' }}><ChevronLeft size={24} /></button>
+                                            <button onClick={nextMedia} className={styles.carouselBtn} style={{ right: '0' }}><ChevronRight size={24} /></button>
+                                        </>
+                                    )}
                                 </div>
-                                <div className={styles.thumbnails}>
-                                    {mediaItems.map((item, idx) => (
-                                        <div key={idx} className={`${styles.thumb} ${idx === currentMediaIndex ? styles.activeThumb : ''}`} onClick={() => setCurrentMediaIndex(idx)}>
-                                            {item.type === 'video' ? (
-                                                <>
-                                                    <Image src={`https://img.youtube.com/vi/${item.id}/mqdefault.jpg`} alt="Video" fill className={styles.thumbImg} />
-                                                    <div className={styles.thumbOverlay} style={{ opacity: 1 }}><Video size={20} color="var(--primary)" /></div>
-                                                </>
-                                            ) : (
-                                                <Image src={item.url!} alt="Screenshot" fill className={styles.thumbImg} />
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                {mediaItems.length > 1 && (
+                                    <div className={styles.thumbnails}>
+                                        {mediaItems.map((item, idx) => (
+                                            <div key={idx} className={`${styles.thumb} ${idx === currentMediaIndex ? styles.activeThumb : ''}`} onClick={() => setCurrentMediaIndex(idx)}>
+                                                {item.type === 'video' ? (
+                                                    <>
+                                                        <Image src={`https://img.youtube.com/vi/${item.id}/mqdefault.jpg`} alt="Video" fill className={styles.thumbImg} />
+                                                        <div className={styles.thumbOverlay} style={{ opacity: 1 }}><Video size={20} color="var(--primary)" /></div>
+                                                    </>
+                                                ) : (
+                                                    <Image src={item.url!} alt="Screenshot" fill className={styles.thumbImg} />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </section>
 
@@ -480,9 +499,9 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                         <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.min.processor}</div>
                                         <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.min.memory}</div>
                                         <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.min.graphics}</div>
-                                        <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.requirements.min.storage}</div>
-                                        <div className={styles.reqValue} style={{ color: game.requirements.min.vrSupported ? 'var(--primary)' : 'inherit' }}>
-                                            <Globe size={14} /> VR: {game.requirements.min.vrSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}
+                                        <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.storage}</div>
+                                        <div className={styles.reqValue} style={{ color: game.vrSupported ? 'var(--primary)' : 'inherit' }}>
+                                            <Globe size={14} /> VR: {game.vrSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}
                                         </div>
                                     </div>
                                 </div>
@@ -492,7 +511,6 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                         <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.max.processor}</div>
                                         <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.max.memory}</div>
                                         <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.max.graphics}</div>
-                                        <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.requirements.max.storage}</div>
                                     </div>
                                 </div>
                             </div>

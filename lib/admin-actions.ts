@@ -34,7 +34,10 @@ export async function listGame(adminUid: string, gameData: any) {
     try {
         const adminDb = await getAdminDb();
         const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+        const userData = userDoc.data();
+        const canWrite = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'games', 'WRITE'));
+
+        if (!userDoc.exists || !canWrite) {
             return { success: false, error: "Unauthorized." };
         }
 
@@ -81,7 +84,10 @@ export async function getGames() {
                     max: data.requirement?.max || "Recommended requirements not specified."
                 },
                 os: Array.isArray(data.os) ? data.os.join(", ") : (data.os || "Windows"),
-                downloadUrl: data.downloadUrl || "",
+                storage: data.storage || (data.requirement?.min?.storage || "Not specified"),
+                vrSupported: data.vrSupported ?? (data.requirement?.min?.vrSupported ?? false),
+                itchUploadId: data.itchUploadId || "",
+                itchGameId: data.itchGameId || "",
                 images: data.images || [],
                 showVideo: data.showVideo ?? true
             };
@@ -321,16 +327,19 @@ export async function checkAdminStatus(uid: string) {
 
         const affiliatesSnapshot = await userRef.collection("affiliates").get();
         const isOwner = data?.isOwner === true;
+        const isAdmin = isOwner || !!data?.ruleId;
 
         // Sync to RTDB for security rules during status check (covers existing users)
         try {
             const rtdb = await getAdminRtdb();
             await rtdb.ref(`accounts/${uid}/isOwner`).set(isOwner);
+            await rtdb.ref(`accounts/${uid}/isAdmin`).set(isAdmin);
         } catch (e) {}
 
         return { 
             success: true, 
             isOwner: isOwner,
+            isAdmin: isAdmin,
             affiliateId: data?.affiliateId || null,
             discount: data?.discount || 0,
             affiliateCount: affiliatesSnapshot.size
@@ -346,140 +355,175 @@ export async function checkAdminStatus(uid: string) {
 export async function getAdminDashboardData(adminUid: string) {
     try {
         const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) {
-            return { success: false, error: "Unauthorized." };
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        const userData = userDoc.data();
+        
+        if (!userDoc.exists) return { success: false, error: "User not found." };
+        
+        const isOwner = userData?.isOwner === true;
+        let permissions: Record<string, string[]> = {};
+        
+        if (!isOwner) {
+            const ruleId = userData?.ruleId;
+            if (!ruleId) return { success: false, error: "Unauthorized." };
+            const ruleDoc = await adminDb.collection("account_rules").doc(ruleId).get();
+            if (!ruleDoc.exists) return { success: false, error: "Rule not found." };
+            permissions = ruleDoc.data()?.rules || {};
         }
 
-        // 1. Fetch Firestore users
-        const accountsSnap = await adminDb.collection("accounts").get();
-        const firestoreUsersMap = new Map();
-        
-        accountsSnap.forEach(d => {
-            const data = d.data() || {};
-            let decryptedEmail = data.email || null;
-            if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
-                try { decryptedEmail = decrypt(decryptedEmail); } catch { }
-            }
-            firestoreUsersMap.set(d.id, {
-                uid: d.id,
-                name: data.name || null,
-                email: decryptedEmail,
-                photoURL: data.photoURL || null,
-                isOwner: data.isOwner === true,
-                country: data.country || "Unknown",
+        const canReadAny = isOwner || Object.values(permissions).some(p => p.includes('READ'));
+        if (!canReadAny) return { success: false, error: "No administrative access." };
+
+        const hasAccess = (col: string) => isOwner || (permissions[col] || []).includes('READ');
+
+        const results: any = { users: [], payments: [], offers: [], coupons: [] };
+
+        // 1. Fetch Users (if authorized)
+        if (hasAccess('account')) {
+            const accountsSnap = await adminDb.collection("accounts").get();
+            const firestoreUsersMap = new Map();
+            
+            accountsSnap.forEach(d => {
+                const data = d.data() || {};
+                let decryptedEmail = data.email || null;
+                if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
+                    try { decryptedEmail = decrypt(decryptedEmail); } catch { }
+                }
+                firestoreUsersMap.set(d.id, {
+                    uid: d.id,
+                    name: data.name || null,
+                    email: decryptedEmail,
+                    photoURL: data.photoURL || null,
+                    isOwner: data.isOwner === true,
+                    country: data.country || "Unknown",
+                    ruleId: data.ruleId || null,
+                });
             });
-        });
 
-        // 2. Fetch Auth users
-        await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
-        const authUsersResult = await getAuth().listUsers(1000);
-        
-        const users: any[] = [];
-        const seenUids = new Set();
-
-        authUsersResult.users.forEach(authUser => {
-            const fsUser = firestoreUsersMap.get(authUser.uid);
-            users.push({
-                uid: authUser.uid,
-                name: fsUser?.name || authUser.displayName || null,
-                email: fsUser?.email || authUser.email || (authUser.providerData.length === 0 ? "anonymous" : null),
-                photoURL: fsUser?.photoURL || authUser.photoURL || null,
-                isOwner: fsUser?.isOwner === true,
-                country: fsUser?.country || "Unknown",
-                lastLoginAt: authUser.metadata.lastSignInTime,
-                createdAt: authUser.metadata.creationTime,
-                isAnonymous: authUser.providerData.length === 0
+            await ensureFirebaseAdminInitialized();
+            const { getAuth } = await import('firebase-admin/auth');
+            const authUsersResult = await getAuth().listUsers(1000);
+            
+            const seenUids = new Set();
+            authUsersResult.users.forEach(authUser => {
+                const fsUser = firestoreUsersMap.get(authUser.uid);
+                results.users.push({
+                    uid: authUser.uid,
+                    name: fsUser?.name || authUser.displayName || null,
+                    email: fsUser?.email || authUser.email || (authUser.providerData.length === 0 ? "anonymous" : null),
+                    photoURL: fsUser?.photoURL || authUser.photoURL || null,
+                    isOwner: fsUser?.isOwner === true,
+                    country: fsUser?.country || "Unknown",
+                    lastLoginAt: authUser.metadata.lastSignInTime,
+                    createdAt: authUser.metadata.creationTime,
+                    isAnonymous: authUser.providerData.length === 0,
+                    ruleId: fsUser?.ruleId || null
+                });
+                seenUids.add(authUser.uid);
             });
-            seenUids.add(authUser.uid);
-        });
 
-        // Add Firestore users that might not have been in the Auth list (unlikely but safe)
-        firestoreUsersMap.forEach((user, uid) => {
-            if (!seenUids.has(uid)) {
-                users.push(user);
-            }
-        });
+            firestoreUsersMap.forEach((user, uid) => {
+                if (!seenUids.has(uid)) results.users.push(user);
+            });
+        }
 
-        // Global Offers + Coupons
-        const [offersSnap, couponsSnap] = await Promise.all([
-            adminDb.collection("offers").get(),
-            adminDb.collection("coupons").get(),
-        ]);
+        // 2. Fetch Offers/Games
+        if (hasAccess('games') || hasAccess('offers')) {
+            const [offersSnap, gamesSnap] = await Promise.all([
+                adminDb.collection("offers").get(),
+                adminDb.collection("games").get()
+            ]);
 
-        const offers = offersSnap.docs.map(d => {
-            const data = d.data() || {};
-            return {
-                id: d.id,
-                title: data.title || "",
-                originalPrice: data.originalPrice ?? 0,
-                discount: data.discount || "",
-                quantity: data.quantity ?? 0,
-                operatingSystem: data.operatingSystem || "",
-                platform: data.platform || "",
-                gameUrl: data.gameUrl || "",
-                expire: toIsoDate(data.expire) || data.expire || "",
-                listed: toIsoDate(data.listed),
-            };
-        });
-
-        const coupons = couponsSnap.docs.map(d => {
-            const data = d.data() || {};
-            return {
-                id: d.id,
-                name: data.name || "",
-                discount: data.discount || "",
-                quantity: data.quantity ?? 0,
-                expire: data.expire || "",
-                isExpired: data.isExpired === true,
-                createdAt: toIsoDate(data.createdAt),
-                userId: data.userId || null,
-            };
-        });
-
-        // Payments across all users (subcollections)
-        const payments: any[] = [];
-        await Promise.all(
-            accountsSnap.docs.map(async (accountDoc) => {
-                const userId = accountDoc.id;
-                const userRef = adminDb.collection("accounts").doc(userId);
-
-                const [paymentsSnap, offersPurchSnap] = await Promise.all([
-                    userRef.collection("payments").get(),
-                    userRef.collection("offers").get(),
-                ]);
-
-                const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
-                    const data = doc.data() || {};
-                    let decryptedEmail = data.payerEmail || "unknown";
-                    if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
-                        try { decryptedEmail = decrypt(decryptedEmail); } catch { }
-                    }
-                    payments.push({
-                        id: doc.id,
-                        userId,
-                        game: data.game || "",
-                        payerEmail: decryptedEmail,
-                        amount: data.amount || "0",
-                        status: data.status || "UNKNOWN",
-                        purchaseDate: toIsoDate(data.purchaseDate) || new Date().toISOString(),
-                        steamKey: data.steamKey || null,
-                        paypalOrderId: data.paypalOrderId || null,
-                        coupon: data.coupon || null,
-                        source,
-                    });
+            results.offers = offersSnap.docs.map(d => {
+                const data = d.data() || {};
+                return {
+                    id: d.id,
+                    title: data.title || "",
+                    originalPrice: data.originalPrice ?? 0,
+                    discount: data.discount || "",
+                    quantity: data.quantity ?? 0,
+                    operatingSystem: data.operatingSystem || "",
+                    platform: data.platform || "",
+                    gameUrl: data.gameUrl || "",
+                    expire: toIsoDate(data.expire) || data.expire || "",
+                    listed: toIsoDate(data.listed),
                 };
+            });
 
-                paymentsSnap.forEach((doc) => pushPayment(doc, "payment"));
-                offersPurchSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
-            })
-        );
+            results.games = gamesSnap.docs.map(d => {
+                const data = d.data() || {};
+                return {
+                    id: d.id,
+                    title: data.title || "",
+                    price: data.price || 0,
+                    genre: Array.isArray(data.genre) ? data.genre.join(', ') : (data.genre || ""),
+                    os: Array.isArray(data.os) ? data.os.join(', ') : (data.os || ""),
+                    status: data.status || "released",
+                    downloadCount: data.downloadCount || 0,
+                    itchGameId: data.itchGameId || "",
+                    listed: toIsoDate(data.createdAt) || toIsoDate(data.listed),
+                };
+            });
+        }
 
-        // Sort newest first
-        payments.sort((a, b) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
+        // 3. Fetch Coupons
+        if (hasAccess('coupons')) {
+            const couponsSnap = await adminDb.collection("coupons").get();
+            results.coupons = couponsSnap.docs.map(d => {
+                const data = d.data() || {};
+                return {
+                    id: d.id,
+                    name: data.name || "",
+                    discount: data.discount || "",
+                    quantity: data.quantity ?? 0,
+                    expire: data.expire || "",
+                    isExpired: data.isExpired === true,
+                    createdAt: toIsoDate(data.createdAt),
+                    userId: data.userId || null,
+                };
+            });
+        }
 
-        return { success: true, data: { users, payments, offers, coupons } };
+        // 4. Fetch Payments
+        if (hasAccess('payments')) {
+            const accountsSnap = await adminDb.collection("accounts").get();
+            await Promise.all(
+                accountsSnap.docs.map(async (accountDoc) => {
+                    const userId = accountDoc.id;
+                    const userRef = adminDb.collection("accounts").doc(userId);
+                    const [paymentsSnap, offersPurchSnap] = await Promise.all([
+                        userRef.collection("payments").get(),
+                        userRef.collection("offers").get(),
+                    ]);
+
+                    const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
+                        const data = doc.data() || {};
+                        let decryptedEmail = data.payerEmail || "unknown";
+                        if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
+                            try { decryptedEmail = decrypt(decryptedEmail); } catch { }
+                        }
+                        results.payments.push({
+                            id: doc.id,
+                            userId,
+                            game: data.game || "",
+                            payerEmail: decryptedEmail,
+                            amount: data.amount || "0",
+                            status: data.status || "UNKNOWN",
+                            purchaseDate: toIsoDate(data.purchaseDate) || new Date().toISOString(),
+                            steamKey: data.steamKey || null,
+                            paypalOrderId: data.paypalOrderId || null,
+                            coupon: data.coupon || null,
+                            source,
+                        });
+                    };
+                    paymentsSnap.forEach((doc) => pushPayment(doc, "payment"));
+                    offersPurchSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
+                })
+            );
+            results.payments.sort((a: any, b: any) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
+        }
+
+        return { success: true, data: results };
     } catch (error: any) {
         console.error("Error getting admin dashboard data:", error);
         return { success: false, error: error.message };
@@ -621,7 +665,10 @@ export async function createOffer(adminUid: string, offerData: {
     try {
         const adminDb = await getAdminDb();
         const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+        const userData = userDoc.data();
+        const canWrite = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'offers', 'WRITE'));
+
+        if (!userDoc.exists || !canWrite) {
             return { success: false, error: "Unauthorized." };
         }
 
@@ -648,7 +695,10 @@ export async function updateUserKey(adminUid: string, uid: string, paymentId: st
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const adminData = adminDoc.data();
+        const canUpdate = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'payments', 'UPDATE'));
+        
+        if (!adminDoc.exists || !canUpdate) return { success: false, error: "Unauthorized." };
 
         const encryptedKey = encrypt(steamKey);
         const userRef = adminDb.collection("accounts").doc(uid);
@@ -745,7 +795,10 @@ export async function deleteBlogPost(adminUid: string, slug: string) {
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const adminData = adminDoc.data();
+        const canDelete = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'blogs', 'DELETE'));
+        
+        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
 
         // Find document by slug field since doc ID is now auto-generated
         const blogQuery = await adminDb.collection('blogs').where('slug', '==', slug).limit(1).get();
@@ -803,7 +856,10 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const adminData = adminDoc.data();
+        const canDelete = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
+        
+        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
 
         const userRef = adminDb.collection("accounts").doc(targetUid);
         
@@ -844,7 +900,9 @@ export async function deleteAnonymousUsers(adminUid: string) {
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const userData = adminDoc.data();
+        const canDelete = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
+        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
 
         const accountsSnap = await adminDb.collection("accounts").get();
         const anonymousUids: string[] = [];
@@ -873,14 +931,23 @@ export async function deleteAnonymousUsers(adminUid: string) {
 
         if (anonymousUids.length === 0) return { success: true, count: 0 };
 
-        // Delete in chunks of 500
+        // Delete in chunks of 50
         let totalDeleted = 0;
-        for (let i = 0; i < anonymousUids.length; i += 400) {
+        for (let i = 0; i < anonymousUids.length; i += 50) {
             const batch = adminDb.batch();
-            const chunk = anonymousUids.slice(i, i + 400);
+            const chunk = anonymousUids.slice(i, i + 50);
+            
+            // Delete from Auth in parallel for this chunk
+            await Promise.all(chunk.map(async (uid) => {
+                try { 
+                    await getAuth().deleteUser(uid); 
+                } catch(e) {
+                    console.error(`Auth deletion failed for ${uid}:`, e);
+                }
+            }));
+
             for (const uid of chunk) {
                 batch.delete(adminDb.collection("accounts").doc(uid));
-                try { await getAuth().deleteUser(uid); } catch(e) {}
             }
             await batch.commit();
             totalDeleted += chunk.length;
@@ -901,7 +968,10 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const userData = adminDoc.data();
+        const canDelete = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
+
+        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
 
         const accountsSnap = await adminDb.collection("accounts").get();
         const uidsToDelete: string[] = [];
@@ -924,7 +994,11 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
 
             const hasActivity = !payments.empty || !offers.empty;
             
-            if (!hasActivity) {
+            // Safety: Don't delete accounts created in the last 24 hours
+            const created = data.created ? (data.created.toDate ? data.created.toDate() : new Date(data.created)) : new Date(0);
+            const isStale = (Date.now() - created.getTime()) > (24 * 60 * 60 * 1000);
+
+            if (!hasActivity && isStale) {
                 let email = data.email || "";
                 if (email.includes(':')) {
                     try { email = decrypt(email); } catch { }
@@ -978,7 +1052,10 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const adminData = adminDoc.data();
+        const canRead = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'account', 'READ'));
+        
+        if (!adminDoc.exists || !canRead) return { success: false, error: "Unauthorized." };
 
         const userRef = adminDb.collection("accounts").doc(targetUid);
         const [userDoc, paymentsSnap, offersPurchSnap] = await Promise.all([
@@ -1177,11 +1254,36 @@ export async function getGameUpdate(gameSlug: string, updateId: string) {
 /**
  * Server Action: Increment game download count
  */
-export async function incrementDownloadCount(gameId: string) {
+export async function incrementDownloadCount(gameId: string, userId?: string) {
     try {
         const adminDb = await getAdminDb();
         const gameRef = adminDb.collection("games").doc(gameId);
         
+        // Determine a unique identifier for this download (User ID or IP Address)
+        let uniqueId = userId;
+        if (!uniqueId) {
+            const { headers } = await import('next/headers');
+            const headerList = await headers();
+            uniqueId = headerList.get('x-forwarded-for') || 'unknown-ip';
+        }
+
+        const downloadId = `${uniqueId.replace(/[^a-zA-Z0-9]/g, '_')}_${gameId}`;
+        const downloadRef = adminDb.collection("downloads").doc(downloadId);
+        const downloadDoc = await downloadRef.get();
+        
+        if (downloadDoc.exists) {
+            // Already counted for this user/device
+            return { success: true, alreadyCounted: true };
+        }
+        
+        // Mark as downloaded
+        await downloadRef.set({
+            userId: userId || null,
+            ip: userId ? null : uniqueId,
+            gameId,
+            timestamp: Timestamp.now()
+        });
+
         const { FieldValue } = await import('firebase-admin/firestore');
         await gameRef.update({
             downloadCount: FieldValue.increment(1)
@@ -1190,6 +1292,167 @@ export async function incrementDownloadCount(gameId: string) {
         return { success: true };
     } catch (error: any) {
         console.error("Error incrementing download count:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Check if a user has a specific permission
+ */
+export async function hasPermission(adminUid: string, collection: string, action: 'READ' | 'WRITE' | 'UPDATE' | 'DELETE') {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        
+        if (!userDoc.exists) return false;
+        const userData = userDoc.data();
+        
+        // Owner has all permissions
+        if (userData?.isOwner) return true;
+        
+        // Check for assigned rule
+        const ruleId = userData?.ruleId;
+        if (!ruleId) return false;
+        
+        const ruleDoc = await adminDb.collection("account_rules").doc(ruleId).get();
+        if (!ruleDoc.exists) return false;
+        
+        const ruleData = ruleDoc.data();
+        const permissions = ruleData?.rules?.[collection] || [];
+        
+        return permissions.includes(action);
+    } catch (err) {
+        console.error("Permission check error:", err);
+        return false;
+    }
+}
+
+/**
+ * Server Action: Create or Update an account rule (Owner only)
+ */
+export async function upsertAccountRule(adminUid: string, ruleData: { id?: string, title: string, description: string, rules: Record<string, string[]> }) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+            return { success: false, error: "Only the owner can manage rules." };
+        }
+
+        const { id, ...data } = ruleData;
+        const ruleRef = id ? adminDb.collection("account_rules").doc(id) : adminDb.collection("account_rules").doc();
+        
+        const payload: any = {
+            ...data,
+            last_update: Timestamp.now(),
+        };
+        if (!id) {
+            payload.created = Timestamp.now();
+        }
+
+        await ruleRef.set(payload, { merge: true });
+
+        return { success: true, id: ruleRef.id };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Assign a rule to a user (Owner only)
+ */
+export async function assignRuleToUser(adminUid: string, targetUserId: string, ruleId: string | null) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        await adminDb.collection("accounts").doc(targetUserId).update({
+            ruleId: ruleId || null
+        });
+
+        // Also track in the rule document subcollection as per the user's diagram
+        if (ruleId) {
+            await adminDb.collection("account_rules").doc(ruleId).collection("accounts").doc(targetUserId).set({
+                assigned_at: Timestamp.now()
+            });
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Fetch all rules
+ */
+export async function getAccountRules(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!userDoc.exists || (!userDoc.data()?.isOwner && !userDoc.data()?.ruleId)) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        const snapshot = await adminDb.collection("account_rules").get();
+        const rules = snapshot.docs.map(doc => {
+            const data = doc.data() as any;
+            return { 
+                id: doc.id, 
+                ...data,
+                last_update: data.last_update?.toDate ? data.last_update.toDate().toISOString() : data.last_update,
+                created: data.created?.toDate ? data.created.toDate().toISOString() : data.created
+            };
+        });
+        return { success: true, rules };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Delete an account rule (Owner only)
+ */
+export async function deleteAccountRule(adminUid: string, ruleId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        await adminDb.collection("account_rules").doc(ruleId).delete();
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Get current user's permissions
+ */
+export async function getMyPermissions(uid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(uid).get();
+        
+        if (!userDoc.exists) return { success: false, error: "User not found." };
+        const userData = userDoc.data();
+        
+        if (userData?.isOwner) {
+            return { success: true, isOwner: true, permissions: "*" };
+        }
+        
+        const ruleId = userData?.ruleId;
+        if (!ruleId) return { success: true, isOwner: false, permissions: {} };
+        
+        const ruleDoc = await adminDb.collection("account_rules").doc(ruleId).get();
+        if (!ruleDoc.exists) return { success: true, isOwner: false, permissions: {} };
+        
+        return { success: true, isOwner: false, permissions: ruleDoc.data()?.rules || {} };
+    } catch (error: any) {
         return { success: false, error: error.message };
     }
 }
