@@ -183,33 +183,7 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
                 await userRef.collection("payments").doc(orderID).set(paymentData);
             }
-            // Record Public Activity (RTDB for bypassing Firestore rules)
-            try {
-                const userDoc = await userRef.get();
-                const userData = userDoc.data();
-                const userName = userData?.name || "Guest Comrade";
-                const userPhoto = userData?.photoURL || "";
-                
-                const { getAdminRtdb } = await import('./firebase-admin');
-                const rtdb = await getAdminRtdb();
-                const activityRef = rtdb.ref("live_activity");
-                
-                await activityRef.push({
-                    gameName: game,
-                    gameId: gameId || offerId || "", // Store the ID (App ID) to show icons
-                    userName: userName,
-                    userPhoto: userPhoto,
-                    amount: amount,
-                    status: "COMPLETED",
-                    timestamp: Date.now(),
-                    type: offerId ? "SPECIAL_OFFER" : "STANDARD_PURCHASE"
-                });
-
-                // Activity recorded successfully
-            } catch (err) {
-                console.error("Error recording public activity:", err);
-            }
-
+            // Payment recorded successfully
             return { success: true };
         }
 

@@ -520,10 +520,8 @@
 }
 
 .reqBlock {
-    background: rgba(var(--foreground-rgb), 0.03);
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     border-left: 3px solid var(--primary);
-    backdrop-filter: blur(10px);
     border-radius: 4px;
     width: 100%;
 }

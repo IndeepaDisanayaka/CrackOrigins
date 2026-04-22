@@ -42,6 +42,7 @@ import {
   deleteUserAccount,
   deleteAnonymousUsers,
   cleanupDeactivatedUsers,
+  cleanupExpiredOffers,
   getMyPermissions,
   assignRuleToUser,
   getAccountRules
@@ -106,7 +107,7 @@ export default function AdminPanel({
   const [userDeleteConfirm, setUserDeleteConfirm] = useState<{ open: boolean; uid: string; name: string }>({
     open: false, uid: "", name: ""
   });
-  const [bulkCleanupConfirm, setBulkCleanupConfirm] = useState<{ open: boolean; type: 'anonymous' | 'deactivated' }>({
+  const [bulkCleanupConfirm, setBulkCleanupConfirm] = useState<{ open: boolean; type: 'anonymous' | 'deactivated' | 'offers' }>({
     open: false, type: 'anonymous'
   });
   const [keyModal, setKeyModal] = useState<{ open: boolean; targetUid: string; paymentId: string; key: string }>({
@@ -323,7 +324,9 @@ export default function AdminPanel({
 
       const result = bulkCleanupConfirm.type === 'anonymous' 
         ? await deleteAnonymousUsers(userUid)
-        : await cleanupDeactivatedUsers(userUid);
+        : bulkCleanupConfirm.type === 'deactivated'
+        ? await cleanupDeactivatedUsers(userUid)
+        : await cleanupExpiredOffers(userUid);
       
       clearInterval(timer);
       setCleaningProgress(100);
@@ -332,7 +335,12 @@ export default function AdminPanel({
         setIsCleaning(false);
         setCleaningProgress(0);
         if (result && result.success) {
-          showToast(`Successfully removed ${result.count} accounts.`, 'success');
+          showToast(
+            bulkCleanupConfirm.type === 'offers' 
+              ? `Cleaned up ${result.count} expired/unsold offers.`
+              : `Successfully removed ${result.count} accounts.`, 
+            'success'
+          );
           fetchData();
         } else {
           showToast(result?.error || "Failed to cleanup.", 'error');
@@ -977,13 +985,29 @@ export default function AdminPanel({
                           </button>
                         ))}
                         {myPerms.isOwner && (
-                          <button 
-                            onClick={() => setShowRolesModal(true)} 
-                            className="btnSolid" 
-                            style={{ marginLeft: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.75rem' }}
-                          >
-                            <Shield size={13} /> Manage Rules
-                          </button>
+                          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
+                            <button 
+                              onClick={() => setBulkCleanupConfirm({ open: true, type: 'anonymous' })} 
+                              className="btnOutline" 
+                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', color: '#f59e0b', borderColor: '#f59e0b' }}
+                            >
+                              <Trash2 size={13} /> Clean Anonymous
+                            </button>
+                            <button 
+                              onClick={() => setBulkCleanupConfirm({ open: true, type: 'deactivated' })} 
+                              className="btnOutline" 
+                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                            >
+                              <Trash2 size={13} /> Clean Deactivated
+                            </button>
+                            <button 
+                              onClick={() => setShowRolesModal(true)} 
+                              className="btnSolid" 
+                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem' }}
+                            >
+                              <Shield size={13} /> Manage Rules
+                            </button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1003,6 +1027,16 @@ export default function AdminPanel({
                             {t.label}
                           </button>
                         ))}
+
+                        {gameView === 'offers' && hasPerm('offers', 'DELETE') && (
+                          <button 
+                            onClick={() => setBulkCleanupConfirm({ open: true, type: 'offers' })} 
+                            className="btnOutline" 
+                            style={{ marginLeft: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.75rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                          >
+                            <Trash2 size={13} /> Purge Expired & Unsold
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -1355,7 +1389,10 @@ export default function AdminPanel({
           </div>
           <h3 style={{ fontWeight: 800, marginBottom: '0.8rem' }}>Bulk Cleanup</h3>
           <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem' }}>
-            Are you sure you want to remove all <strong>{bulkCleanupConfirm.type}</strong> accounts? This action cannot be undone.
+            {bulkCleanupConfirm.type === 'offers' 
+              ? "Are you sure you want to remove all expired and unsold offers? This will permanently delete them from the database."
+              : `Are you sure you want to remove all ${bulkCleanupConfirm.type} accounts? This action cannot be undone.`
+            }
           </p>
           <div style={{ display: 'flex', gap: '0.8rem' }}>
             <button className="btnOutline" style={{ width: '100%', padding: '0.6rem' }} onClick={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })}>Cancel</button>
@@ -1390,9 +1427,9 @@ export default function AdminPanel({
             }}
             style={{ width: '100%', padding: '0.8rem', background: 'transparent', border: '1px solid var(--outline-color)', borderRadius: '8px', color: 'var(--foreground)' }}
           >
-            <option value="" style={{ background: '#000' }}>No Rule (Basic User)</option>
+            <option value="" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>Standard Access (No Rule)</option>
             {allRules.map(r => (
-              <option key={r.id} value={r.id} style={{ background: '#000' }}>{r.title}</option>
+              <option key={r.id} value={r.id} style={{ background: 'var(--background)', color: 'var(--foreground)' }}>{r.title}</option>
             ))}
           </select>
           
@@ -1481,6 +1518,32 @@ export default function AdminPanel({
                     onClick={toggleOwner}
                 >
                     Grant Ownership
+                </button>
+            </div>
+        </div>
+    </Modal>
+    {/* Assign Key Modal */}
+    <Modal isOpen={keyModal.open} onClose={() => setKeyModal({ ...keyModal, open: false })} maxWidth="400px">
+        <div style={{ padding: '1.5rem', background: 'var(--background)', color: 'var(--foreground)' }}>
+            <h3 style={{ fontWeight: 800, marginBottom: '1rem' }}>Assign Activation Key</h3>
+            <p style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1.5rem' }}>Enter the digital activation key to securely assign it to this transaction.</p>
+            
+            <input 
+                type="text" 
+                placeholder="XXXX-XXXX-XXXX" 
+                value={keyModal.key}
+                onChange={(e) => setKeyModal({ ...keyModal, key: e.target.value })}
+                style={{ width: '100%', padding: '0.8rem', background: 'transparent', border: '1px solid var(--outline-color)', borderRadius: '4px', color: 'var(--foreground)', fontFamily: 'monospace', fontSize: '1rem', letterSpacing: '1px' }}
+            />
+            
+            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.5rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.6rem' }} onClick={() => setKeyModal({ ...keyModal, open: false })}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ width: '100%', padding: '0.6rem' }} 
+                    onClick={handleUpdateKey}
+                >
+                    Assign Key
                 </button>
             </div>
         </div>

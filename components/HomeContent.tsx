@@ -15,7 +15,7 @@ import Footer from './layout/Footer';
 import Hero from './sections/Hero';
 import StatsBar from './sections/StatsBar';
 import Features from './sections/Features';
-import LiveTransactions from './sections/LiveTransactions';
+import FAQSection from './sections/FAQSection';
 import SplashScreen from './layout/SplashScreen';
 import SubHeader from './layout/SubHeader';
 import { useSearchParams } from 'next/navigation';
@@ -132,7 +132,6 @@ export default function HomeContent() {
         <StatsBar />
 
         <Features />
-        {/* <LiveTransactions /> */}
         <div className={styles.sectionDivider}></div>
 
         <motion.div
@@ -159,6 +158,8 @@ export default function HomeContent() {
         >
           <ExtraSections />
         </motion.div>
+
+        <FAQSection />
 
         <Footer />
 
