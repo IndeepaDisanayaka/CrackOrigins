@@ -218,7 +218,11 @@ function SteamCard({
                             }
                         })()}
                     </div>
-                    <a href={game.steamUrl} target="_blank" rel="noopener noreferrer" className="btnOutline" style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                    <a 
+                        href={game.steamAppId ? `steam://store/${game.steamAppId}` : game.steamUrl} 
+                        className="btnOutline" 
+                        style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                    >
                         View on Steam
                     </a>
                 </div>
@@ -327,6 +331,7 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
               listed: listedTimeStr,
               targetAffiliates: Number(data.targetAffiliates || 10),
               quantity: Number(data.quantity || 0),
+              steamAppId: steamAppId,
             };
           } catch (itemErr) {
             console.error("Error parsing individual offer item:", d.id, itemErr);

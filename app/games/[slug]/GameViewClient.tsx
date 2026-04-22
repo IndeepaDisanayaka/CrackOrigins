@@ -499,10 +499,6 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                         <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.min.processor}</div>
                                         <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.min.memory}</div>
                                         <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.min.graphics}</div>
-                                        <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.storage}</div>
-                                        <div className={styles.reqValue} style={{ color: game.vrSupported ? 'var(--primary)' : 'inherit' }}>
-                                            <Globe size={14} /> VR: {game.vrSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}
-                                        </div>
                                     </div>
                                 </div>
                                 <div className={styles.reqBlock} style={{ borderLeftColor: 'var(--foreground)' }}>
@@ -511,6 +507,15 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                         <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.max.processor}</div>
                                         <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.max.memory}</div>
                                         <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.max.graphics}</div>
+                                    </div>
+                                </div>
+                                <div className={styles.reqBlock} style={{ borderLeftColor: 'var(--primary)' }}>
+                                    <span className={styles.reqLabel}>Deployment Matrix</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                        <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.storage}</div>
+                                        <div className={styles.reqValue} style={{ color: game.vrSupported ? 'var(--primary)' : 'inherit' }}>
+                                            <Globe size={14} /> VR: {game.vrSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

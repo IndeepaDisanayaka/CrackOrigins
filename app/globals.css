@@ -69,13 +69,13 @@ body {
 }
 
 ::selection {
-  background: var(--primary);
-  color: #000;
+  background: rgba(var(--primary-rgb), 0.3);
+  color: inherit;
 }
 
 ::-moz-selection {
-  background: var(--primary);
-  color: #000;
+  background: rgba(var(--primary-rgb), 0.3);
+  color: inherit;
 }
 
 /* Ensure interactive elements show the standard pointer cursor and no underlines */

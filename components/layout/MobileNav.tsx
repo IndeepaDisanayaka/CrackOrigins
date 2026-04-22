@@ -7,6 +7,7 @@ import { useModals } from '../../lib/contexts/ModalContext';
 import Link from 'next/link';
 import styles from '../../app/page.module.css';
 import Image from 'next/image';
+import ThemeToggle from '../ThemeToggle';
 
 export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolean) => void }) {
   const { user, isAdmin, isOwner, permissions, logout } = useAuth();
@@ -21,9 +22,12 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
           </div>
           <span>Crack Origins</span>
         </div>
-        <button className={styles.menuToggle} onClick={() => setIsOpen(false)}>
-          <X size={24} />
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <ThemeToggle />
+          <button className={styles.menuToggle} onClick={() => setIsOpen(false)}>
+            <X size={24} />
+          </button>
+        </div>
       </div>
       <div className={styles.mobileNavLinks}>
         <Link href="/#about" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
@@ -35,14 +39,8 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         <Link href="/blog" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Blog
         </Link>
-        <Link href="/#projects" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
-          <Briefcase size={18} /> Projects
-        </Link>
-        <Link href="/#affiliates" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
-          <Briefcase size={18} /> Affiliates
-        </Link>
         <Link href="/#keys" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
-          <Briefcase size={18} /> Keys
+          <Swords size={18} /> Keys
         </Link>
         {isAdmin && (
           <>

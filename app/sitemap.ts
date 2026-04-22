@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { getBlogPosts } from '@/lib/blog';
 import { getGames } from '@/lib/admin-actions';
+import { faqData } from '@/lib/faq';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(game.time || Date.now()),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
+  }));
+
+  const faqPages = faqData.map((faq) => ({
+    url: `${baseUrl}/?faq=${faq.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
   }));
 
   return [
@@ -56,6 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
+    ...faqPages,
     ...blogPosts,
   ];
 }

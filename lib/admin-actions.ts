@@ -1258,31 +1258,35 @@ export async function incrementDownloadCount(gameId: string, userId?: string) {
     try {
         const adminDb = await getAdminDb();
         const gameRef = adminDb.collection("games").doc(gameId);
+        const { Timestamp } = await import('firebase-admin/firestore');
         
-        // Determine a unique identifier for this download (User ID or IP Address)
-        let uniqueId = userId;
-        if (!uniqueId) {
-            const { headers } = await import('next/headers');
-            const headerList = await headers();
-            uniqueId = headerList.get('x-forwarded-for') || 'unknown-ip';
+        // If we have a user ID, we can prevent duplicate counts for that user
+        if (userId) {
+            const downloadId = `${userId.replace(/[^a-zA-Z0-9]/g, '_')}_${gameId}`;
+            const downloadRef = adminDb.collection("downloads").doc(downloadId);
+            const downloadDoc = await downloadRef.get();
+            
+            if (downloadDoc.exists) {
+                // Already counted for this user
+                return { success: true, alreadyCounted: true };
+            }
+            
+            // Mark as downloaded for this user (but don't store IP)
+            await downloadRef.set({
+                userId,
+                gameId,
+                timestamp: Timestamp.now()
+            });
+        } else {
+            // For anonymous users, we don't store IP or track duplicates to preserve privacy.
+            // We create a log entry with a random ID to record the event.
+            const anonDownloadRef = adminDb.collection("downloads").doc();
+            await anonDownloadRef.set({
+                userId: null,
+                gameId,
+                timestamp: Timestamp.now()
+            });
         }
-
-        const downloadId = `${uniqueId.replace(/[^a-zA-Z0-9]/g, '_')}_${gameId}`;
-        const downloadRef = adminDb.collection("downloads").doc(downloadId);
-        const downloadDoc = await downloadRef.get();
-        
-        if (downloadDoc.exists) {
-            // Already counted for this user/device
-            return { success: true, alreadyCounted: true };
-        }
-        
-        // Mark as downloaded
-        await downloadRef.set({
-            userId: userId || null,
-            ip: userId ? null : uniqueId,
-            gameId,
-            timestamp: Timestamp.now()
-        });
 
         const { FieldValue } = await import('firebase-admin/firestore');
         await gameRef.update({
@@ -1453,6 +1457,65 @@ export async function getMyPermissions(uid: string) {
         
         return { success: true, isOwner: false, permissions: ruleDoc.data()?.rules || {} };
     } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Cleanup expired offers with zero sales
+ */
+export async function cleanupExpiredOffers(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || (!adminDoc.data()?.isOwner && !adminDoc.data()?.ruleId)) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        // 1. Get all offers
+        const offersSnap = await adminDb.collection("offers").get();
+        const now = new Date();
+        
+        const expiredOffers = offersSnap.docs.filter(doc => {
+            const data = doc.data();
+            const expireDate = data.expire?.toDate ? data.expire.toDate() : new Date(data.expire);
+            return expireDate < now;
+        });
+
+        if (expiredOffers.length === 0) {
+            return { success: true, count: 0, message: "No expired offers found." };
+        }
+
+        // 2. Identify which expired offers have sales
+        const soldOfferIds = new Set<string>();
+        const purchasesSnap = await adminDb.collectionGroup("offers").get();
+        
+        purchasesSnap.forEach(doc => {
+            // We only want documents from 'accounts/{uid}/offers' subcollections, 
+            // not the root 'offers' collection itself.
+            if (doc.ref.path.includes("accounts/")) {
+                soldOfferIds.add(doc.id);
+            }
+        });
+
+        // 3. Delete those that are expired AND have no sales
+        let deletedCount = 0;
+        const batch = adminDb.batch();
+
+        for (const offerDoc of expiredOffers) {
+            if (!soldOfferIds.has(offerDoc.id)) {
+                batch.delete(offerDoc.ref);
+                deletedCount++;
+            }
+        }
+
+        if (deletedCount > 0) {
+            await batch.commit();
+        }
+
+        return { success: true, count: deletedCount, message: `Cleaned up ${deletedCount} expired and unsold offers.` };
+    } catch (error: any) {
+        console.error("Error cleaning up offers:", error);
         return { success: false, error: error.message };
     }
 }
