@@ -9,7 +9,7 @@ import styles from '../../app/page.module.css';
 import Image from 'next/image';
 
 export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (v: boolean) => void }) {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isOwner, permissions, logout } = useAuth();
   const { setIsListGameOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsAdminModalOpen, setIsAuthModalOpen } = useModals();
 
   return (
@@ -46,15 +46,21 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         </Link>
         {isAdmin && (
           <>
-            <button onClick={() => { setIsOpen(false); setIsListGameOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <Plus size={18} /> List a Game
-            </button>
-            <button onClick={() => { setIsOpen(false); setIsCouponModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <Tag size={18} /> Discount
-            </button>
-            <button onClick={() => { setIsOpen(false); setIsAddOfferModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-              <Swords size={18} /> Offers
-            </button>
+            {(isOwner || (permissions['games'] || []).includes('WRITE')) && (
+              <button onClick={() => { setIsOpen(false); setIsListGameOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+                <Plus size={18} /> List a Game
+              </button>
+            )}
+            {(isOwner || (permissions['coupons'] || []).includes('WRITE')) && (
+              <button onClick={() => { setIsOpen(false); setIsCouponModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+                <Tag size={18} /> Discount
+              </button>
+            )}
+            {(isOwner || (permissions['offers'] || []).includes('WRITE')) && (
+              <button onClick={() => { setIsOpen(false); setIsAddOfferModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
+                <Swords size={18} /> Offers
+              </button>
+            )}
             <button onClick={() => { setIsOpen(false); setIsAdminModalOpen(true); }} className={styles.mobileLink} style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
               <Shield size={18} /> Admin Panel
             </button>

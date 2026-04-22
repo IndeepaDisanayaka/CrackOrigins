@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (v: boolean) => void }) {
-  const { user, isAdmin, isAuthLoading, logout } = useAuth();
+  const { user, isAdmin, isOwner, permissions, isAuthLoading, logout } = useAuth();
   const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen, setIsDispatchModalOpen } = useModals();
   const [mounted, setMounted] = useState(false);
 
@@ -49,38 +49,46 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
           <div style={{ display: 'flex', gap: '0.4rem' }}>
             {isAdmin && (
               <>
-                <button
-                  className={`${styles.desktopOnlyAction} btnOutline`}
-                  onClick={() => setIsDispatchModalOpen(true)}
-                  title="List New Dispatch (Blog)"
-                  style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
-                >
-                  <FileUp size={18} />
-                </button>
-                <button
-                  className={`${styles.desktopOnlyAction} btnOutline`}
-                  onClick={() => setIsListGameOpen(true)}
-                  title="List New Game"
-                  style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
-                >
-                  <Plus size={18} />
-                </button>
-                <button
-                  className={`${styles.desktopOnlyAction} btnOutline`}
-                  onClick={() => setIsCouponModalOpen(true)}
-                  title="Discount Coupons"
-                  style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
-                >
-                  <Tag size={18} />
-                </button>
-                <button
-                  className={`${styles.desktopOnlyAction} btnOutline`}
-                  onClick={() => setIsAddOfferModalOpen(true)}
-                  title="Game Offers"
-                  style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
-                >
-                  <Swords size={18} />
-                </button>
+                {(isOwner || (permissions['blogs'] || []).includes('WRITE')) && (
+                  <button
+                    className={`${styles.desktopOnlyAction} btnOutline`}
+                    onClick={() => setIsDispatchModalOpen(true)}
+                    title="List New Dispatch (Blog)"
+                    style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                  >
+                    <FileUp size={18} />
+                  </button>
+                )}
+                {(isOwner || (permissions['games'] || []).includes('WRITE')) && (
+                  <button
+                    className={`${styles.desktopOnlyAction} btnOutline`}
+                    onClick={() => setIsListGameOpen(true)}
+                    title="List New Game"
+                    style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                  >
+                    <Plus size={18} />
+                  </button>
+                )}
+                {(isOwner || (permissions['coupons'] || []).includes('WRITE')) && (
+                  <button
+                    className={`${styles.desktopOnlyAction} btnOutline`}
+                    onClick={() => setIsCouponModalOpen(true)}
+                    title="Discount Coupons"
+                    style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                  >
+                    <Tag size={18} />
+                  </button>
+                )}
+                {(isOwner || (permissions['offers'] || []).includes('WRITE')) && (
+                  <button
+                    className={`${styles.desktopOnlyAction} btnOutline`}
+                    onClick={() => setIsAddOfferModalOpen(true)}
+                    title="Game Offers"
+                    style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+                  >
+                    <Swords size={18} />
+                  </button>
+                )}
                 <button
                   className={`${styles.desktopOnlyAction} btnOutline`}
                   onClick={() => setIsAdminModalOpen(true)}

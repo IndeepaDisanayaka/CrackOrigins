@@ -6,7 +6,7 @@ import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image a
 import { useAuth } from '../lib/contexts/AuthContext';
 import { useModals } from '../lib/contexts/ModalContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getOwnedGames, validateCoupon, getGames } from '@/lib/admin-actions';
+import { getOwnedGames, validateCoupon, getGames, incrementDownloadCount } from '@/lib/admin-actions';
 import Modal from './Modal';
 import { useToast } from './Toast';
 import PayPalCheckout from '@/lib/paypal';
@@ -158,14 +158,24 @@ export default function GamesCarousel() {
     }
   }, [activeIndex, games, modalState, isBugReportOpen, isLocked]);
 
-  const triggerDirectDownload = (url: string, title: string) => {
-    if (!url) {
+  const triggerDirectDownload = (game: any) => {
+    if (!game.itchUploadId && !game.downloadUrl) {
       showToast("Download link not available for this title.", "error");
       return;
     }
     
-    window.open(url, '_blank');
-    showToast(`Opening download link for ${title}...`, "success");
+    // Increment count with uniqueness filter
+    incrementDownloadCount(game.id, user?.uid);
+
+    if (game.itchUploadId) {
+      // Use secure proxy
+      window.location.href = `/api/download?uploadId=${game.itchUploadId}`;
+    } else {
+      // Fallback
+      window.open(game.downloadUrl, '_blank');
+    }
+    
+    showToast(`Initializing secure download for ${game.title}...`, "success");
   };
 
   useEffect(() => {
@@ -353,7 +363,7 @@ export default function GamesCarousel() {
                   <button
                     className="btnSolid"
                     style={{ minWidth: '150px' }}
-                    onClick={() => triggerDirectDownload(activeGame.downloadUrl, activeGame.title)}
+                    onClick={() => triggerDirectDownload(activeGame)}
                   >
                     <Download size={14} fill="currentColor" /> Download
                   </button>

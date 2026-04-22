@@ -41,8 +41,12 @@ import {
   getBlogPostsAction,
   deleteUserAccount,
   deleteAnonymousUsers,
-  cleanupDeactivatedUsers
+  cleanupDeactivatedUsers,
+  getMyPermissions,
+  assignRuleToUser,
+  getAccountRules
 } from '@/lib/admin-actions';
+import RolesModal from './admin/RolesModal';
 import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -72,6 +76,7 @@ export default function AdminPanel({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [paymentView, setPaymentView] = useState<PaymentView>('payments');
+  const [gameView, setGameView] = useState<'our' | 'offers'>('our');
   const [onlyKeyNotSet, setOnlyKeyNotSet] = useState(false);
   const [userView, setUserView] = useState<'all' | 'google' | 'anonymous'>('all');
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
@@ -113,8 +118,16 @@ export default function AdminPanel({
   const [showAddCoupon, setShowAddCoupon] = useState(false);
   const [showAddBlog, setShowAddBlog] = useState(false);
   const [showAddGame, setShowAddGame] = useState(false);
+  const [showRolesModal, setShowRolesModal] = useState(false);
+  const [assignRoleModal, setAssignRoleModal] = useState<{ open: boolean; targetUid: string; currentRuleId?: string; name: string }>({
+    open: false, targetUid: "", name: ""
+  });
+  
+  // Permissions state
+  const [myPerms, setMyPerms] = useState<{ isOwner: boolean, permissions: any }>({ isOwner: false, permissions: {} });
+  const [allRules, setAllRules] = useState<any[]>([]);
 
-  // Progress tracking
+  const [permsLoaded, setPermsLoaded] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleaningProgress, setCleaningProgress] = useState(0);
 
@@ -136,10 +149,30 @@ export default function AdminPanel({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && userUid) {
       fetchData();
+      
+      // Fetch permissions
+      setPermsLoaded(false);
+      getMyPermissions(userUid).then(res => {
+        if (res.success) {
+          setMyPerms({ isOwner: res.isOwner || false, permissions: res.permissions });
+        }
+        setPermsLoaded(true);
+      });
+
+      // Fetch all rules for assignment dropdown
+      getAccountRules(userUid).then(res => {
+        if (res.success) setAllRules(res.rules || []);
+      });
     }
   }, [isOpen]);
+
+  const hasPerm = (collection: string, action: 'READ' | 'WRITE' | 'UPDATE' | 'DELETE') => {
+    if (myPerms.isOwner) return true;
+    const perms = myPerms.permissions?.[collection] || [];
+    return perms.includes(action);
+  };
 
   // Live Cursor Users listener
   useEffect(() => {
@@ -352,10 +385,15 @@ export default function AdminPanel({
     return true;
   });
 
-  const filteredGames = data?.offers?.filter((g: any) =>
+  const filteredOurGames = (data?.games || []).filter((g: any) =>
     g.title?.toLowerCase().includes(search.toLowerCase()) ||
     g.id?.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  );
+
+  const filteredOfferGames = (data?.offers || []).filter((g: any) =>
+    g.title?.toLowerCase().includes(search.toLowerCase()) ||
+    g.id?.toLowerCase().includes(search.toLowerCase())
+  );
 
   const filteredBlogs = blogData.filter((b: any) =>
     b.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -393,13 +431,13 @@ export default function AdminPanel({
 
           <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
              {[
-               { id: 'overview', icon: <TrendingUp size={18} />, label: 'Overview' },
-               { id: 'users', icon: <Users size={18} />, label: 'Users' },
-               { id: 'payments', icon: <CreditCard size={18} />, label: 'Payments' },
-               { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games' },
-               { id: 'blogs', icon: <MessageSquare size={18} />, label: 'Blogs' },
-               { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries' },
-             ].map(item => (
+               { id: 'overview', icon: <TrendingUp size={18} />, label: 'Overview', visible: true },
+               { id: 'users', icon: <Users size={18} />, label: 'Users', visible: hasPerm('account', 'READ') },
+               { id: 'payments', icon: <CreditCard size={18} />, label: 'Payments', visible: hasPerm('payments', 'READ') },
+               { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games', visible: hasPerm('games', 'READ') },
+               { id: 'blogs', icon: <MessageSquare size={18} />, label: 'Blogs', visible: hasPerm('blogs', 'READ') },
+               { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries', visible: true },
+             ].filter(i => i.visible).map(item => (
                <button
                  key={item.id}
                  onClick={() => { setActiveTab(item.id as Tab); setSearch(""); }}
@@ -426,13 +464,21 @@ export default function AdminPanel({
 
         {/* Content Area */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '2rem', background: 'var(--background)' }}>
-          {loading ? (
+          {!permsLoaded || loading ? (
              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
                 <div className="premiumLoader"><div className="glitchLoader" style={{ fontSize: '1.5rem' }}>SCANNING DATABASE...</div></div>
-                <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Securely fetching studio records...</p>
+                <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Securely fetching studio records and credentials...</p>
              </div>
           ) : (
             <>
+              {isCleaning && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', zIndex: 9999 }}>
+                  <div style={{ width: `${cleaningProgress}%`, height: '100%', background: 'var(--primary)', transition: 'width 0.3s ease' }} />
+                  <div style={{ position: 'absolute', top: '10px', right: '20px', background: 'var(--primary)', color: '#000', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800 }}>
+                    CLEANING DATABASE: {cleaningProgress}%
+                  </div>
+                </div>
+              )}
               {/* Top Header Content Area */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
@@ -440,17 +486,26 @@ export default function AdminPanel({
                     <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Manage your studio's ecosystem records.</p>
                  </div>
                  <div style={{ display: 'flex', gap: '0.8rem' }}>
-                    {activeTab === 'overview' && (
+                    {activeTab === 'overview' && hasPerm('offers', 'WRITE') && (
                       <button onClick={() => setShowAddOffer(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
                         <Gamepad2 size={14} style={{ marginRight: '0.4rem' }} /> Add Offer
                       </button>
                     )}
                     {activeTab === 'games' && (
-                      <button onClick={() => setShowAddGame(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
-                        <ExternalLink size={14} style={{ marginRight: '0.4rem' }} /> List New Game
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.8rem' }}>
+                        {gameView === 'our' && hasPerm('games', 'WRITE') && (
+                          <button onClick={() => setShowAddGame(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                            <ExternalLink size={14} style={{ marginRight: '0.4rem' }} /> List New Game
+                          </button>
+                        )}
+                        {gameView === 'offers' && hasPerm('offers', 'WRITE') && (
+                          <button onClick={() => setShowAddOffer(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
+                            <Gamepad2 size={14} style={{ marginRight: '0.4rem' }} /> Add Game Offer
+                          </button>
+                        )}
+                      </div>
                     )}
-                    {activeTab === 'blogs' && (
+                    {activeTab === 'blogs' && hasPerm('blogs', 'WRITE') && (
                       <button onClick={() => setShowAddBlog(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
                         <ExternalLink size={14} style={{ marginRight: '0.4rem' }} /> Post Dispatch
                       </button>
@@ -906,167 +961,182 @@ export default function AdminPanel({
                      </div>
                    )}
                    {activeTab === 'users' && (
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                       {[
-                         { id: 'all', label: 'All Users' },
-                         { id: 'google', label: 'Google Logins' },
-                         { id: 'anonymous', label: 'Anonymous' }
-                       ].map(v => (
-                         <button
-                           key={v.id}
-                           onClick={() => setUserView(v.id as any)}
-                           className={userView === v.id ? "btnSolid" : "btnOutline"}
-                           style={{
-                             padding: '0.45rem 0.8rem',
-                             borderColor: userView === v.id ? 'var(--primary)' : 'var(--foreground)',
-                             color: userView === v.id ? '#000' : 'var(--foreground)',
-                             background: userView === v.id ? 'var(--primary)' : 'transparent',
-                             transform: 'none'
-                           }}
-                         >
-                           {v.label}
-                         </button>
-                       ))}
-                       {userView === 'anonymous' && (
-                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
-                            <button 
-                              onClick={() => setBulkCleanupConfirm({ open: true, type: 'deactivated' })}
-                              className="btnOutline" 
-                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', borderColor: '#ff4d4d', color: '#ff4d4d' }}
-                            >
-                              <Trash2 size={13} /> Remove Deactivated
-                            </button>
-                         </div>
-                       )}
-                     </div>
-                   )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        {[
+                          { id: 'all', label: 'All Users' },
+                          { id: 'google', label: 'Google Users' },
+                          { id: 'anonymous', label: 'Anonymous' }
+                        ].map(t => (
+                          <button 
+                            key={t.id} 
+                            className={userView === t.id ? "btnSolid" : "btnOutline"} 
+                            onClick={() => setUserView(t.id as any)}
+                            style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', transform: 'none' }}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                        {myPerms.isOwner && (
+                          <button 
+                            onClick={() => setShowRolesModal(true)} 
+                            className="btnSolid" 
+                            style={{ marginLeft: 'auto', padding: '0.45rem 0.8rem', fontSize: '0.75rem' }}
+                          >
+                            <Shield size={13} /> Manage Rules
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'games' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        {[
+                          { id: 'our', label: 'Our Games' },
+                          { id: 'offers', label: 'Offer Games' }
+                        ].map(t => (
+                          <button 
+                            key={t.id} 
+                            className={gameView === t.id ? "btnSolid" : "btnOutline"} 
+                            onClick={() => setGameView(t.id as any)}
+                            style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', transform: 'none' }}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                    {activeTab === 'payments' && (
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                       <button
-                         className={paymentView === "payments" ? "btnSolid" : "btnOutline"}
-                         onClick={() => { setPaymentView('payments'); setOnlyKeyNotSet(false); }}
-                         style={{
-                           padding: '0.45rem 0.8rem',
-                           borderColor: paymentView === 'payments' ? 'var(--primary)' : 'var(--foreground)',
-                           color: paymentView === 'payments' ? '#000' : 'var(--foreground)',
-                           background: paymentView === 'payments' ? 'var(--primary)' : 'transparent',
-                           transform: 'none'
-                         }}
-                       >
-                         Payments
-                       </button>
-                       <button
-                         className={paymentView === "offerPayments" ? "btnSolid" : "btnOutline"}
-                         onClick={() => setPaymentView('offerPayments')}
-                         style={{
-                           padding: '0.45rem 0.8rem',
-                           borderColor: paymentView === 'offerPayments' ? 'var(--primary)' : 'var(--foreground)',
-                           color: paymentView === 'offerPayments' ? '#000' : 'var(--foreground)',
-                           background: paymentView === 'offerPayments' ? 'var(--primary)' : 'transparent',
-                           transform: 'none'
-                         }}
-                       >
-                         Offer Payments
-                       </button>
-                       {paymentView === 'offerPayments' && (
-                         <div
-                           onClick={() => setOnlyKeyNotSet(!onlyKeyNotSet)}
-                           style={{
-                             display: 'flex',
-                             alignItems: 'center',
-                             gap: '0.45rem',
-                             padding: '0.45rem 0.75rem',
-                             border: '1px solid var(--outline-color)',
-                             cursor: 'pointer',
-                             background: onlyKeyNotSet ? 'var(--primary)' : 'transparent',
-                             color: onlyKeyNotSet ? '#000' : 'var(--foreground)',
-                           }}
-                         >
-                           {onlyKeyNotSet ? <CheckSquare size={16} color="#000" /> : <Square size={16} />}
-                           <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.85 }}>Key Not Set Only</span>
-                         </div>
-                       )}
-                     </div>
-                   )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <button
+                          className={paymentView === "payments" ? "btnSolid" : "btnOutline"}
+                          onClick={() => { setPaymentView('payments'); setOnlyKeyNotSet(false); }}
+                          style={{
+                            padding: '0.45rem 0.8rem',
+                            borderColor: paymentView === 'payments' ? 'var(--primary)' : 'var(--foreground)',
+                            color: paymentView === 'payments' ? '#000' : 'var(--foreground)',
+                            background: paymentView === 'payments' ? 'var(--primary)' : 'transparent',
+                            transform: 'none'
+                          }}
+                        >
+                          Payments
+                        </button>
+                        <button
+                          className={paymentView === "offerPayments" ? "btnSolid" : "btnOutline"}
+                          onClick={() => setPaymentView('offerPayments')}
+                          style={{
+                            padding: '0.45rem 0.8rem',
+                            borderColor: paymentView === 'offerPayments' ? 'var(--primary)' : 'var(--foreground)',
+                            color: paymentView === 'offerPayments' ? '#000' : 'var(--foreground)',
+                            background: paymentView === 'offerPayments' ? 'var(--primary)' : 'transparent',
+                            transform: 'none'
+                          }}
+                        >
+                          Offer Payments
+                        </button>
+                        {paymentView === 'offerPayments' && (
+                          <div
+                            onClick={() => setOnlyKeyNotSet(!onlyKeyNotSet)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.45rem',
+                              padding: '0.45rem 0.75rem',
+                              border: '1px solid var(--outline-color)',
+                              cursor: 'pointer',
+                              background: onlyKeyNotSet ? 'var(--primary)' : 'transparent',
+                              color: onlyKeyNotSet ? '#000' : 'var(--foreground)',
+                            }}
+                          >
+                            {onlyKeyNotSet ? <CheckSquare size={16} color="#000" /> : <Square size={16} />}
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.85 }}>Key Not Set Only</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                   {/* Local Search Bar */}
-                   <div style={{ position: 'relative' }}>
-                      <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.6 }} />
-                      <input 
-                        type="text" 
-                        placeholder={`Search ${activeTab}...`} 
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        style={{ 
-                          width: '100%',
-                          padding: '0.8rem 1rem 0.8rem 2.8rem',
-                          background: 'transparent',
-                          border: '1px solid var(--outline-color)',
-                          borderRadius: '12px',
-                          color: 'var(--foreground)',
-                          fontSize: '0.9rem'
-                        }} 
-                      />
-                   </div>
+                    {/* Local Search Bar */}
+                    <div style={{ position: 'relative' }}>
+                       <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.6 }} />
+                       <input 
+                         type="text" 
+                         placeholder={`Search ${activeTab}...`} 
+                         value={search}
+                         onChange={e => setSearch(e.target.value)}
+                         style={{ 
+                           width: '100%',
+                           padding: '0.8rem 1rem 0.8rem 2.8rem',
+                           background: 'transparent',
+                           border: '1px solid var(--outline-color)',
+                           borderRadius: '12px',
+                           color: 'var(--foreground)',
+                           fontSize: '0.9rem'
+                         }} 
+                       />
+                    </div>
 
-                   <div style={{ border: '1px solid var(--outline-color)', background: 'transparent', overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                          <thead>
-                             <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'transparent' }}>
-                                <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Record</th>
-                                <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Details</th>
-                                <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Status/Tags</th>
-                                <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Actions</th>
-                             </tr>
-                          </thead>
-                          <tbody>
-                            {/* User Rendering */}
-                            {activeTab === 'users' && filteredUsers.map((u: any) => (
-                              <React.Fragment key={u.uid}>
-                               <tr style={{ borderBottom: '1px solid var(--outline-color)' }}>
-                                  <td style={{ padding: '1rem' }}>
-                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                                        {u.photoURL ? (
-                                          <img
-                                            src={u.photoURL}
-                                            alt="avatar"
-                                            width={32}
-                                            height={32}
-                                            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
-                                            loading="lazy"
-                                            referrerPolicy="no-referrer"
-                                          />
-                                        ) : (
-                                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--outline-color)' }} />
-                                        )}
-                                        <div>
-                                           <div style={{ fontWeight: 700 }}>{u.name || 'Anonymous'}</div>
-                                           <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{u.email}</div>
-                                        </div>
-                                     </div>
-                                  </td>
-                                  <td style={{ padding: '1rem' }}>
-                                     <div>{u.country || 'Unknown'}</div>
-                                     <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>UID: {u.uid.substring(0, 8)}...</div>
-                                  </td>
+                    <div style={{ border: '1px solid var(--outline-color)', background: 'transparent', overflowX: 'auto' }}>
+                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                           <thead>
+                              <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'transparent' }}>
+                                 <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Record</th>
+                                 <th style={{ textAlign: 'left', padding: '1rem', width: '30%' }}>Details</th>
+                                 <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Status/Tags</th>
+                                 <th style={{ textAlign: 'left', padding: '1rem', width: '20%' }}>Actions</th>
+                              </tr>
+                           </thead>
+                           <tbody>
+                             {/* User Rendering */}
+                             {activeTab === 'users' && filteredUsers.map((u: any) => (
+                               <React.Fragment key={u.uid}>
+                                <tr style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                                   <td style={{ padding: '1rem' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                         {u.photoURL ? (
+                                           <img
+                                             src={u.photoURL}
+                                             alt="avatar"
+                                             width={32}
+                                             height={32}
+                                             style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
+                                             loading="lazy"
+                                             referrerPolicy="no-referrer"
+                                           />
+                                         ) : (
+                                           <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--outline-color)' }} />
+                                         )}
+                                         <div>
+                                            <div style={{ fontWeight: 700 }}>{u.name || 'Anonymous'}</div>
+                                            <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{u.email}</div>
+                                         </div>
+                                      </div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                      <div>{u.country || 'Unknown'}</div>
+                                      <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>UID: {u.uid.substring(0, 8)}...</div>
+                                   </td>
                                   <td style={{ padding: '1rem' }}>
                                      {u.isOwner ? <span style={{ color: 'var(--primary)', fontWeight: 800 }}>OWNER</span> : <span style={{ opacity: 0.75 }}>USER</span>}
                                   </td>
                                   <td style={{ padding: '1rem' }}>
-                                     <button
-                                       onClick={() => setRoleConfirm({ open: true, targetUid: u.uid, nextOwner: !u.isOwner, name: u.name || u.email || u.uid })}
-                                       className="btnOutline"
-                                       style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}
-                                     >
-                                        Role
-                                     </button>
-                                     <button
-                                       onClick={() => setUserDeleteConfirm({ open: true, uid: u.uid, name: u.name || u.email || 'Anonymous' })}
-                                       className="btnOutline"
-                                       style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
-                                     >
-                                        <Trash2 size={13} />
-                                     </button>
+                                     {hasPerm('account', 'WRITE') && !u.isOwner && (
+                                       <button
+                                         onClick={() => setAssignRoleModal({ open: true, targetUid: u.uid, name: u.name || u.email || u.uid, currentRuleId: u.ruleId })}
+                                         className="btnOutline"
+                                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}
+                                       >
+                                          Role
+                                       </button>
+                                     )}
+                                     {hasPerm('account', 'DELETE') && userView === 'anonymous' && (
+                                       <button
+                                         onClick={() => setUserDeleteConfirm({ open: true, uid: u.uid, name: u.name || u.email || 'Anonymous' })}
+                                         className="btnOutline"
+                                         style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                       >
+                                          <Trash2 size={13} />
+                                       </button>
+                                     )}
                                      <button onClick={() => setExpandedUsers(prev => ({ ...prev, [u.uid]: !prev[u.uid] }))} className="btnOutline" style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem' }}>
                                        {expandedUsers[u.uid] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                      </button>
@@ -1117,7 +1187,7 @@ export default function AdminPanel({
                                      <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{new Date(p.purchaseDate).toLocaleDateString()}</div>
                                   </td>
                                   <td style={{ padding: '1rem' }}>
-                                      {p.source === 'offerPayment' ? (
+                                      {hasPerm('payments', 'WRITE') && p.source === 'offerPayment' ? (
                                         !p.steamKey ? (
                                            <button onClick={() => setKeyModal({ open: true, targetUid: p.userId, paymentId: p.id, key: "" })} className="btnSolid" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}>
                                               <Key size={12} /> Assign Key
@@ -1154,32 +1224,59 @@ export default function AdminPanel({
                               })()
                             ))}
 
-                            {/* Games Rendering */}
-                            {activeTab === 'games' && filteredGames.map((g: any) => (
-                              <tr key={g.id} style={{ borderBottom: '1px solid var(--outline-color)' }}>
-                                <td style={{ padding: '1rem' }}>
-                                  <div style={{ fontWeight: 700 }}>{g.title || 'Untitled Game'}</div>
-                                  <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>ID: {g.id}</div>
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                  <div>Price: ${g.originalPrice} ({g.discount})</div>
-                                  <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{g.platform} / {g.operatingSystem}</div>
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                  <div>{g.quantity} Left</div>
-                                  <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Expires: {g.expire ? new Date(g.expire).toLocaleDateString() : 'N/A'}</div>
-                                </td>
-                                <td style={{ padding: '1rem' }}>
-                                  {g.gameUrl ? (
-                                    <a href={g.gameUrl} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
-                                      <ExternalLink size={12} /> Open Store
-                                    </a>
-                                  ) : (
-                                    <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No URL</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
+                             {/* Our Games Rendering */}
+                             {activeTab === 'games' && gameView === 'our' && filteredOurGames.map((g: any) => (
+                               <tr key={g.id} style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div style={{ fontWeight: 700 }}>{g.title || 'Untitled Game'}</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>ID: {g.id}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div>Price: ${g.price}</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{g.os} / {g.genre}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div>{g.downloadCount} Downloads</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Status: {g.status}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   {g.itchGameId ? (
+                                     <a href={`https://itch.io/game/edit/${g.itchGameId}`} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
+                                       <ExternalLink size={12} /> Edit on Itch
+                                     </a>
+                                   ) : (
+                                     <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No ID</span>
+                                   )}
+                                 </td>
+                               </tr>
+                             ))}
+
+                             {/* Offer Games Rendering */}
+                             {activeTab === 'games' && gameView === 'offers' && filteredOfferGames.map((g: any) => (
+                               <tr key={g.id} style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div style={{ fontWeight: 700 }}>{g.title || 'Untitled Offer'}</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>ID: {g.id}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div>Price: ${g.originalPrice} ({g.discount})</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{g.platform} / {g.operatingSystem}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div>{g.quantity} Left</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Expires: {g.expire ? new Date(g.expire).toLocaleDateString() : 'N/A'}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   {g.gameUrl ? (
+                                     <a href={g.gameUrl} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
+                                       <ExternalLink size={12} /> Open Store
+                                     </a>
+                                   ) : (
+                                     <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No URL</span>
+                                   )}
+                                 </td>
+                               </tr>
+                             ))}
 
                             {/* Blogs Rendering */}
                             {activeTab === 'blogs' && filteredBlogs.map((b: any) => (
@@ -1213,13 +1310,15 @@ export default function AdminPanel({
                                     <Link href={`/blog/${b.slug}`} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', textDecoration: 'none' }}>
                                       <ExternalLink size={12} /> View
                                     </Link>
-                                    <button 
-                                      onClick={() => setBlogDeleteConfirm({ open: true, slug: b.slug, title: b.title })} 
-                                      className="btnOutline" 
-                                      style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
-                                    >
-                                      <X size={12} /> Delete
-                                    </button>
+                                    {hasPerm('blogs', 'DELETE') && (
+                                      <button 
+                                        onClick={() => setBlogDeleteConfirm({ open: true, slug: b.slug, title: b.title })} 
+                                        className="btnOutline" 
+                                        style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                      >
+                                        <X size={12} /> Delete
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -1243,86 +1342,149 @@ export default function AdminPanel({
         </main>
       </div>
     </Modal>
-    <Modal isOpen={roleConfirm.open} onClose={() => setRoleConfirm({ open: false, targetUid: "", nextOwner: false, name: "" })} title="Confirm Role Change">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
-          Switch <strong>{roleConfirm.name}</strong> to <strong>{roleConfirm.nextOwner ? 'OWNER' : 'USER'}</strong>?
-        </p>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setRoleConfirm({ open: false, targetUid: "", nextOwner: false, name: "" })}>Cancel</button>
-          <button className="btnSolid" style={{ flex: 1 }} onClick={toggleOwner}>Confirm</button>
-        </div>
-      </div>
-    </Modal>
-    <Modal isOpen={keyModal.open} onClose={() => setKeyModal({ open: false, targetUid: "", paymentId: "", key: "" })} title="Assign Steam Key">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75 }}>Steam Key</label>
-        <input
-          type="text"
-          value={keyModal.key}
-          onChange={(e) => setKeyModal(prev => ({ ...prev, key: e.target.value }))}
-          placeholder="XXXX-XXXX-XXXX"
-          style={{ width: '100%', padding: '0.8rem 1rem', background: 'transparent', border: '1px solid var(--outline-color)', color: 'var(--foreground)' }}
-        />
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setKeyModal({ open: false, targetUid: "", paymentId: "", key: "" })}>Cancel</button>
-          <button className="btnSolid" style={{ flex: 1 }} onClick={handleUpdateKey}><Key size={14} /> Save Key</button>
-        </div>
-      </div>
-    </Modal>
-    <Modal isOpen={blogDeleteConfirm.open} onClose={() => setBlogDeleteConfirm({ open: false, slug: "", title: "" })} title="Delete Dispatch">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
-          Are you sure you want to delete <strong>{blogDeleteConfirm.title}</strong>? This action is permanent and cannot be undone.
-        </p>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setBlogDeleteConfirm({ open: false, slug: "", title: "" })}>Cancel</button>
-          <button className="btnSolid" style={{ flex: 1, backgroundColor: '#ff4d4d', borderColor: '#ff4d4d' }} onClick={handleDeleteBlog}>Confirm Delete</button>
-        </div>
-      </div>
-    </Modal>
-    <Modal isOpen={userDeleteConfirm.open} onClose={() => setUserDeleteConfirm({ open: false, uid: "", name: "" })} title="Delete User Account">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
-          Delete everything for <strong>{userDeleteConfirm.name}</strong>? This will remove their record and all purchase history.
-        </p>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setUserDeleteConfirm({ open: false, uid: "", name: "" })}>Cancel</button>
-          <button className="btnSolid" style={{ flex: 1, backgroundColor: '#ff4d4d', borderColor: '#ff4d4d' }} onClick={handleDeleteUser}>Delete User</button>
-        </div>
-      </div>
-    </Modal>
-    <Modal isOpen={bulkCleanupConfirm.open} onClose={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })} title="Bulk Database Cleanup">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <p style={{ fontSize: '0.9rem', opacity: 0.85 }}>
-          {bulkCleanupConfirm.type === 'anonymous' 
-            ? "Delete ALL anonymous accounts (no email) from the database?"
-            : "Remove ALL deactivated accounts (no email AND no purchase history)?"}
-        </p>
-        <p style={{ fontSize: '0.75rem', color: '#ff4d4d', fontWeight: 700 }}>⚠️ This action is permanent and cannot be reversed.</p>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button className="btnOutline" style={{ flex: 1 }} onClick={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })}>Cancel</button>
-          <button className="btnSolid" style={{ flex: 1, backgroundColor: '#ff4d4d', borderColor: '#ff4d4d' }} onClick={handleBulkCleanup}>Confirm Clean</button>
-        </div>
-      </div>
-    </Modal>
-    <Modal isOpen={isCleaning} onClose={() => {}} title="Database Optimization">
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p style={{ marginBottom: '1.5rem', fontWeight: 600, color: 'var(--primary)' }}>Optimizing User Records...</p>
-        <div style={{ width: '100%', height: '8px', background: 'var(--outline-color)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
-          <div style={{ width: `${cleaningProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary), #fff)', transition: 'width 0.3s ease' }} />
-        </div>
-        <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 700 }}>
-          {cleaningProgress < 100 ? `CLEANING: ${cleaningProgress}%` : 'COMPLETED'}
-        </div>
-      </div>
-    </Modal>
+    <RolesModal 
+        isOpen={showRolesModal} 
+        onClose={() => setShowRolesModal(false)} 
+        adminUid={userUid} 
+      />
 
-    {/* Creation Modals */}
+      <Modal isOpen={bulkCleanupConfirm.open} onClose={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })} maxWidth="400px">
+        <div style={{ padding: '1.5rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 77, 77, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+            <Trash2 size={30} color="#ff4d4d" />
+          </div>
+          <h3 style={{ fontWeight: 800, marginBottom: '0.8rem' }}>Bulk Cleanup</h3>
+          <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem' }}>
+            Are you sure you want to remove all <strong>{bulkCleanupConfirm.type}</strong> accounts? This action cannot be undone.
+          </p>
+          <div style={{ display: 'flex', gap: '0.8rem' }}>
+            <button className="btnOutline" style={{ width: '100%', padding: '0.6rem' }} onClick={() => setBulkCleanupConfirm({ ...bulkCleanupConfirm, open: false })}>Cancel</button>
+            <button 
+              className="btnSolid" 
+              style={{ width: '100%', padding: '0.6rem', background: '#ff4d4d', color: '#fff', border: 'none' }} 
+              onClick={handleBulkCleanup}
+            >
+              Purge All
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={assignRoleModal.open} onClose={() => setAssignRoleModal({ ...assignRoleModal, open: false })} maxWidth="400px">
+        <div style={{ padding: '1.5rem', background: 'var(--background)', color: 'var(--foreground)' }}>
+          <h3 style={{ fontWeight: 800, marginBottom: '1rem' }}>Assign Rule: {assignRoleModal.name}</h3>
+          <p style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1.5rem' }}>Select an access rule for this user. This will define what they can see and do.</p>
+          
+          <select 
+            value={assignRoleModal.currentRuleId || ""} 
+            onChange={async (e) => {
+              const ruleId = e.target.value;
+              const res = await assignRuleToUser(userUid, assignRoleModal.targetUid, ruleId || null);
+              if (res.success) {
+                showToast("Rule assigned successfully", "success");
+                setAssignRoleModal({ ...assignRoleModal, open: false });
+                fetchData();
+              } else {
+                showToast(res.error || "Failed to assign", "error");
+              }
+            }}
+            style={{ width: '100%', padding: '0.8rem', background: 'transparent', border: '1px solid var(--outline-color)', borderRadius: '8px', color: 'var(--foreground)' }}
+          >
+            <option value="" style={{ background: '#000' }}>No Rule (Basic User)</option>
+            {allRules.map(r => (
+              <option key={r.id} value={r.id} style={{ background: '#000' }}>{r.title}</option>
+            ))}
+          </select>
+          
+          <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.5rem' }}>
+             <button 
+               className="btnSolid" 
+               style={{ width: '100%', padding: '0.5rem' }}
+               onClick={() => {
+                 setRoleConfirm({ open: true, targetUid: assignRoleModal.targetUid, nextOwner: true, name: assignRoleModal.name });
+                 setAssignRoleModal({ ...assignRoleModal, open: false });
+               }}
+             >
+               Make Owner
+             </button>
+             <button className="btnOutline" style={{ width: '100%', padding: '0.5rem' }} onClick={() => setAssignRoleModal({ ...assignRoleModal, open: false })}>Close</button>
+          </div>
+        </div>
+      </Modal>
+
     <AddOfferModal isOpen={showAddOffer} onClose={() => setShowAddOffer(false)} onSuccess={() => { setShowAddOffer(false); fetchData(); }} />
     <CouponModal isOpen={showAddCoupon} onClose={() => setShowAddCoupon(false)} onSuccess={() => { setShowAddCoupon(false); fetchData(); }} />
     <DispatchModal isOpen={showAddBlog} onClose={() => setShowAddBlog(false)} onSuccess={() => { setShowAddBlog(false); fetchData(); }} />
     <ListGameModal isOpen={showAddGame} onClose={() => setShowAddGame(false)} onSuccess={() => { setShowAddGame(false); fetchData(); }} />
+
+    {/* Blog Delete Confirmation */}
+    <Modal isOpen={blogDeleteConfirm.open} onClose={() => setBlogDeleteConfirm({ ...blogDeleteConfirm, open: false })} maxWidth="400px">
+        <div style={{ padding: '1.5rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 77, 77, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                <Trash2 size={30} color="#ff4d4d" />
+            </div>
+            <h3 style={{ fontWeight: 800, marginBottom: '0.8rem' }}>Delete Post?</h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem' }}>
+                Are you sure you want to delete <strong>{blogDeleteConfirm.title}</strong>? This will permanently remove the post and its contents.
+            </p>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.6rem' }} onClick={() => setBlogDeleteConfirm({ ...blogDeleteConfirm, open: false })}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ width: '100%', padding: '0.6rem', background: '#ff4d4d', color: '#fff', border: 'none' }} 
+                    onClick={handleDeleteBlog}
+                >
+                    Delete Post
+                </button>
+            </div>
+        </div>
+    </Modal>
+
+    {/* User Delete Confirmation */}
+    <Modal isOpen={userDeleteConfirm.open} onClose={() => setUserDeleteConfirm({ ...userDeleteConfirm, open: false })} maxWidth="400px">
+        <div style={{ padding: '1.5rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 77, 77, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                <Trash2 size={30} color="#ff4d4d" />
+            </div>
+            <h3 style={{ fontWeight: 800, marginBottom: '0.8rem' }}>Delete User?</h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem' }}>
+                Are you sure you want to delete <strong>{userDeleteConfirm.name}</strong>? This will remove their account and all associated data.
+            </p>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.6rem' }} onClick={() => setUserDeleteConfirm({ ...userDeleteConfirm, open: false })}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ width: '100%', padding: '0.6rem', background: '#ff4d4d', color: '#fff', border: 'none' }} 
+                    onClick={handleDeleteUser}
+                >
+                    Delete User
+                </button>
+            </div>
+        </div>
+    </Modal>
+
+    {/* Role Change Confirmation (Make Owner) */}
+    <Modal isOpen={roleConfirm.open} onClose={() => setRoleConfirm({ ...roleConfirm, open: false })} maxWidth="400px">
+        <div style={{ padding: '1.5rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                <Shield size={30} color="var(--primary)" />
+            </div>
+            <h3 style={{ fontWeight: 800, marginBottom: '0.8rem' }}>Grant Ownership?</h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem' }}>
+                Are you sure you want to make <strong>{roleConfirm.name}</strong> an owner? They will have full administrative control over the entire platform.
+            </p>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.6rem' }} onClick={() => setRoleConfirm({ ...roleConfirm, open: false })}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ width: '100%', padding: '0.6rem' }} 
+                    onClick={toggleOwner}
+                >
+                    Grant Ownership
+                </button>
+            </div>
+        </div>
+    </Modal>
     </>
   );
 }

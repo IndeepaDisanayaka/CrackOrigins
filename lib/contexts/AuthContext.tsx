@@ -13,6 +13,8 @@ interface AuthContextType {
   affiliateCount: number;
   country: string;
   isAuthLoading: boolean;
+  permissions: Record<string, string[]>;
+  isOwner: boolean;
   login: (type?: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }, referralId?: string | null) => Promise<any>;
   logout: () => Promise<void>;
   refreshStatus: () => Promise<void>;
@@ -28,6 +30,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [affiliateCount, setAffiliateCount] = useState(0);
   const [country, setCountry] = useState('Unknown');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  const [isOwner, setIsOwner] = useState(false);
 
   const fetchCountry = async () => {
     // Attempt 1: ipwho.is (Fast, No API key)
@@ -63,11 +67,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshStatus = async () => {
     if (auth.currentUser) {
-      const res = await checkAdminStatus(auth.currentUser.uid);
-      setIsAdmin(res.isOwner);
+      const { checkAdminStatus, getMyPermissions } = await import('../admin-actions');
+      const [res, permRes] = await Promise.all([
+        checkAdminStatus(auth.currentUser.uid),
+        getMyPermissions(auth.currentUser.uid)
+      ]);
+      setIsAdmin(res.isAdmin || res.isOwner || false);
+      setIsOwner(res.isOwner || false);
       setAffiliateId(res.affiliateId);
       setDiscount(res.discount || 0);
       setAffiliateCount(res.affiliateCount || 0);
+      if (permRes.success) {
+        setPermissions(permRes.permissions || {});
+      }
     }
   };
 
@@ -76,14 +88,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u && !u.isAnonymous) {
         setUser(u);
-        const res = await checkAdminStatus(u.uid);
-        setIsAdmin(res.isOwner);
+        const { checkAdminStatus, getMyPermissions } = await import('../admin-actions');
+        const [res, permRes] = await Promise.all([
+          checkAdminStatus(u.uid),
+          getMyPermissions(u.uid)
+        ]);
+        setIsAdmin(res.isAdmin || res.isOwner || false);
+        setIsOwner(res.isOwner || false);
         setAffiliateId(res.affiliateId);
         setDiscount(res.discount || 0);
         setAffiliateCount(res.affiliateCount || 0);
+        if (permRes.success) {
+          setPermissions(permRes.permissions || {});
+        }
       } else {
         setUser(null);
         setIsAdmin(false);
+        setIsOwner(false);
+        setPermissions({});
         setAffiliateId(null);
         setDiscount(0);
         setAffiliateCount(0);
@@ -159,6 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       affiliateCount,
       country,
       isAuthLoading,
+      permissions,
+      isOwner,
       login,
       logout,
       refreshStatus
