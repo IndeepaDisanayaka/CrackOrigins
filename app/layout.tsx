@@ -30,7 +30,10 @@ export const metadata: Metadata = {
   authors: [{ name: 'Crack Origins Studio' }],
   creator: 'Crack Origins',
   icons: {
-    icon: '/favicon.svg',
+    icon: [
+      { url: '/favicon-icon-white.png', media: '(prefers-color-scheme: dark)' },
+      { url: '/favicon-icon-white.png', media: '(prefers-color-scheme: light)' }
+    ],
     apple: '/apple-touch-icon.png',
   },
   openGraph: {

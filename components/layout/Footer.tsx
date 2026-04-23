@@ -3,6 +3,7 @@
 import React from 'react';
 import { Gamepad2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './Footer.module.css';
 
 export default function Footer() {
@@ -12,7 +13,8 @@ export default function Footer() {
         <div className={styles.logoSection}>
           <div className={styles.logo}>
             <div className={styles.logoIcon}>
-              <Gamepad2 size={24} />
+              <Image src="/favicon-yellow.png" alt="Crack Origins" width={40} height={40} className="logo-dark" />
+              <Image src="/favicon-yellow.png" alt="Crack Origins" width={40} height={40} className="logo-light" />
             </div>
             Crack Origins
           </div>

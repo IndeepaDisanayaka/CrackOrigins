@@ -48,9 +48,10 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
 
       <div className={styles.logo}>
         <div className={styles.logoIcon}>
-          <Gamepad2 size={16} color="#000" />
+          <Image draggable={false} src="/favicon-icon-black.png" alt="Crack Origins" width={32} height={32} className="logo-dark" />
+          <Image draggable={false} src="/favicon-icon-white.png" alt="Crack Origins" width={32} height={32} className="logo-light" />
         </div>
-        <span>Crack Origins</span>
+        <span>CO's</span>
       </div>
 
       <div className={styles.headerActions}>

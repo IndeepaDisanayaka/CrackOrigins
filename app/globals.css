@@ -623,3 +623,43 @@ a:hover, button:hover {
 .hljs-strong { font-weight: bold; }
 .hljs-deletion { color: #ffa198; background-color: #490202; }
 
+/* --- Logo Theme Toggling --- */
+.logo-light {
+  display: none;
+}
+.logo-dark {
+  display: block;
+}
+
+.dark-theme .logo-light {
+  display: block;
+}
+.dark-theme .logo-dark {
+  display: none;
+}
+
+.light-theme .logo-light {
+  display: none;
+}
+.light-theme .logo-dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light-theme) .logo-light {
+    display: block;
+  }
+  html:not(.light-theme) .logo-dark {
+    display: none;
+  }
+}
+
+/* --- Form Elements Theme Fixes --- */
+select, option {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+select {
+  border: 1px solid var(--outline-color);
+}
