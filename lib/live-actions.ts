@@ -82,31 +82,34 @@ export async function getGiveawayLeaderboard(targetAffiliates: number, listedDat
         const affiliatesSnap = await adminDb.collectionGroup('affiliates').get();
         
         const userCounts: Record<string, number> = {};
-        affiliatesSnap.docs.forEach(doc => {
-            const data = doc.data();
+        let totalFilled = 0;
+
+        affiliatesSnap.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            // Count affiliates listed after the game's listed date
             if (data.date && data.date.toDate() >= listedDate) {
-                const recruiterId = data.referredBy;
-                if (recruiterId) {
+                totalFilled++;
+                
+                // In this structure, the recruiter is the parent document of the 'affiliates' subcollection
+                // Path: accounts/{recruiterId}/affiliates/{affiliateId}
+                const pathParts = docSnap.ref.path.split('/');
+                if (pathParts.length >= 2 && pathParts[0] === 'accounts') {
+                    const recruiterId = pathParts[1];
                     userCounts[recruiterId] = (userCounts[recruiterId] || 0) + 1;
                 }
             }
         });
 
-        let totalFilled = 0;
         const usersArray: { uid: string, count: number }[] = [];
-
         Object.entries(userCounts).forEach(([uid, count]) => {
             usersArray.push({ uid, count });
-            if (count >= targetAffiliates) {
-                totalFilled++;
-            }
         });
 
         usersArray.sort((a, b) => b.count - a.count);
-        const top3Uids = usersArray.slice(0, 3);
+        const top5Uids = usersArray.slice(0, 5);
 
-        // Fetch user profiles for the top 3
-        const topUsers = await Promise.all(top3Uids.map(async (u) => {
+        // Fetch user profiles for the top 5
+        const topUsers = await Promise.all(top5Uids.map(async (u) => {
             const userDoc = await adminDb.collection("accounts").doc(u.uid).get();
             const data = userDoc.data() || {};
             let name = data.name || "Anonymous";

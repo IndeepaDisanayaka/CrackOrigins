@@ -9,28 +9,31 @@ import Footer from '@/components/layout/Footer';
 import SubHeader from '@/components/layout/SubHeader';
 import styles from '../page.module.css';
 
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
 function SearchParamsHandler() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { 
-    isBlogChatOpen, 
+    isBlogChatOpen,
     setIsBlogChatOpen, 
   } = useModals();
 
   const isDetailPage = pathname !== '/blog' && pathname !== '/blog/';
 
+  // Handle opening from URL - only run when URL changes
   useEffect(() => {
     if (isDetailPage && searchParams.get('chat') === 'true') {
       setIsBlogChatOpen(true);
     }
-    
-    // Auto-close if we navigate back to the list page
+  }, [isDetailPage, searchParams, setIsBlogChatOpen]);
+
+  // Handle auto-closing when navigating away from detail page
+  useEffect(() => {
     if (!isDetailPage && isBlogChatOpen) {
       setIsBlogChatOpen(false);
     }
-  }, [isDetailPage, searchParams, setIsBlogChatOpen, isBlogChatOpen]);
+  }, [isDetailPage, isBlogChatOpen, setIsBlogChatOpen]);
 
   return null;
 }
@@ -47,6 +50,8 @@ export default function BlogLayout({
     selectedBlogTitle, 
     selectedBlogId,
   } = useModals();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -125,7 +130,13 @@ export default function BlogLayout({
           >
             <BlogChatSidebar 
               isOpen={isBlogChatOpen}
-              onClose={() => setIsBlogChatOpen(false)}
+              onClose={() => {
+                setIsBlogChatOpen(false);
+                // Clear the chat=true param from URL to prevent re-opening
+                if (searchParams.get('chat') === 'true') {
+                  router.push(pathname);
+                }
+              }}
               blogTitle={selectedBlogTitle}
               blogId={selectedBlogId}
             />
