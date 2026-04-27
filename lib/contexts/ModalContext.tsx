@@ -19,6 +19,12 @@ interface ModalContextType {
   setIsBugReportOpen: (open: boolean) => void;
   selectedBugGame: any | null;
   setSelectedBugGame: (game: any | null) => void;
+  isBlogChatOpen: boolean;
+  setIsBlogChatOpen: (open: boolean) => void;
+  selectedBlogTitle: string;
+  setSelectedBlogTitle: (title: string) => void;
+  selectedBlogId: string;
+  setSelectedBlogId: (id: string) => void;
   closeAllModals: () => void;
 }
 
@@ -33,6 +39,9 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [selectedBugGame, setSelectedBugGame] = useState<any | null>(null);
+  const [isBlogChatOpen, setIsBlogChatOpen] = useState(false);
+  const [selectedBlogTitle, setSelectedBlogTitle] = useState('');
+  const [selectedBlogId, setSelectedBlogId] = useState('');
 
   const closeAllModals = () => {
     setIsAuthModalOpen(false);
@@ -42,6 +51,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     setIsListGameOpen(false);
     setIsDispatchModalOpen(false);
     setIsBugReportOpen(false);
+    setIsBlogChatOpen(false);
     setSelectedBugGame(null);
   };
 
@@ -63,6 +73,12 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       setIsBugReportOpen,
       selectedBugGame,
       setSelectedBugGame,
+      isBlogChatOpen,
+      setIsBlogChatOpen,
+      selectedBlogTitle,
+      setSelectedBlogTitle,
+      selectedBlogId,
+      setSelectedBlogId,
       closeAllModals
     }}>
       {children}

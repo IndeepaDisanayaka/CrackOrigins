@@ -1,0 +1,22 @@
+.socialIcons {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  color: #888;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconBtn:hover {
+  color: var(--primary);
+  transform: translateY(-2px);
+}

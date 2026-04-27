@@ -3,9 +3,15 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 130px 5% 0; /* Padding for fixed header + subheader */
+  padding: 150px 5% 0; /* Padding for fixed header + subheader */
   position: relative;
   z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 100px 5% 0; /* Header is usually simpler on mobile */
+  }
 }
 
 /* Electric Vibe Background */
@@ -102,12 +108,12 @@
 
 /* --- Header --- */
 .header {
-  width: 100%;
+  width: var(--header-width);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 5%;
-  border-bottom: 1px solid var(--outline-color);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   font-weight: 700;
   font-size: 0.95rem;
   position: fixed;
@@ -119,6 +125,23 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: all 0.3s ease;
+  container-type: inline-size;
+  container-name: header;
+}
+
+@container header (max-width: 1000px) {
+  .navLinks {
+    gap: 1rem;
+  }
+  .link {
+    font-size: 0.65rem;
+  }
+  .headerActions {
+    gap: 0.5rem;
+  }
+  .connectText {
+    display: none;
+  }
 }
 
 .navLinks {
@@ -336,7 +359,7 @@
 
 /* --- Status Badge --- */
 .subHeader {
-  width: 100%;
+  width: var(--header-width);
   display: flex;
   justify-content: space-between;
   padding: 1rem 5%;
@@ -346,7 +369,7 @@
   z-index: 9998;
   background-color: rgba(var(--background-rgb), 0.7);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--outline-color);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .badge {

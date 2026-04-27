@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Hash, Tag, Percent, Calendar, Plus, Users, Gift, CheckSquare, Square } from 'lucide-react';
 import Modal from '../Modal';
-import { createOffer } from '@/lib/admin-actions';
+import { createOffer, updateOffer } from '@/lib/admin-actions';
 import { useToast } from '../Toast';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import styles from '../../app/page.module.css';
@@ -12,9 +12,10 @@ interface AddOfferModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  editData?: any;
 }
 
-export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferModalProps) {
+export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: AddOfferModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,7 +31,33 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferMo
     gameUrl: "",
     isGiveaway: false,
     targetAffiliates: "10",
+    offerScope: "local",
   });
+
+  React.useEffect(() => {
+    if (isOpen && editData) {
+      setOfferForm({
+        id: editData.id || "",
+        title: editData.title || "",
+        originalPrice: editData.originalPrice?.toString() || "",
+        discount: editData.discount ? editData.discount.replace('%', '') : "",
+        expire: editData.expire ? editData.expire.split('T')[0] : "",
+        quantity: editData.quantity ?? 1,
+        operatingSystem: editData.operatingSystem || "windows",
+        platform: editData.platform || "steam",
+        gameUrl: editData.gameUrl || "",
+        isGiveaway: editData.isGiveaway ?? false,
+        targetAffiliates: editData.targetAffiliates?.toString() || "10",
+        offerScope: editData.offerScope || "local",
+      });
+    } else if (isOpen && !editData) {
+      setOfferForm({
+        id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, 
+        operatingSystem: "windows", platform: "steam", gameUrl: "", 
+        isGiveaway: false, targetAffiliates: "10", offerScope: "local"
+      });
+    }
+  }, [isOpen, editData]);
 
   const handleAddOffer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,24 +72,25 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferMo
 
     setIsGenerating(true);
     try {
-      const result = await createOffer(user.uid, {
+      const payload = {
         ...offerForm,
         discount: `${finalDiscount}%`,
         originalPrice: Number(offerForm.originalPrice),
         quantity: Number(offerForm.quantity),
         targetAffiliates: Number(offerForm.targetAffiliates),
-      });
+        offerScope: offerForm.offerScope,
+      };
+
+      const result = editData 
+        ? await updateOffer(user.uid, editData.id, payload)
+        : await createOffer(user.uid, payload);
+        
       if (result.success) {
-        showToast("Offer added successfully!", "success");
+        showToast(editData ? "Offer updated successfully!" : "Offer added successfully!", "success");
         if (onSuccess) onSuccess();
         onClose();
-        setOfferForm({ 
-            id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, 
-            operatingSystem: "windows", platform: "steam", gameUrl: "", 
-            isGiveaway: false, targetAffiliates: "10" 
-        });
       } else {
-        showToast(result.error || "Failed to add offer.", "error");
+        showToast(result.error || (editData ? "Failed to update offer." : "Failed to add offer."), "error");
       }
     } catch {
       showToast("An unexpected error occurred.", "error");
@@ -81,7 +109,7 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferMo
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Game Offer">
+    <Modal isOpen={isOpen} onClose={onClose} title={editData ? "Edit Game Offer" : "Add Game Offer"}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
         <form onSubmit={handleAddOffer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
@@ -111,11 +139,48 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferMo
             <Gift size={20} style={{ marginLeft: 'auto', opacity: 0.3 }} />
           </div>
 
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <div 
+              onClick={() => setOfferForm({ ...offerForm, offerScope: 'local' })}
+              style={{ 
+                  flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', 
+                  border: `1px solid ${offerForm.offerScope === 'local' ? 'var(--primary)' : 'var(--outline-color)'}`,
+                  borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s'
+              }}
+            >
+              <div style={{ color: offerForm.offerScope === 'local' ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  {offerForm.offerScope === 'local' ? <CheckSquare size={18} /> : <Square size={18} />}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.offerScope === 'local' ? 'var(--primary)' : 'var(--foreground)' }}>LOCAL OFFER</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Normal Listing</span>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setOfferForm({ ...offerForm, offerScope: 'global' })}
+              style={{ 
+                  flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', 
+                  background: offerForm.offerScope === 'global' ? 'rgba(254, 182, 12, 0.1)' : 'transparent',
+                  border: `1px solid ${offerForm.offerScope === 'global' ? 'var(--primary)' : 'var(--outline-color)'}`,
+                  borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s'
+              }}
+            >
+              <div style={{ color: offerForm.offerScope === 'global' ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  {offerForm.offerScope === 'global' ? <CheckSquare size={18} /> : <Square size={18} />}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.offerScope === 'global' ? 'var(--primary)' : 'var(--foreground)' }}>GLOBAL OFFER</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Panic Yellow Design</span>
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <Hash size={12} /> Steam App ID
             </label>
-            <input type="text" placeholder="e.g. 1245620" className={styles.adminInput} value={offerForm.id} onChange={e => setOfferForm({ ...offerForm, id: e.target.value })} />
+            <input type="text" placeholder="e.g. 1245620" className={styles.adminInput} value={offerForm.id} onChange={e => setOfferForm({ ...offerForm, id: e.target.value })} disabled={!!editData} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -184,7 +249,7 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess }: AddOfferMo
           </div>
 
           <button type="submit" className="btnSolid" disabled={isGenerating} style={{ marginTop: '0.5rem', width: '100%', padding: '1rem', gap: '0.5rem' }}>
-            {isGenerating ? "Processing..." : <><Plus size={16} /> Add Offer</>}
+            {isGenerating ? "Processing..." : (editData ? "Save Changes" : <><Plus size={16} /> Add Offer</>)}
           </button>
         </form>
       </div>

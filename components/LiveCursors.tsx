@@ -6,6 +6,8 @@ import { MousePointer2, Eye, EyeOff } from 'lucide-react';
 import { auth, rtdb } from '../lib/firebase';
 import { ref, onValue, set, onDisconnect, push, remove, update, runTransaction } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
+import { useModals } from '../lib/contexts/ModalContext';
+import { usePathname } from 'next/navigation';
 
 interface PresenceData {
   id: string;
@@ -254,11 +256,18 @@ export default function LiveCursors() {
     }
   };
 
+  const { isBlogChatOpen } = useModals();
+  const pathname = usePathname();
+  const isBlogPage = pathname?.includes('/blog');
+
   if (!mounted || isMobileOS) return null;
 
   return (
     <>
-      <div className={styles.controls}>
+      <div className={styles.controls} style={{ 
+        right: isBlogChatOpen && isBlogPage ? 'calc(25% + 2rem)' : '2rem',
+        transition: 'right 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}>
         <button 
           onClick={toggleCursors} 
           className={`${styles.toggleBtn} ${!isEnabled ? styles.disabled : ''}`}

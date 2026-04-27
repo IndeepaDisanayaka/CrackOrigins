@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, memoryLocalCache, getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
@@ -22,6 +22,16 @@ const app = (getApps().length > 0)
   ? getApp() 
   : initializeApp(isVaidConfig ? firebaseConfig : { apiKey: "BUILD_TIME_PLACEHOLDER", projectId: "placeholder" });
 
-export const fireStore = getFirestore(app);
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    localCache: memoryLocalCache()
+  });
+} catch (e) {
+  // Fallback if already initialized (e.g. during Next.js hot reloads)
+  firestoreInstance = getFirestore(app);
+}
+
+export const fireStore = firestoreInstance;
 export const auth = getAuth(app);
 export const rtdb = getDatabase(app);
