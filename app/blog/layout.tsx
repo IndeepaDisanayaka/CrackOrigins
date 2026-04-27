@@ -11,20 +11,41 @@ import styles from '../page.module.css';
 
 import { usePathname, useSearchParams } from 'next/navigation';
 
+function SearchParamsHandler() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { 
+    isBlogChatOpen, 
+    setIsBlogChatOpen, 
+  } = useModals();
+
+  const isDetailPage = pathname !== '/blog' && pathname !== '/blog/';
+
+  useEffect(() => {
+    if (isDetailPage && searchParams.get('chat') === 'true') {
+      setIsBlogChatOpen(true);
+    }
+    
+    // Auto-close if we navigate back to the list page
+    if (!isDetailPage && isBlogChatOpen) {
+      setIsBlogChatOpen(false);
+    }
+  }, [isDetailPage, searchParams, setIsBlogChatOpen, isBlogChatOpen]);
+
+  return null;
+}
+
 export default function BlogLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isMobile, setIsMobile] = useState(false);
   const { 
     isBlogChatOpen, 
     setIsBlogChatOpen, 
     selectedBlogTitle, 
     selectedBlogId,
-    setSelectedBlogId
   } = useModals();
 
   useEffect(() => {
@@ -34,21 +55,9 @@ export default function BlogLayout({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // The chat sidebar only exists on individual post pages (/blog/[slug])
+  // Use usePathname here instead for layout styling if needed
+  const pathname = usePathname();
   const isDetailPage = pathname !== '/blog' && pathname !== '/blog/';
-
-  React.useEffect(() => {
-    if (isDetailPage && searchParams.get('chat') === 'true') {
-      setIsBlogChatOpen(true);
-      // We don't have the title/id here easily, 
-      // but the blog-post component will set them on mount
-    }
-    
-    // Auto-close if we navigate back to the list page
-    if (!isDetailPage && isBlogChatOpen) {
-      setIsBlogChatOpen(false);
-    }
-  }, [isDetailPage, searchParams, setIsBlogChatOpen]);
 
   return (
     <div style={{ 
@@ -79,6 +88,10 @@ export default function BlogLayout({
         }}
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       >
+        <React.Suspense fallback={null}>
+          <SearchParamsHandler />
+        </React.Suspense>
+
         <React.Suspense fallback={<div className="h-20 bg-black/20 animate-pulse" />}>
           <HeaderWrapper />
         </React.Suspense>
