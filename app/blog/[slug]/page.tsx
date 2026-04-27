@@ -80,14 +80,6 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <>
-      <div className={styles.backgroundAnimation}></div>
-
-      <React.Suspense fallback={<div className="h-20 bg-black/20 animate-pulse" />}>
-        <HeaderWrapper />
-      </React.Suspense>
-      
-      <SubHeader />
-
       <main className={styles.main}>
         {/* JSON-LD for SEO */}
         <script
@@ -170,8 +162,6 @@ export default async function BlogPostPage({ params }: Props) {
             </footer>
           </div>
         </article>
-
-        <Footer />
       </main>
     </>
   );

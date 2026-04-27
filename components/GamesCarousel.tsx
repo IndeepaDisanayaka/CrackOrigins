@@ -38,7 +38,9 @@ export default function GamesCarousel() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [modalState, setModalState] = useState<'closed' | 'idle' | 'loading' | 'success' | 'details'>('closed');
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
-  const [isLocked, setIsLocked] = useState(false); 
+  const [isLocked, setIsLocked] = useState(false);
+  const [isSendingBug, setIsSendingBug] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
 
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -148,7 +150,7 @@ export default function GamesCarousel() {
     const showVidVal = activeGame.showVideo;
     const isVideoHidden = showVidVal === false || showVidVal === 'false';
     const hasVideo = activeGame.video && !isVideoHidden;
-    
+
     if (!hasVideo && activeGame.images && activeGame.images.length > 0) {
       const imgTimer = setInterval(() => {
         if (modalState !== 'closed' || isBugReportOpen || isLocked) return;
@@ -163,7 +165,7 @@ export default function GamesCarousel() {
       showToast("Download link not available for this title.", "error");
       return;
     }
-    
+
     // Increment count with uniqueness filter
     incrementDownloadCount(game.id, user?.uid);
 
@@ -174,7 +176,7 @@ export default function GamesCarousel() {
       // Fallback
       window.open(game.downloadUrl, '_blank');
     }
-    
+
     showToast(`Initializing secure download for ${game.title}...`, "success");
   };
 
@@ -242,40 +244,40 @@ export default function GamesCarousel() {
             </AnimatePresence>
           </div>
 
-            <div className={styles.activeMedia}>
-              <div className={styles.mediaWrapper}>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? `video-${activeIndex}` : `img-${activeIndex}-${activeImageIndex}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6 }}
-                    style={{ width: '100%', height: '100%' }}
-                  >
-                    {activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? (
-                      <iframe
-                        src={`https://www.youtube.com/embed/${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video}&loop=1`}
-                        className={styles.activeIframe}
-                        title={activeGame.title}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    ) : (
-                      <Image
-                        src={(activeGame.images && activeGame.images.length > 0) ? activeGame.images[activeImageIndex] : (activeGame.image || '/placeholder-game.png')}
-                        alt={activeGame.title}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                      />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+          <div className={styles.activeMedia}>
+            <div className={styles.mediaWrapper}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? `video-${activeIndex}` : `img-${activeIndex}-${activeImageIndex}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6 }}
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  {activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video}&loop=1`}
+                      className={styles.activeIframe}
+                      title={activeGame.title}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  ) : (
+                    <Image
+                      src={(activeGame.images && activeGame.images.length > 0) ? activeGame.images[activeImageIndex] : (activeGame.image || '/placeholder-game.png')}
+                      alt={activeGame.title}
+                      fill
+                      style={{ objectFit: 'cover' }}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
 
             <div className={styles.navRibbonContainer} ref={constraintsRef}>
-              <motion.div 
+              <motion.div
                 className={styles.navRibbon}
                 drag="x"
                 dragConstraints={{ right: 0, left: -Math.max(0, dragWidth) }}
@@ -306,7 +308,7 @@ export default function GamesCarousel() {
                         </div>
                       </div>
                       {isActive && !isLocked && (
-                        <motion.div 
+                        <motion.div
                           className={styles.navProgressBar}
                           initial={{ width: 0 }}
                           animate={{ width: "100%" }}
@@ -330,12 +332,12 @@ export default function GamesCarousel() {
               <span className={styles.statusBadge}>Featured Release</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 {activeGame.genre.split(',').map((genre: string) => (
-                  <span key={genre} style={{ 
-                    fontSize: '0.65rem', 
-                    fontWeight: 800, 
-                    textTransform: 'uppercase', 
-                    background: 'rgba(255,255,255,0.05)', 
-                    padding: '0.3rem 0.6rem', 
+                  <span key={genre} style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '0.3rem 0.6rem',
                     borderRadius: '4px',
                     border: '1px solid rgba(255,255,255,0.1)',
                     color: 'var(--text-muted)'
@@ -347,7 +349,7 @@ export default function GamesCarousel() {
               <h2 className={styles.title}>{activeGame.title}</h2>
               {renderOSIcons(activeGame.os)}
               <p className={styles.description}>
-                {activeGame.description && activeGame.description.length > 200 
+                {activeGame.description && activeGame.description.length > 200
                   ? activeGame.description.substring(0, 200)
                   : activeGame.description}
                 {activeGame.description && activeGame.description.length > 200 && (
@@ -484,11 +486,11 @@ export default function GamesCarousel() {
             <div className={styles.modalFooter}>
               {user ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ 
-                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', 
-                    border: acceptedTerms ? '1px solid var(--primary)' : '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)', 
+                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem',
+                    border: acceptedTerms ? '1px solid var(--primary)' : '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)',
                     background: acceptedTerms ? 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)' : 'transparent',
-                    textAlign: 'left' 
+                    textAlign: 'left'
                   }}>
                     <CheckCircle checked={acceptedTerms} />
                     <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
@@ -497,10 +499,10 @@ export default function GamesCarousel() {
                   </div>
                   {acceptedTerms ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
-                      <div style={{ 
-                        background: 'rgba(var(--foreground-rgb), 0.03)', 
-                        padding: '1.25rem', 
-                        borderRadius: '12px', 
+                      <div style={{
+                        background: 'rgba(var(--foreground-rgb), 0.03)',
+                        padding: '1.25rem',
+                        borderRadius: '12px',
                         border: '1px solid rgba(var(--foreground-rgb), 0.05)',
                         display: 'flex',
                         flexDirection: 'column',
@@ -511,7 +513,7 @@ export default function GamesCarousel() {
                           <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Secure Checkout (PayPal)</h4>
                         </div>
 
-                        <PayPalCheckout 
+                        <PayPalCheckout
                           amount={(() => {
                             const base = parseFloat(selectedGame.price.replace(/[^0-9.]/g, '')) || 0;
                             if (!appliedCoupon) return base.toFixed(2);
@@ -523,12 +525,12 @@ export default function GamesCarousel() {
                               finalAmt = base - (parseFloat(discStr) || 0);
                             }
                             return Math.max(0, finalAmt).toFixed(2);
-                          })()} 
-                          game={selectedGame.title} 
+                          })()}
+                          game={selectedGame.title}
                           gameId={selectedGame.id}
-                          isOwned={purchasedTitles.includes(selectedGame.title)} 
-                          onSuccess={() => fetchPurchases(user.uid)} 
-                          appliedCoupon={appliedCoupon} 
+                          isOwned={purchasedTitles.includes(selectedGame.title)}
+                          onSuccess={() => fetchPurchases(user.uid)}
+                          appliedCoupon={appliedCoupon}
                         />
                       </div>
                     </div>
@@ -565,15 +567,15 @@ export default function GamesCarousel() {
                   {isKeyVisible ? (purchasedDetails[selectedGame.title]?.activationKey || 'NO-KEY-FOUND') : '••••••••••••••••••••••••'}
                 </div>
                 <button className={styles.screenshotVisibilityBtn} onClick={() => setIsKeyVisible(!isKeyVisible)}>
-                   {isKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {isKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
-                <button className={styles.screenshotCopyBtn} onClick={() => { 
-                   if (purchasedDetails[selectedGame.title]?.activationKey) {
-                       navigator.clipboard.writeText(purchasedDetails[selectedGame.title].activationKey);
-                       showToast("Activation key copied to clipboard!", "success");
-                   }
+                <button className={styles.screenshotCopyBtn} onClick={() => {
+                  if (purchasedDetails[selectedGame.title]?.activationKey) {
+                    navigator.clipboard.writeText(purchasedDetails[selectedGame.title].activationKey);
+                    showToast("Activation key copied to clipboard!", "success");
+                  }
                 }}>
-                   <Copy size={18} />
+                  <Copy size={18} />
                 </button>
               </div>
             </div>
@@ -596,18 +598,93 @@ export default function GamesCarousel() {
         )}
       </Modal>
 
-      <Modal isOpen={isBugReportOpen && !!selectedGame} onClose={() => setIsBugReportOpen(false)} title="Report an Issue">
+      <Modal isOpen={isBugReportOpen && !!selectedGame} onClose={() => { setIsBugReportOpen(false); setBugTitle(''); setBugDesc(''); setAttachment(null); }} title="Report an Issue">
         {selectedGame && (
           <div className={styles.checkoutModal} style={{ paddingTop: 0 }}>
             <p className={styles.modalText} style={{ marginTop: '-1rem' }}>Send a bug report directly to the development team for <strong>{selectedGame.title}</strong>.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <input type="email" value={user?.email || ''} disabled placeholder="Your attached email" style={{ width: '100%', padding: '0.8rem', background: 'var(--outline-color)', border: 'none', color: 'var(--text-muted)', borderRadius: '8px' }} />
-              <input type="text" placeholder="Issue Title" value={bugTitle} onChange={e => setBugTitle(e.target.value)} style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', borderRadius: '8px' }} />
-              <textarea placeholder="Steps to reproduce..." value={bugDesc} onChange={e => setBugDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', borderRadius: '8px' }}></textarea>
-              <div style={{ padding: '1rem', border: '1px dashed var(--outline-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '8px' }}><ImageIcon size={16} /> Attach Screenshot</div>
+              <input type="text" placeholder="Issue Title" value={bugTitle} onChange={e => setBugTitle(e.target.value)} style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', borderRadius: '8px', color: 'var(--foreground)' }} disabled={isSendingBug} />
+              <textarea placeholder="Steps to reproduce..." value={bugDesc} onChange={e => setBugDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--outline-color)', background: 'var(--background)', borderRadius: '8px', color: 'var(--foreground)', resize: 'vertical' }} disabled={isSendingBug}></textarea>
+
+              <label style={{ padding: '1rem', border: '1px dashed var(--outline-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: isSendingBug ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', borderRadius: '8px', opacity: isSendingBug ? 0.5 : 1 }}>
+                <ImageIcon size={16} /> {attachment ? attachment.name : 'Attach Screenshot (Max 10MB)'}
+                <input
+                  type="file"
+                  accept="image/*,.pdf,.txt"
+                  style={{ display: 'none' }}
+                  disabled={isSendingBug}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 10 * 1024 * 1024) {
+                        showToast("File size exceeds 10MB limit.", "error");
+                        e.target.value = '';
+                      } else {
+                        setAttachment(file);
+                      }
+                    }
+                  }}
+                />
+              </label>
+              {attachment && (
+                <button
+                  onClick={() => setAttachment(null)}
+                  disabled={isSendingBug}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', textAlign: 'right', fontSize: '0.8rem', marginTop: '-0.5rem' }}
+                >
+                  Remove Attachment
+                </button>
+              )}
             </div>
             <div className={styles.modalFooter} style={{ marginTop: '1rem' }}>
-              <button className="btnSolid" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { showToast("Bug report sent. Thank you for your feedback!", "success"); setIsBugReportOpen(false); }}>Submit Report</button>
+              <button
+                className="btnSolid"
+                style={{ width: '100%', justifyContent: 'center', opacity: (isSendingBug || !bugTitle || !bugDesc) ? 0.5 : 1 }}
+                disabled={isSendingBug || !bugTitle || !bugDesc}
+                onClick={async () => {
+                  setIsSendingBug(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append('title', bugTitle);
+                    formData.append('description', bugDesc);
+                    if (user?.email) formData.append('email', user.email);
+                    if (selectedGame?.title) formData.append('game', selectedGame.title);
+                    if (attachment) formData.append('attachment', attachment);
+
+                    const response = await fetch('/api/bug-report', {
+                      method: 'POST',
+                      body: formData,
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                      showToast("Bug report sent successfully!", "bug", {
+                        subtitle: `Your report for ${selectedGame?.title} has been forwarded to the dev team.`,
+                        actionLabel: "View Our Games",
+                        actionHref: "/#games",
+                      });
+                      setIsBugReportOpen(false);
+                      setBugTitle('');
+                      setBugDesc('');
+                      setAttachment(null);
+                    } else {
+                      showToast(result.error || "Failed to send report. Please try again.", "error");
+                    }
+                  } catch (error) {
+                    showToast("Failed to send report. Please try again.", "error");
+                  } finally {
+                    setIsSendingBug(false);
+                  }
+                }}
+              >
+                {isSendingBug ? (
+                  <>
+                    <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite', display: 'inline-block' }}></span>
+                    Sending...
+                  </>
+                ) : 'Submit Report'}
+              </button>
             </div>
           </div>
         )}

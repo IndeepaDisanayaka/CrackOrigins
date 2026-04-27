@@ -5,6 +5,7 @@ import { Heart, Eye, Share2, MessageSquare } from 'lucide-react';
 import { incrementBlogViews, toggleBlogLikeSimple } from '@/lib/blog-actions';
 import { useToast } from '../Toast';
 import styles from './blog-interactions.module.css';
+import { useModals } from '@/lib/contexts/ModalContext';
 
 interface BlogInteractionsProps {
     blogId: string;
@@ -19,10 +20,21 @@ export default function BlogInteractions({ blogId, slug, initialViews, initialLi
     const [likes, setLikes] = useState(initialLikes);
     const [isLiked, setIsLiked] = useState(false);
     const [isLiking, setIsLiking] = useState(false);
+    const { 
+        isBlogChatOpen,
+        setIsBlogChatOpen, 
+        setSelectedBlogTitle, 
+        setSelectedBlogId,
+        selectedBlogId: currentBlogId
+    } = useModals();
 
     useEffect(() => {
-        // Increment views on mount (with browser/localStorage detection to prevent spam on refresh)
+        // Sync this blog's info to the modal context on mount
+        // This helps if the chat was auto-opened via query param
         if (blogId) {
+            setSelectedBlogId(blogId);
+            setSelectedBlogTitle(slug.replace(/-/g, ' '));
+
             const viewedPosts = JSON.parse(localStorage.getItem('viewed_dispatches') || '[]');
             
             if (!viewedPosts.includes(blogId)) {
@@ -40,7 +52,7 @@ export default function BlogInteractions({ blogId, slug, initialViews, initialLi
                 setIsLiked(true);
             }
         }
-    }, [blogId]);
+    }, [blogId, slug, setSelectedBlogId, setSelectedBlogTitle]);
 
     const handleLike = async () => {
         if (isLiking) return;
@@ -99,7 +111,18 @@ export default function BlogInteractions({ blogId, slug, initialViews, initialLi
                 <button className={styles.actionBtn} onClick={handleShare}>
                     <Share2 size={18} />
                 </button>
-                <button className={styles.actionBtn}>
+                <button 
+                    className={styles.actionBtn}
+                    onClick={() => {
+                        if (isBlogChatOpen && currentBlogId === blogId) {
+                            setIsBlogChatOpen(false);
+                        } else {
+                            setSelectedBlogTitle(slug.replace(/-/g, ' '));
+                            setSelectedBlogId(blogId);
+                            setIsBlogChatOpen(true);
+                        }
+                    }}
+                >
                     <MessageSquare size={18} />
                 </button>
             </div>

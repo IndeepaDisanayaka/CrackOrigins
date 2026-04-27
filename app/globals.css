@@ -12,6 +12,7 @@
   --text-muted: #64748b;
   --font-main: 'Roboto', sans-serif;
   --border-width: 1px;
+  --header-width: 100%;
 }
 
 .dark-theme {

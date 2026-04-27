@@ -14,7 +14,7 @@ interface RolesModalProps {
 }
 
 const COLLECTIONS = ['account', 'payments', 'games', 'offers', 'blogs', 'coupons'];
-const ACTIONS = ['READ', 'WRITE', 'DELETE'];
+const ACTIONS = ['READ', 'WRITE', 'UPDATE', 'DELETE'];
 
 export default function RolesModal({ isOpen, onClose, adminUid }: RolesModalProps) {
     const { showToast } = useToast();

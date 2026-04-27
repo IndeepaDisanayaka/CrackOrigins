@@ -446,6 +446,9 @@ export async function getAdminDashboardData(adminUid: string) {
                     platform: data.platform || "",
                     gameUrl: data.gameUrl || "",
                     expire: toIsoDate(data.expire) || data.expire || "",
+                    isGiveaway: data.isGiveaway || false,
+                    targetAffiliates: data.targetAffiliates || 10,
+                    offerScope: data.offerScope || "local",
                     listed: toIsoDate(data.listed),
                 };
             });
@@ -461,6 +464,15 @@ export async function getAdminDashboardData(adminUid: string) {
                     status: data.status || "released",
                     downloadCount: data.downloadCount || 0,
                     itchGameId: data.itchGameId || "",
+                    itchUploadId: data.itchUploadId || "",
+                    description: data.description || "",
+                    logo: data.logo || "",
+                    video: data.video || "",
+                    images: data.images || [],
+                    storage: data.storage || "",
+                    showVideo: data.showVideo ?? true,
+                    vrSupported: data.vrSupported ?? false,
+                    requirements: data.requirement || { min: {}, max: {} },
                     listed: toIsoDate(data.createdAt) || toIsoDate(data.listed),
                 };
             });
@@ -486,40 +498,44 @@ export async function getAdminDashboardData(adminUid: string) {
 
         // 4. Fetch Payments
         if (hasAccess('payments')) {
-            const accountsSnap = await adminDb.collection("accounts").get();
-            await Promise.all(
-                accountsSnap.docs.map(async (accountDoc) => {
-                    const userId = accountDoc.id;
-                    const userRef = adminDb.collection("accounts").doc(userId);
-                    const [paymentsSnap, offersPurchSnap] = await Promise.all([
-                        userRef.collection("payments").get(),
-                        userRef.collection("offers").get(),
-                    ]);
+            const [paymentsGroupSnap, offersGroupSnap] = await Promise.all([
+                adminDb.collectionGroup("payments").get(),
+                adminDb.collectionGroup("offers").get()
+            ]);
 
-                    const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
-                        const data = doc.data() || {};
-                        let decryptedEmail = data.payerEmail || "unknown";
-                        if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
-                            try { decryptedEmail = decrypt(decryptedEmail); } catch { }
-                        }
-                        results.payments.push({
-                            id: doc.id,
-                            userId,
-                            game: data.game || "",
-                            payerEmail: decryptedEmail,
-                            amount: data.amount || "0",
-                            status: data.status || "UNKNOWN",
-                            purchaseDate: toIsoDate(data.purchaseDate) || new Date().toISOString(),
-                            steamKey: data.steamKey || null,
-                            paypalOrderId: data.paypalOrderId || null,
-                            coupon: data.coupon || null,
-                            source,
-                        });
-                    };
-                    paymentsSnap.forEach((doc) => pushPayment(doc, "payment"));
-                    offersPurchSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
-                })
-            );
+            const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
+                const pathParts = doc.ref.path.split('/');
+                if (pathParts.length < 4 || pathParts[0] !== 'accounts') return;
+                
+                const userId = pathParts[1];
+                const data = doc.data() || {};
+                
+                // For offers, only process purchase records
+                if (source === "offerPayment" && !data.amount) return;
+
+                let decryptedEmail = data.payerEmail || "unknown";
+                if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
+                    try { decryptedEmail = decrypt(decryptedEmail); } catch { }
+                }
+                
+                results.payments.push({
+                    id: doc.id,
+                    userId,
+                    game: data.game || "",
+                    payerEmail: decryptedEmail,
+                    amount: data.amount || "0",
+                    status: data.status || "UNKNOWN",
+                    purchaseDate: toIsoDate(data.purchaseDate) || new Date().toISOString(),
+                    steamKey: data.steamKey || null,
+                    paypalOrderId: data.paypalOrderId || null,
+                    coupon: data.coupon || null,
+                    source,
+                });
+            };
+
+            paymentsGroupSnap.forEach((doc) => pushPayment(doc, "payment"));
+            offersGroupSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
+
             results.payments.sort((a: any, b: any) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
         }
 
@@ -1516,6 +1532,81 @@ export async function cleanupExpiredOffers(adminUid: string) {
         return { success: true, count: deletedCount, message: `Cleaned up ${deletedCount} expired and unsold offers.` };
     } catch (error: any) {
         console.error("Error cleaning up offers:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Update a game (Admin only)
+ */
+export async function updateGame(adminUid: string, gameId: string, gameData: any) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        const userData = userDoc.data();
+        const canUpdate = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'games', 'UPDATE'));
+
+        if (!userDoc.exists || !canUpdate) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        const gameRef = adminDb.collection("games").doc(gameId);
+        const { gameId: _, image, slug, ...cleanedData } = gameData;
+        
+        await gameRef.update({
+            ...cleanedData,
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating game:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Server Action: Update an offer (Admin only)
+ */
+export async function updateOffer(adminUid: string, offerId: string, offerData: any) {
+    try {
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        const userData = userDoc.data();
+        const canUpdate = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'offers', 'UPDATE'));
+
+        if (!userDoc.exists || !canUpdate) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        const offerRef = adminDb.collection("offers").doc(offerId);
+        const { Timestamp } = await import('firebase-admin/firestore');
+        
+        const payload: any = {
+            ...offerData,
+        };
+
+        if (offerData.originalPrice !== undefined) {
+             payload.originalPrice = Number(offerData.originalPrice);
+        }
+        if (offerData.quantity !== undefined) {
+             payload.quantity = Number(offerData.quantity);
+        }
+        if (offerData.targetAffiliates !== undefined) {
+             payload.targetAffiliates = Number(offerData.targetAffiliates);
+        }
+
+        if (offerData.expire) {
+            payload.expire = Timestamp.fromDate(new Date(offerData.expire));
+        }
+        
+        // Remove listed to avoid overwriting it
+        delete payload.listed;
+
+        await offerRef.update(payload);
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating offer:", error);
         return { success: false, error: error.message };
     }
 }

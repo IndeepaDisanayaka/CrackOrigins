@@ -2,10 +2,11 @@
   width: 100%;
   max-width: 1300px;
   margin: 0 auto;
-  padding: 5rem 1.5rem;
+  padding: 8rem 1.5rem 5rem;
   display: flex;
   flex-direction: column;
   gap: 4rem;
+  container-type: inline-size;
 }
 
 .postHeader {
@@ -21,15 +22,16 @@
   font-weight: 950;
   text-transform: uppercase;
   letter-spacing: 0.3em;
-  color: var(--text-muted);
+  color: var(--foreground);
+  opacity: 0.6;
 }
 
 .postTitle {
-  font-size: clamp(2.5rem, 8vw, 6rem);
+  font-size: clamp(2rem, 10cqi, 5.5rem);
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: -0.05em;
-  line-height: 0.95;
+  line-height: 1;
   color: var(--foreground);
 }
 
@@ -84,10 +86,17 @@
 
 @media (max-width: 768px) {
   .blogPostWrapper {
-    padding: 3rem 1rem;
-    gap: 3rem;
+    padding: 6rem 1rem 3rem;
+    gap: 2.5rem;
+  }
+  .postTitle {
+    font-size: 2.25rem;
+  }
+  .postHeader {
+    gap: 1.25rem;
   }
   .bannerContainer {
     aspect-ratio: 16 / 9;
+    margin: 0;
   }
 }

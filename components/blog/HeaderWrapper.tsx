@@ -23,7 +23,9 @@ export default function HeaderWrapper() {
     isCouponModalOpen, setIsCouponModalOpen,
     isAddOfferModalOpen, setIsAddOfferModalOpen,
     isListGameOpen, setIsListGameOpen,
-    isAdminModalOpen, setIsAdminModalOpen
+    isAdminModalOpen, setIsAdminModalOpen,
+    isBlogChatOpen, setIsBlogChatOpen,
+    selectedBlogTitle, selectedBlogId
   } = useModals();
   const { user, isAdmin, login } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);

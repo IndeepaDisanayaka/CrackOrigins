@@ -10,6 +10,7 @@ import { getBlogPosts } from '@/lib/blog';
 import { Metadata } from 'next';
 import styles from '../page.module.css';
 import blogStyles from './blog.module.css';
+import BlogCardInteractions from '@/components/blog/BlogCardInteractions';
 
 export const metadata: Metadata = {
   title: 'Dispatch Archive | Crack Origins Chronicles',
@@ -40,21 +41,18 @@ export default async function BlogPage() {
 
   return (
     <>
-      <div className={styles.backgroundAnimation}></div>
-      
-      <React.Suspense fallback={<div className="h-20 bg-black/20 animate-pulse" />}>
-        <HeaderWrapper />
-      </React.Suspense>
-      
-      <SubHeader />
-
       <main className={styles.main}>
 
         <div className={blogStyles.blogContainer}>
           {/* Section Header - Styled like Home Sections */}
           <div className={blogStyles.blogHeader}>
-             <span className="sectionLabel">Classified Database</span>
-             <h1 className={blogStyles.blogTitle}>Dispatch & <span>Chronicles</span></h1>
+            <div className={blogStyles.headerGrid}>
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className={blogStyles.gridLine} />
+              ))}
+            </div>
+            <span className="sectionLabel">Classified Database</span>
+            <h1 className={blogStyles.blogTitle}>Dispatch & <span>Chronicles</span></h1>
           </div>
 
           {sortedPosts.length === 0 ? (
@@ -117,10 +115,11 @@ export default async function BlogPage() {
                           </Link>
                           
                           <div className={blogStyles.socialIcons}>
-                             <MessageSquare size={14} className={blogStyles.socialIcon} />
-                             <SendHorizontal size={14} className={blogStyles.socialIcon} />
-                             <MessageCircle size={14} className={blogStyles.socialIcon} />
-                             <Share2 size={14} className={blogStyles.socialIcon} />
+                             <BlogCardInteractions 
+                               blogId={post.blogId} 
+                               slug={post.slug} 
+                               title={post.title} 
+                             />
                           </div>
                        </div>
                     </div>
@@ -130,8 +129,6 @@ export default async function BlogPage() {
             </div>
           )}
         </div>
-
-        <Footer />
       </main>
     </>
   );

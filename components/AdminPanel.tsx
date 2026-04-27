@@ -124,6 +124,9 @@ export default function AdminPanel({
     open: false, targetUid: "", name: ""
   });
   
+  const [editGameData, setEditGameData] = useState<any>(null);
+  const [editOfferData, setEditOfferData] = useState<any>(null);
+
   // Permissions state
   const [myPerms, setMyPerms] = useState<{ isOwner: boolean, permissions: any }>({ isOwner: false, permissions: {} });
   const [allRules, setAllRules] = useState<any[]>([]);
@@ -1274,13 +1277,24 @@ export default function AdminPanel({
                                    <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Status: {g.status}</div>
                                  </td>
                                  <td style={{ padding: '1rem' }}>
-                                   {g.itchGameId ? (
-                                     <a href={`https://itch.io/game/edit/${g.itchGameId}`} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
-                                       <ExternalLink size={12} /> Edit on Itch
-                                     </a>
-                                   ) : (
-                                     <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No ID</span>
-                                   )}
+                                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                     {g.itchGameId ? (
+                                       <a href={`https://itch.io/game/edit/${g.itchGameId}`} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
+                                         <ExternalLink size={12} /> Edit on Itch
+                                       </a>
+                                     ) : (
+                                       <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No ID</span>
+                                     )}
+                                     {hasPerm('games', 'UPDATE') && (
+                                       <button 
+                                         onClick={() => { setEditGameData(g); setShowAddGame(true); }}
+                                         className="btnOutline" 
+                                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                                       >
+                                         <RefreshCw size={12} style={{ marginRight: '0.2rem' }} /> Edit Details
+                                       </button>
+                                     )}
+                                   </div>
                                  </td>
                                </tr>
                              ))}
@@ -1301,13 +1315,24 @@ export default function AdminPanel({
                                    <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Expires: {g.expire ? new Date(g.expire).toLocaleDateString() : 'N/A'}</div>
                                  </td>
                                  <td style={{ padding: '1rem' }}>
-                                   {g.gameUrl ? (
-                                     <a href={g.gameUrl} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
-                                       <ExternalLink size={12} /> Open Store
-                                     </a>
-                                   ) : (
-                                     <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No URL</span>
-                                   )}
+                                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                     {g.gameUrl ? (
+                                       <a href={g.gameUrl} target="_blank" className="btnOutline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', textDecoration: 'none' }}>
+                                         <ExternalLink size={12} /> Open Store
+                                       </a>
+                                     ) : (
+                                       <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No URL</span>
+                                     )}
+                                     {hasPerm('offers', 'UPDATE') && (
+                                       <button 
+                                         onClick={() => { setEditOfferData(g); setShowAddOffer(true); }}
+                                         className="btnOutline" 
+                                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                                       >
+                                         <RefreshCw size={12} style={{ marginRight: '0.2rem' }} /> Edit Offer
+                                       </button>
+                                     )}
+                                   </div>
                                  </td>
                                </tr>
                              ))}
@@ -1449,10 +1474,10 @@ export default function AdminPanel({
         </div>
       </Modal>
 
-    <AddOfferModal isOpen={showAddOffer} onClose={() => setShowAddOffer(false)} onSuccess={() => { setShowAddOffer(false); fetchData(); }} />
+    <AddOfferModal isOpen={showAddOffer} onClose={() => { setShowAddOffer(false); setEditOfferData(null); }} onSuccess={() => { setShowAddOffer(false); setEditOfferData(null); fetchData(); }} editData={editOfferData} />
     <CouponModal isOpen={showAddCoupon} onClose={() => setShowAddCoupon(false)} onSuccess={() => { setShowAddCoupon(false); fetchData(); }} />
     <DispatchModal isOpen={showAddBlog} onClose={() => setShowAddBlog(false)} onSuccess={() => { setShowAddBlog(false); fetchData(); }} />
-    <ListGameModal isOpen={showAddGame} onClose={() => setShowAddGame(false)} onSuccess={() => { setShowAddGame(false); fetchData(); }} />
+    <ListGameModal isOpen={showAddGame} onClose={() => { setShowAddGame(false); setEditGameData(null); }} onSuccess={() => { setShowAddGame(false); setEditGameData(null); fetchData(); }} editData={editGameData} />
 
     {/* Blog Delete Confirmation */}
     <Modal isOpen={blogDeleteConfirm.open} onClose={() => setBlogDeleteConfirm({ ...blogDeleteConfirm, open: false })} maxWidth="400px">

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Gamepad2, Tag, DollarSign, Layers, Monitor, HardDrive, Plus, Image as ImageIcon, Cpu, MemoryStick, Box, Laptop, Activity, ToggleLeft as Toggle, HelpCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import Modal from '../Modal';
-import { listGame } from '@/lib/admin-actions';
+import { listGame, updateGame } from '@/lib/admin-actions';
 import { useToast } from '../Toast';
 import CheckCircle from '../CheckCircle';
 import { useAuth } from '../../lib/contexts/AuthContext';
@@ -13,9 +13,10 @@ interface ListGameModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  editData?: any;
 }
 
-export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameModalProps) {
+export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: ListGameModalProps) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,6 +61,82 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
     }
   });
 
+  React.useEffect(() => {
+    if (isOpen && editData) {
+      let storageValue = "";
+      let storageUnit = "GB";
+      if (editData.storage) {
+        const parts = editData.storage.split(' ');
+        if (parts.length >= 2) {
+          storageValue = parts[0];
+          storageUnit = parts[1];
+        }
+      }
+
+      setGameForm({
+        title: editData.title || "",
+        description: editData.description || "",
+        price: editData.price === 'Free' ? '0' : (typeof editData.price === 'string' ? editData.price.replace('$', '') : String(editData.price || "")),
+        genre: editData.genre || "",
+        os: editData.os || "windows",
+        logo: editData.logo || "",
+        video: editData.video || "",
+        downloadUrl: editData.downloadUrl || "",
+        itchUploadId: editData.itchUploadId || "",
+        itchGameId: editData.itchGameId || "",
+        images: Array.isArray(editData.images) ? editData.images.join(', ') : (editData.images || ""),
+        storageValue,
+        storageUnit,
+        showVideo: editData.showVideo ?? true,
+        vrSupported: editData.vrSupported ?? false,
+        status: editData.status || "released",
+        requirement: {
+          min: {
+            processor: editData.requirements?.min?.processor || "",
+            memory: editData.requirements?.min?.memory || "",
+            graphics: editData.requirements?.min?.graphics || "",
+            directx: editData.requirements?.min?.directx || "Version 11"
+          },
+          max: {
+            processor: editData.requirements?.max?.processor || "",
+            memory: editData.requirements?.max?.memory || "",
+            graphics: editData.requirements?.max?.graphics || "",
+            directx: editData.requirements?.max?.directx || "Version 11"
+          }
+        }
+      });
+      setSelectedItchId(editData.itchGameId || '');
+      setSelectedCover(editData.logo || '');
+    } else if (isOpen && !editData) {
+      // Reset form
+      setGameForm({
+        title: "",
+        description: "",
+        price: "",
+        genre: "",
+        os: "windows",
+        logo: "",
+        video: "",
+        downloadUrl: "",
+        itchUploadId: "",
+        itchGameId: "",
+        images: "",
+        storageValue: "",
+        storageUnit: "GB",
+        showVideo: true,
+        vrSupported: false,
+        status: "released",
+        requirement: {
+          min: { processor: "", memory: "", graphics: "", directx: "Version 11" },
+          max: { processor: "", memory: "", graphics: "", directx: "Version 11" }
+        }
+      });
+      setSelectedItchId('');
+      setItchUploads([]);
+      setSelectedCover('');
+    }
+  }, [isOpen, editData]);
+
   const handleListGame = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -77,7 +154,7 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
         genre: gameForm.genre.split(',').map(s => s.trim().toLowerCase()),
         os: gameForm.os.split(',').map(s => s.trim().toLowerCase()),
         images: gameForm.images.split(',').map(s => s.trim()).filter(Boolean),
-        downloadCount: 0,
+        downloadCount: editData ? editData.downloadCount : 0,
         showVideo: gameForm.showVideo,
         storage: `${gameForm.storageValue} ${gameForm.storageUnit} available space`,
         vrSupported: gameForm.vrSupported,
@@ -103,38 +180,16 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
       delete finalData.storageValue;
       delete finalData.storageUnit;
 
-      const result = await listGame(user.uid, finalData);
+      const result = editData 
+        ? await updateGame(user.uid, editData.id, finalData)
+        : await listGame(user.uid, finalData);
+        
       if (result.success) {
-        showToast("Game listed successfully!", "success");
+        showToast(editData ? "Game updated successfully!" : "Game listed successfully!", "success");
         if (onSuccess) onSuccess();
         onClose();
-        setGameForm({
-          title: "",
-          description: "",
-          price: "",
-          genre: "",
-          os: "windows",
-          logo: "",
-          video: "",
-          downloadUrl: "",
-          itchUploadId: "",
-          itchGameId: "",
-          images: "",
-          storageValue: "",
-          storageUnit: "GB",
-          showVideo: true,
-          vrSupported: false,
-          status: "released",
-          requirement: {
-            min: { processor: "", memory: "", graphics: "", directx: "Version 11" },
-            max: { processor: "", memory: "", graphics: "", directx: "Version 11" }
-          }
-        });
-        setSelectedItchId('');
-        setItchUploads([]);
-        setSelectedCover('');
       } else {
-        showToast(result.error || "Failed to list game.", "error");
+        showToast(result.error || (editData ? "Failed to update game." : "Failed to list game."), "error");
       }
     } catch {
       showToast("An unexpected error occurred.", "error");
@@ -280,7 +335,7 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="List New Creation">
+    <Modal isOpen={isOpen} onClose={onClose} title={editData ? "Edit Creation" : "List New Creation"}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0', maxHeight: '80vh', overflowY: 'auto' }}>
           <form onSubmit={handleListGame} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
@@ -580,7 +635,7 @@ export default function ListGameModal({ isOpen, onClose, onSuccess }: ListGameMo
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
               <button type="button" className="btnOutline" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
               <button type="submit" className="btnSolid" disabled={isSubmitting} style={{ flex: 2 }}>
-                {isSubmitting ? "Lising..." : "Confirm & List Game"}
+                {isSubmitting ? "Saving..." : (editData ? "Save Changes" : "Confirm & List Game")}
               </button>
             </div>
           </form>

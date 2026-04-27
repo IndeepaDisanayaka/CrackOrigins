@@ -4,10 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { ChevronUp, MessageSquare, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import HelpChat from './HelpChat';
+import { useModals } from '@/lib/contexts/ModalContext';
+import { usePathname } from 'next/navigation';
 
 export default function FloatingControls() {
   const [isScrollVisible, setIsScrollVisible] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const { isBlogChatOpen } = useModals();
+  const pathname = usePathname();
+  const isBlogPage = pathname?.startsWith('/blog');
 
   useEffect(() => {
     const toggleVisibility = () => {
@@ -48,8 +53,8 @@ export default function FloatingControls() {
     <div style={{
       position: 'fixed',
       bottom: '5.5rem',
-      right: '2rem',
-      zIndex: 9999999,
+      right: isBlogChatOpen && isBlogPage ? 'calc(25% + 2rem)' : '2rem',
+      zIndex: 5000,
       display: 'flex',
       flexDirection: 'row-reverse',
       gap: '1rem',
