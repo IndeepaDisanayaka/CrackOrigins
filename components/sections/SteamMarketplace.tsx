@@ -332,11 +332,19 @@ function GlobalSteamCard({
     );
 }
 
-function GiveawayLeaderboard({ game, affiliateId }: { game: any, affiliateId: string | null }) {
+function GiveawayLeaderboard({ game, user, affiliateId }: { game: any, user: any, affiliateId: string | null }) {
     const { showToast } = useToast();
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [totalFilled, setTotalFilled] = useState<number>(0);
     const [loading, setLoading] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         if (!game || !game.listed) return;
@@ -369,140 +377,12 @@ function GiveawayLeaderboard({ game, affiliateId }: { game: any, affiliateId: st
 
     if (!game) return null;
 
-    const remaining = Math.max(0, game.quantity - totalFilled);
+    const remaining = game.quantity; // Keys are assigned after event ends — vault holds full quantity until then
+
     const progress = Math.min(100, (totalFilled / (game.targetAffiliates || 10)) * 100);
 
     return (
-        <motion.div 
-            className={styles.steamCard}
-            style={{ 
-                gridColumn: '1 / -1', 
-                borderRadius: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                overflow: 'hidden',
-                position: 'relative',
-                marginBottom: '4rem',
-                background: 'var(--background)',
-                border: '1px solid var(--outline-color)',
-                minHeight: '600px',
-                padding: '4rem 2rem'
-            }}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-        >
-            {/* Centered Info Section */}
-            <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2.5rem', position: 'relative', textAlign: 'center', marginBottom: '3rem' }}>
-                <div style={{ position: 'absolute', top: '-4rem', left: '50%', transform: 'translateX(-50%)', width: '100vw', height: '100%', opacity: 0.05, pointerEvents: 'none', zIndex: 0 }}>
-                    <img src={game.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1)' }} />
-                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle, transparent 0%, var(--background) 70%)' }} />
-                </div>
-
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <motion.span 
-                        whileHover={{ scale: 1.05 }}
-                        style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', padding: '0.5rem 1.5rem', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem', border: '1px solid rgba(var(--primary-rgb), 0.3)' }}
-                    >
-                        <TrendingUp size={14} /> Global Community Giveaway
-                    </motion.span>
-                    <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 900, lineHeight: 1, color: 'var(--foreground)', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '-0.05em' }}>
-                        Grow the Tribe, <span style={{ color: 'var(--primary)' }}>Grab the Game</span>
-                    </h2>
-                    <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: '650px', margin: 0 }}>
-                        Join forces with the community to unlock <strong style={{ color: 'var(--foreground)' }}>{game.title}</strong> for everyone. 
-                        Contribute your points or invite friends to fill the global vault.
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', position: 'relative', zIndex: 1, justifyContent: 'center' }}>
-                    <motion.button 
-                        whileHover={{ translateY: -3, boxShadow: '0 15px 30px rgba(var(--primary-rgb), 0.3)' }} whileTap={{ scale: 0.98 }}
-                        onClick={() => { /* Points logic */ }}
-                        style={{ background: 'var(--primary)', color: '#000', border: 'none', padding: '1.2rem 2.5rem', borderRadius: '12px', fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
-                    >
-                        <TrendingUp size={20} /> Invest My Points
-                    </motion.button>
-                    <motion.button 
-                        whileHover={{ background: 'rgba(var(--primary-rgb), 0.1)', translateY: -3 }} whileTap={{ scale: 0.98 }}
-                        onClick={handleCopyAffiliateLink}
-                        style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '1.2rem 2.5rem', borderRadius: '12px', fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
-                    >
-                        <Share2 size={20} /> Invite Friends
-                    </motion.button>
-                </div>
-
-                <div style={{ display: 'flex', gap: '4rem', position: 'relative', zIndex: 1, justifyContent: 'center' }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--foreground)', lineHeight: 1 }}>{totalFilled}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.15em', marginTop: '0.5rem' }}>Global Recruits</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--primary)', lineHeight: 1, animation: 'timerPulse 1.5s infinite' }}>{remaining}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.15em', marginTop: '0.5rem' }}>Keys Remaining</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Centered Visual Progress & Leaderboard */}
-            <div style={{ width: '100%', maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '3rem', alignItems: 'center' }}>
-                <div style={{ width: '100%', maxWidth: '700px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.25rem' }}>
-                        <div style={{ textAlign: 'left' }}>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--foreground)', margin: 0 }}>Progress Vault</h3>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Community Milestone</span>
-                        </div>
-                        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--primary)' }}>{Math.floor(progress)}%</div>
-                    </div>
-
-                    <div style={{ height: '14px', background: 'var(--outline-color)', borderRadius: '50px', position: 'relative', overflow: 'hidden' }}>
-                        <motion.div 
-                            initial={{ width: 0 }}
-                            whileInView={{ width: `${progress}%` }}
-                            transition={{ duration: 1.5, ease: "circOut" }}
-                            style={{ height: '100%', background: 'var(--primary)', borderRadius: '50px', position: 'relative' }}
-                        >
-                            <div className={styles.glowEffect} style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)' }} />
-                        </motion.div>
-                        {[25, 50, 75].map(m => (
-                            <div key={m} style={{ position: 'absolute', top: '50%', left: `${m}%`, transform: 'translate(-50%, -50%)', width: '4px', height: '100%', background: 'rgba(var(--background-rgb), 0.2)', zIndex: 3 }} />
-                        ))}
-                    </div>
-                </div>
-
-                <div style={{ width: '100%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em', textAlign: 'center' }}>Top Field Agents</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', width: '100%' }}>
-                        {loading ? (
-                            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Retrieving leaderboard data...</div>
-                        ) : leaderboard.length > 0 ? (
-                            leaderboard.slice(0, 4).map((u, i) => (
-                                <motion.div 
-                                    key={u.uid} 
-                                    whileHover={{ x: 5, background: 'rgba(var(--primary-rgb), 0.05)' }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.8rem 1.25rem', borderRadius: '12px', background: 'rgba(var(--foreground-rgb), 0.03)', border: '1px solid rgba(var(--foreground-rgb), 0.05)' }}
-                                >
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: i === 0 ? 'var(--primary)' : 'var(--background)', border: '1px solid var(--outline-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: i === 0 ? '#000' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 900 }}>
-                                        {i + 1}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 800, color: 'var(--foreground)' }}>{u.name}</span>
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Level {Math.floor(u.count / 5) + 1} Agent</span>
-                                    </div>
-                                    <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--primary)' }}>{u.count}</div>
-                                </motion.div>
-                            ))
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(var(--foreground-rgb), 0.02)', borderRadius: '12px', border: '1px dashed var(--outline-color)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                No contributions yet. Be the first to start the vault!
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </motion.div>
+    <></>
     );
 }
 
@@ -744,14 +624,9 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
       </p>
 
       <motion.div className={styles.steamGrid} variants={staggerContainer}>
-        {(() => {
-            // The top section is reserved for FREE giveaways (Community Goals)
-            const mainGiveaway = steamGames.find(g => g.offerScope === 'global' && parseFloat(g.discountPrice.replace('$', '')) === 0) || 
-                               steamGames.find(g => parseFloat(g.discountPrice.replace('$', '')) === 0);
-            
-            if (!mainGiveaway) return null;
-            return <GiveawayLeaderboard game={mainGiveaway} affiliateId={affiliateId} />;
-        })()}
+        {steamGames.filter(g => g.offerScope === 'global').map(game => (
+            <GiveawayLeaderboard key={game.id} game={game} user={user} affiliateId={affiliateId} />
+        ))}
 
         {isLoadingOffers && steamGames.length === 0 ? (
           [1, 2, 3].map((i) => (
@@ -766,11 +641,8 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
         ) : (
           (() => {
-            const mainGiveaway = steamGames.find(g => g.offerScope === 'global' && parseFloat(g.discountPrice.replace('$', '')) === 0) || 
-                               steamGames.find(g => parseFloat(g.discountPrice.replace('$', '')) === 0);
-            
-            // Filter out the one already shown at the top
-            const remainingGames = steamGames.filter(game => game.id !== mainGiveaway?.id);
+            // Filter out the global ones already shown as leaderboards
+            const remainingGames = steamGames.filter(game => game.offerScope !== 'global');
             
             return (showAll ? remainingGames : remainingGames.slice(0, 3))
               .map((game) => {

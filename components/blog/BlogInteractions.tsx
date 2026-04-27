@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Heart, Eye, Share2, MessageSquare } from 'lucide-react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { incrementBlogViews, toggleBlogLikeSimple } from '@/lib/blog-actions';
 import { useToast } from '../Toast';
 import styles from './blog-interactions.module.css';
@@ -27,6 +28,9 @@ export default function BlogInteractions({ blogId, slug, initialViews, initialLi
         setSelectedBlogId,
         selectedBlogId: currentBlogId
     } = useModals();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
     useEffect(() => {
         // Sync this blog's info to the modal context on mount
@@ -116,6 +120,9 @@ export default function BlogInteractions({ blogId, slug, initialViews, initialLi
                     onClick={() => {
                         if (isBlogChatOpen && currentBlogId === blogId) {
                             setIsBlogChatOpen(false);
+                            if (searchParams.get('chat') === 'true') {
+                                router.push(pathname);
+                            }
                         } else {
                             setSelectedBlogTitle(slug.replace(/-/g, ' '));
                             setSelectedBlogId(blogId);

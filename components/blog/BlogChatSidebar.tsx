@@ -19,7 +19,10 @@ import {
   DocumentData,
   updateDoc,
   increment,
-  deleteDoc
+  deleteDoc,
+  getDoc,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import styles from './blog-chat-sidebar.module.css';
 import { useToast } from '../Toast';
@@ -71,11 +74,31 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load liked comments from localStorage
+  // Load liked comments — single doc read from accounts/{uid}/blogs/{blogId} for auth users
   useEffect(() => {
-    const saved = localStorage.getItem('liked_comments');
-    if (saved) setLikedCommentIds(JSON.parse(saved));
-  }, []);
+    if (!blogId) return;
+    const user = auth.currentUser;
+
+    if (user) {
+      const fetchLiked = async () => {
+        try {
+          // accounts/{userId}/blogs/{blogId} is already allowed by existing rules
+          const likeDocRef = doc(fireStore, 'accounts', user.uid, 'blogs', blogId);
+          const likeSnap = await getDoc(likeDocRef);
+          if (likeSnap.exists()) {
+            setLikedCommentIds(likeSnap.data()?.likedCommentIds || []);
+          }
+        } catch (e) {
+          console.error('Error fetching liked comments:', e);
+        }
+      };
+      fetchLiked();
+    } else {
+      // Guest fallback: per-blog localStorage key
+      const saved = localStorage.getItem(`liked_comments_${blogId}`);
+      if (saved) setLikedCommentIds(JSON.parse(saved));
+    }
+  }, [blogId]);
 
   // Initial Load
   useEffect(() => {
@@ -184,22 +207,38 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
 
   const handleLikeComment = async (commentId: string) => {
     if (!blogId) return;
-    
+
+    const user = auth.currentUser;
     const isAlreadyLiked = likedCommentIds.includes(commentId);
-    const nextLikedIds = isAlreadyLiked 
+    const nextLikedIds = isAlreadyLiked
       ? likedCommentIds.filter(id => id !== commentId)
       : [...likedCommentIds, commentId];
-    
+
+    // Optimistic UI update
     setLikedCommentIds(nextLikedIds);
-    localStorage.setItem('liked_comments', JSON.stringify(nextLikedIds));
 
     try {
+      if (user) {
+        // Authenticated: store liked IDs in accounts/{uid}/blogs/{blogId}
+        // This path is already covered by existing Firestore rules
+        const likeDocRef = doc(fireStore, 'accounts', user.uid, 'blogs', blogId);
+        await setDoc(likeDocRef, {
+          likedCommentIds: isAlreadyLiked ? arrayRemove(commentId) : arrayUnion(commentId)
+        }, { merge: true });
+      } else {
+        // Guest: per-blog localStorage key
+        localStorage.setItem(`liked_comments_${blogId}`, JSON.stringify(nextLikedIds));
+      }
+
+      // Update aggregate likes count on the comment document
       const commentDocRef = doc(fireStore, 'blogs', blogId, 'comments', commentId);
       await updateDoc(commentDocRef, {
         likes: increment(isAlreadyLiked ? -1 : 1)
       });
     } catch (error) {
-      console.error("Error updating likes:", error);
+      console.error('Error updating likes:', error);
+      // Revert optimistic update on failure
+      setLikedCommentIds(likedCommentIds);
     }
   };
 
