@@ -1,12 +1,10 @@
-import React from 'react';
+import React, { Suspense } from 'react';
+
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
-import HeaderWrapper from '@/components/blog/HeaderWrapper';
-import Footer from '@/components/layout/Footer';
-import SubHeader from '@/components/layout/SubHeader';
 import { getBlogPostBySlug, getBlogPosts } from '@/lib/blog';
 import BlogInteractions from '@/components/blog/BlogInteractions';
 import { Metadata } from 'next';
@@ -130,12 +128,14 @@ export default async function BlogPostPage({ params }: Props) {
 
           {/* Content Wrapper */}
           <div className={blogPostStyles.mainContent}>
-            <BlogInteractions 
-              blogId={post.blogId}
-              slug={slug} 
-              initialViews={post.views} 
-              initialLikes={post.likes} 
-            />
+            <Suspense fallback={<div className="h-20 bg-black/10 animate-pulse rounded-lg" />}>
+              <BlogInteractions 
+                blogId={post.blogId}
+                slug={slug} 
+                initialViews={post.views} 
+                initialLikes={post.likes} 
+              />
+            </Suspense>
 
             {/* Markdown Content */}
             <div 
@@ -143,12 +143,14 @@ export default async function BlogPostPage({ params }: Props) {
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
-            <BlogInteractions 
-              blogId={post.blogId}
-              slug={slug} 
-              initialViews={post.views} 
-              initialLikes={post.likes} 
-            />
+            <Suspense fallback={<div className="h-20 bg-black/10 animate-pulse rounded-lg" />}>
+              <BlogInteractions 
+                blogId={post.blogId}
+                slug={slug} 
+                initialViews={post.views} 
+                initialLikes={post.likes} 
+              />
+            </Suspense>
 
             {/* Simple Footer Dispatch */}
             <footer className={blogPostStyles.postFooter}>
