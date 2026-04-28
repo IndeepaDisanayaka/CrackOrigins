@@ -38,6 +38,54 @@ function SearchParamsHandler() {
   return null;
 }
 
+function SidebarHandler({ 
+  isMobile, 
+  isBlogChatOpen, 
+  isDetailPage, 
+  selectedBlogTitle, 
+  selectedBlogId, 
+  setIsBlogChatOpen 
+}: any) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  return (
+    <AnimatePresence>
+      {isBlogChatOpen && isDetailPage && (
+        <motion.div
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            width: isMobile ? '100%' : '25%',
+            height: '100vh',
+            zIndex: 10000,
+            background: 'var(--background)'
+          }}
+        >
+          <BlogChatSidebar 
+            isOpen={isBlogChatOpen}
+            onClose={() => {
+              setIsBlogChatOpen(false);
+              // Clear the chat=true param from URL to prevent re-opening
+              if (searchParams.get('chat') === 'true') {
+                router.push(pathname);
+              }
+            }}
+            blogTitle={selectedBlogTitle}
+            blogId={selectedBlogId}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function BlogLayout({
   children,
 }: {
@@ -51,7 +99,6 @@ export default function BlogLayout({
     selectedBlogId,
   } = useModals();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -111,38 +158,16 @@ export default function BlogLayout({
       </motion.div>
 
       {/* Side Chat - Fixed/Sticky on the right */}
-      <AnimatePresence>
-        {isBlogChatOpen && isDetailPage && (
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-            style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              width: isMobile ? '100%' : '25%',
-              height: '100vh',
-              zIndex: 10000,
-              background: 'var(--background)'
-            }}
-          >
-            <BlogChatSidebar 
-              isOpen={isBlogChatOpen}
-              onClose={() => {
-                setIsBlogChatOpen(false);
-                // Clear the chat=true param from URL to prevent re-opening
-                if (searchParams.get('chat') === 'true') {
-                  router.push(pathname);
-                }
-              }}
-              blogTitle={selectedBlogTitle}
-              blogId={selectedBlogId}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <React.Suspense fallback={null}>
+        <SidebarHandler 
+          isMobile={isMobile}
+          isBlogChatOpen={isBlogChatOpen}
+          isDetailPage={isDetailPage}
+          selectedBlogTitle={selectedBlogTitle}
+          selectedBlogId={selectedBlogId}
+          setIsBlogChatOpen={setIsBlogChatOpen}
+        />
+      </React.Suspense>
     </div>
   );
 }
