@@ -8,10 +8,13 @@ import InvestmentSection from './sections/InvestmentSection';
 import CareersSection from './sections/CareersSection';
 import CommunitySection from './sections/CommunitySection';
 
+import IdeasTeaser from './sections/IdeasTeaser';
+
 export default function ExtraSections() {
   return (
     <div className={styles.container}>
       <SteamMarketplace />
+      {/* <IdeasTeaser /> */}
       <AboutSection />
       <InvestmentSection />
       <CareersSection />

@@ -10,7 +10,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (v: boolean) => void }) {
-  const { user, isAdmin, isOwner, permissions, isAuthLoading, logout } = useAuth();
+  const { user, isAdmin, isOwner, permissions, isAuthLoading, xp, logout } = useAuth();
+
   const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen, setIsDispatchModalOpen } = useModals();
   const [mounted, setMounted] = useState(false);
 
@@ -42,6 +43,7 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
             <Link href="/blog?category=news" className={styles.dropdownItem}>Latest News</Link>
           </div>
         </div>
+        <Link href="/ideas" className={styles.link}>Ideas</Link>
         <Link href="/#about" className={styles.link}>About</Link>
         <Link href="/#community" className={styles.link}>Community</Link>
       </div>
@@ -120,15 +122,30 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
               <Link href="/account" style={{ textDecoration: 'none' }}>
                 <button
                   className="btnSolid"
-                  title="My Account"
-                  style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer' }}
+                  title={`My Account - ${xp || 0} XP Balance`}
+                  style={{ gap: '0.6rem', border: '1px solid var(--outline-color)', padding: '0.6rem 1.2rem', cursor: 'pointer', position: 'relative' }}
                 >
-                  {user.photoURL ? (
-                    <Image width={18} height={18} quality={75} src={user.photoURL} alt="avatar" style={{ borderRadius: '50%' }} />
-                  ) : (
-                    <User size={18} />
-                  )}
-                  <span className={styles.connectText}>{user.displayName?.split(' ')[0] || "Account"}</span>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {user.photoURL ? (
+                      <Image width={18} height={18} quality={75} src={user.photoURL} alt="avatar" style={{ borderRadius: '50%' }} />
+                    ) : (
+                      <User size={18} />
+                    )}
+                    <span className={styles.connectText}>{user.displayName?.split(' ')[0] || "Account"}</span>
+                  </div>
+                  <div style={{ 
+                    background: 'rgba(0,0,0,0.3)', 
+                    padding: '0.1rem 0.4rem', 
+                    borderRadius: '4px', 
+                    fontSize: '0.65rem', 
+                    fontWeight: 900,
+                    color: 'var(--primary)',
+                    border: '1px solid rgba(var(--primary-rgb), 0.3)'
+                  }}>
+                    {xp || 0} XP
+                  </div>
+
                 </button>
               </Link>
             </div>

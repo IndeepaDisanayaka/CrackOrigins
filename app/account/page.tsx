@@ -4,13 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, Percent, ShoppingBag, MapPin, CheckCircle, Activity } from 'lucide-react';
+import { User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, Percent, ShoppingBag, MapPin, CheckCircle, Activity, TrendingUp } from 'lucide-react';
 import LiveCursors from '@/components/LiveCursors';
 import pageStyles from '@/app/page.module.css';
 import acct from './account.module.css';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getOwnedGames } from '@/lib/admin-actions';
+import { getOwnedGames, getUserActivity } from '@/lib/admin-actions';
+
 import { useModals } from '@/lib/contexts/ModalContext';
 import Header from '@/components/layout/Header';
 import MobileNav from '@/components/layout/MobileNav';
@@ -32,7 +33,8 @@ interface ActivityItem {
 }
 
 export default function AccountPage() {
-    const { user, isAuthLoading, logout, affiliateId, affiliateCount, discount, isAdmin, login } = useAuth();
+    const { user, isAuthLoading, logout, affiliateId, affiliateCount, xp, affiliateLevel, affiliateLevelDetails, isAdmin, login } = useAuth();
+
     const router = useRouter();
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
@@ -57,22 +59,40 @@ export default function AccountPage() {
         if (user) {
             const fetchActivities = async () => {
                 try {
-                    const res = await getOwnedGames(user.uid);
                     const mapped: ActivityItem[] = [];
-                    
-                    if (res.success && res.details) {
-                        Object.entries(res.details).forEach(([title, detail]: any) => {
+
+                    // 1. Fetch unified activity
+                    const actRes = await getUserActivity(user.uid);
+                    if (actRes.success && actRes.activity) {
+                        actRes.activity.forEach((act: any) => {
                             mapped.push({
-                                id: detail.activationKey || title,
-                                type: 'purchase',
-                                title: `Added game: ${title} to library`,
-                                extra: `Status changed to Verified. Transaction ID: ${detail.activationKey || 'Pending'}`,
-                                date: detail.purchaseDate
+                                id: act.id,
+                                type: act.type === 'spent' ? 'purchase' : 'reward',
+                                title: act.title,
+                                extra: act.details,
+                                date: act.date
                             });
                         });
                     }
+                    
+                    // 2. Fetch owned games (legacy/standard purchases)
+                    const res = await getOwnedGames(user.uid);
+                    if (res.success && res.details) {
+                        Object.entries(res.details).forEach(([title, detail]: any) => {
+                            // Avoid duplicates if already in activity
+                            if (!mapped.find(m => m.title.includes(title))) {
+                                mapped.push({
+                                    id: detail.activationKey || title,
+                                    type: 'purchase',
+                                    title: `Game Purchase: ${title}`,
+                                    extra: `Status: Verified. Key assigned.`,
+                                    date: detail.purchaseDate
+                                });
+                            }
+                        });
+                    }
 
-                    // Genesis event
+                    // 3. Genesis event
                     mapped.push({
                         id: 'genesis',
                         type: 'account',
@@ -81,28 +101,19 @@ export default function AccountPage() {
                         date: user.metadata.creationTime || new Date().toISOString()
                     });
 
-                    // Affiliate milestones
-                    if (affiliateCount && affiliateCount > 0) {
-                        mapped.push({
-                            id: 'milestone-1',
-                            type: 'reward',
-                            title: `Recruited ${affiliateCount} friend(s)`,
-                            extra: `Total points pooled: ${discount}%. Eligible for rewards.`,
-                            date: new Date().toISOString() 
-                        });
-                    }
-
                     mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     setActivities(mapped);
                 } catch (err) {
                     console.error("Failed to load activities", err);
+
                 } finally {
                     setIsLoadingActivities(false);
                 }
             };
             fetchActivities();
         }
-    }, [user, affiliateCount, discount]);
+    }, [user, affiliateCount, xp]);
+
 
     if (isAuthLoading || !user) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>
@@ -228,6 +239,45 @@ export default function AccountPage() {
                                     <span className={acct.statLabel}>Last Active</span>
                                     <span className={acct.statValue}>{new Date(user.metadata.lastSignInTime || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                 </div>
+                                <div className={acct.metricCard} style={{ gridColumn: 'span 2', background: 'rgba(var(--primary-rgb), 0.05)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <div className={acct.metricHeader}>
+                                            <TrendingUp className={acct.metricIcon} />
+                                            <span className={acct.metricTitle}>Rank: {affiliateLevel?.toUpperCase() || 'STARTER'}</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)' }}>
+                                            {affiliateLevelDetails?.payment_commision}% Comm. | {affiliateLevelDetails?.onetime_reward_xp} XP / Recruit
+                                        </div>
+                                    </div>
+                                    
+                                    <div className={acct.metricValue} style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{xp} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>XP</span></div>
+                                    
+                                    {affiliateLevelDetails?.nextLevelGoal && (
+                                        <div style={{ width: '100%' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', marginBottom: '0.3rem', fontWeight: 700, opacity: 0.8 }}>
+                                                <span>Next Milestone</span>
+                                                <span>{xp} / {affiliateLevelDetails.nextLevelGoal} XP</span>
+                                            </div>
+                                            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${Math.min(100, (xp / affiliateLevelDetails.nextLevelGoal) * 100)}%` }}
+                                                    style={{ height: '100%', background: 'var(--primary)', borderRadius: '10px' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className={acct.metricCard}>
+                                    <div className={acct.metricHeader}>
+                                        <User className={acct.metricIcon} />
+                                        <span className={acct.metricTitle}>Field Operations</span>
+                                    </div>
+                                    <div className={acct.metricValue}>{affiliateCount}</div>
+                                    <div className={acct.metricTrend}>
+                                        <span className={acct.trendValue}>Total Recruits</span>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className={acct.profileDetails}>
@@ -244,8 +294,12 @@ export default function AccountPage() {
                                     <span className={acct.detailValue}>{affiliateCount || 0} Members</span>
                                 </div>
                                 <div className={acct.detailRow}>
-                                    <span className={acct.detailLabel}><Percent size={16} /> Discount</span>
-                                    <span className={acct.detailValue}>{discount || 0}% Pool</span>
+                                    <span className={acct.detailLabel}><Activity size={16} /> Affiliate Level</span>
+                                    <span className={acct.detailValue} style={{ textTransform: 'uppercase', fontWeight: 800 }}>{affiliateLevel || 'starter'}</span>
+                                </div>
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Percent size={16} /> XP Balance</span>
+                                    <span className={acct.detailValue} style={{ color: 'var(--primary)', fontWeight: 800 }}>{xp || 0} XP</span>
                                 </div>
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><MapPin size={16} /> Region</span>

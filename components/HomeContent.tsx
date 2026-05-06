@@ -29,7 +29,8 @@ const DispatchModal = dynamic(() => import('./admin/DispatchModal'), { ssr: fals
 const AuthModal = dynamic(() => import('./AuthModal'), { ssr: false });
 
 export default function HomeContent() {
-  const { user, isAdmin, login, isAuthLoading, affiliateId, affiliateCount, discount, refreshStatus } = useAuth();
+  const { user, isAdmin, login, isAuthLoading, affiliateId, affiliateCount, xp, refreshStatus } = useAuth();
+
   const [showSplash, setShowSplash] = useState(false);
   const { 
     isAuthModalOpen, setIsAuthModalOpen, 
@@ -147,9 +148,10 @@ export default function HomeContent() {
         <AffiliateSection
           affiliateId={affiliateId}
           friendsCount={affiliateCount}
-          discount={discount}
+          xp={xp}
           onRefresh={refreshStatus}
         />
+
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

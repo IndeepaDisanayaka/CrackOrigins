@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Hash, Tag, Percent, Calendar, Plus, Users, Gift, CheckSquare, Square } from 'lucide-react';
+import { Hash, Tag, Percent, Calendar, Plus, Users, Gift, CheckSquare, Square, Trophy } from 'lucide-react';
 import Modal from '../Modal';
 import { createOffer, updateOffer } from '@/lib/admin-actions';
 import { useToast } from '../Toast';
@@ -30,9 +30,10 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
     platform: "steam",
     gameUrl: "",
     isGiveaway: false,
-    targetAffiliates: "10",
+    targetXP: "10",
     offerScope: "local",
   });
+
 
   React.useEffect(() => {
     if (isOpen && editData) {
@@ -47,15 +48,17 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
         platform: editData.platform || "steam",
         gameUrl: editData.gameUrl || "",
         isGiveaway: editData.isGiveaway ?? false,
-        targetAffiliates: editData.targetAffiliates?.toString() || "10",
+        targetXP: editData.targetXP?.toString() || editData.targetAffiliates?.toString() || "10",
         offerScope: editData.offerScope || "local",
       });
+
     } else if (isOpen && !editData) {
       setOfferForm({
         id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, 
         operatingSystem: "windows", platform: "steam", gameUrl: "", 
-        isGiveaway: false, targetAffiliates: "10", offerScope: "local"
+        isGiveaway: false, targetXP: "10", offerScope: "local"
       });
+
     }
   }, [isOpen, editData]);
 
@@ -77,9 +80,10 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
         discount: `${finalDiscount}%`,
         originalPrice: Number(offerForm.originalPrice),
         quantity: Number(offerForm.quantity),
-        targetAffiliates: Number(offerForm.targetAffiliates),
+        targetXP: Number(offerForm.targetXP),
         offerScope: offerForm.offerScope,
       };
+
 
       const result = editData 
         ? await updateOffer(user.uid, editData.id, payload)
@@ -134,8 +138,9 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
                 <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.isGiveaway ? 'var(--primary)' : 'var(--foreground)' }}>
                     LIST AS GIVEAWAY
                 </span>
-                <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Requires affiliate recruitment to claim</span>
+                <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Requires XP investment to claim</span>
             </div>
+
             <Gift size={20} style={{ marginLeft: 'auto', opacity: 0.3 }} />
           </div>
 
@@ -208,10 +213,11 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
             {offerForm.isGiveaway && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <Users size={12} /> Target Affiliates
+                        <Trophy size={12} /> Target XP
                     </label>
-                    <input style={{ flex: 1 }} type="number" placeholder="10" className={styles.adminInput} value={offerForm.targetAffiliates} onChange={e => setOfferForm({ ...offerForm, targetAffiliates: e.target.value })} />
+                    <input style={{ flex: 1 }} type="number" placeholder="50" className={styles.adminInput} value={offerForm.targetXP} onChange={e => setOfferForm({ ...offerForm, targetXP: e.target.value })} />
                 </div>
+
             )}
           </div>
           

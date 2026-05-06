@@ -5,6 +5,7 @@
  */
 
 import { getAdminDb } from './firebase-admin';
+import { addAffiliateReward } from './admin-actions';
 
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET?.trim();
@@ -180,9 +181,22 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 // Limited Offer: Store in 'offers' subcollection with offerId as doc ID
                 await userRef.collection("offers").doc(offerId).set(paymentData);
             } else {
-                // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
+            // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
                 await userRef.collection("payments").doc(orderID).set(paymentData);
             }
+
+            // Affiliate Commission Logic
+            const userDoc = await userRef.get();
+            const userData = userDoc.data();
+            if (userData?.referredBy) {
+                const inviterQuery = await adminDb.collection("accounts").where("affiliateId", "==", userData.referredBy).limit(1).get();
+                if (!inviterQuery.empty) {
+                    const inviterUid = inviterQuery.docs[0].id;
+                    console.log(`[PayPal] Triggering affiliate reward for ${inviterUid} from user ${uid}`);
+                    await addAffiliateReward(inviterUid, 'payment', uid, parseFloat(amount));
+                }
+            }
+
             // Payment recorded successfully
             return { success: true };
         }

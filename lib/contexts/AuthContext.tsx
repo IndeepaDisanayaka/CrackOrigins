@@ -3,13 +3,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as FirebaseUser, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../firebase';
-import { checkAdminStatus, syncUserRecord } from '../admin-actions';
+import { checkAdminStatus, syncUserRecord, getMyPermissions } from '../admin-actions';
+
 
 interface AuthContextType {
   user: FirebaseUser | null;
   isAdmin: boolean;
   affiliateId: string | null;
-  discount: number;
+  xp: number;
+  affiliateLevel: string;
+  affiliateLevelDetails: any;
   affiliateCount: number;
   country: string;
   isAuthLoading: boolean;
@@ -26,7 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
-  const [discount, setDiscount] = useState(0);
+  const [xp, setXp] = useState(0);
+  const [affiliateLevel, setAffiliateLevel] = useState('starter');
+  const [affiliateLevelDetails, setAffiliateLevelDetails] = useState<any>(null);
   const [affiliateCount, setAffiliateCount] = useState(0);
   const [country, setCountry] = useState('Unknown');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -67,18 +72,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshStatus = async () => {
     if (auth.currentUser) {
-      const { checkAdminStatus, getMyPermissions } = await import('../admin-actions');
       const [res, permRes] = await Promise.all([
         checkAdminStatus(auth.currentUser.uid),
         getMyPermissions(auth.currentUser.uid)
       ]);
-      setIsAdmin(res.isAdmin || res.isOwner || false);
-      setIsOwner(res.isOwner || false);
-      setAffiliateId(res.affiliateId);
-      setDiscount(res.discount || 0);
-      setAffiliateCount(res.affiliateCount || 0);
+      
+      if (res.success) {
+        setIsAdmin(res.isAdmin || res.isOwner || false);
+        setIsOwner(res.isOwner || false);
+        setAffiliateId(res.affiliateId);
+        setXp(res.xp || 0);
+        setAffiliateLevel(res.affiliateLevel || 'starter');
+        setAffiliateLevelDetails(res.affiliateLevelDetails || null);
+        setAffiliateCount(res.affiliateCount || 0);
+      }
+
       if (permRes.success) {
-        setPermissions(permRes.permissions || {});
+        const perms = typeof permRes.permissions === 'string' ? {} : (permRes.permissions || {});
+        setPermissions(perms);
       }
     }
   };
@@ -88,26 +99,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u && !u.isAnonymous) {
         setUser(u);
-        const { checkAdminStatus, getMyPermissions } = await import('../admin-actions');
         const [res, permRes] = await Promise.all([
           checkAdminStatus(u.uid),
           getMyPermissions(u.uid)
         ]);
-        setIsAdmin(res.isAdmin || res.isOwner || false);
-        setIsOwner(res.isOwner || false);
-        setAffiliateId(res.affiliateId);
-        setDiscount(res.discount || 0);
-        setAffiliateCount(res.affiliateCount || 0);
-        if (permRes.success) {
-          setPermissions(permRes.permissions || {});
+
+        if (res.success) {
+          setIsAdmin(res.isAdmin || res.isOwner || false);
+          setIsOwner(res.isOwner || false);
+          setAffiliateId(res.affiliateId);
+          setXp(res.xp || 0);
+          setAffiliateLevel(res.affiliateLevel || 'starter');
+          setAffiliateLevelDetails(res.affiliateLevelDetails || null);
+          setAffiliateCount(res.affiliateCount || 0);
         }
+
+        if (permRes.success) {
+          // If it's a wildcard string (owner), use an empty object as isOwner handles full access
+          const perms = typeof permRes.permissions === 'string' ? {} : (permRes.permissions || {});
+          setPermissions(perms);
+        }
+
       } else {
         setUser(null);
         setIsAdmin(false);
         setIsOwner(false);
         setPermissions({});
         setAffiliateId(null);
-        setDiscount(0);
+        setXp(0);
+        setAffiliateLevel('starter');
+        setAffiliateLevelDetails(null);
         setAffiliateCount(0);
       }
       setIsAuthLoading(false);
@@ -177,7 +198,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isAdmin,
       affiliateId,
-      discount,
+      xp,
+      affiliateLevel,
+      affiliateLevelDetails,
       affiliateCount,
       country,
       isAuthLoading,

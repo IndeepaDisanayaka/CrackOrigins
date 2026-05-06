@@ -141,8 +141,8 @@
   gap: 1rem;
   padding: 1.5rem 2rem;
   border-bottom: 1px solid var(--outline-color);
-  background: rgba(0, 0, 0, 0.02);
 }
+
 
 .statItem {
   display: flex;
@@ -161,6 +161,60 @@
   font-size: 0.9rem;
   color: var(--foreground);
   font-weight: 700;
+}
+
+/* Metric Cards */
+.metricCard {
+  background: transparent;
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  padding: 1rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.3s;
+}
+
+
+.metricCard:hover {
+  background: rgba(var(--primary-rgb), 0.06);
+  border-color: rgba(var(--primary-rgb), 0.2);
+}
+
+.metricHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metricIcon {
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+}
+
+.metricTitle {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.metricValue {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--foreground);
+}
+
+.metricTrend {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--primary);
+  opacity: 0.8;
+}
+
+.trendValue {
+  display: block;
 }
 
 .profileDetails {

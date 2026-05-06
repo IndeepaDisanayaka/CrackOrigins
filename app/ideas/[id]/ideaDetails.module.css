@@ -1,0 +1,247 @@
+.ideaWrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 120px 24px 80px;
+  min-height: 100vh;
+}
+
+.topNav {
+  margin-bottom: 32px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid var(--outline-color);
+  color: var(--text-muted);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.backBtn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.category {
+  color: var(--primary);
+}
+
+.title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--foreground);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.authorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+:global(.light-theme) .authorRow {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.authors {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.authorBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  background: var(--outline-color);
+  object-fit: cover;
+}
+
+.authorDetails {
+  display: flex;
+  flex-direction: column;
+}
+
+.authorLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.authorName {
+  font-size: 0.95rem;
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.collabStack {
+  display: flex;
+  align-items: center;
+  margin-left: 10px;
+  padding-left: 20px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+:global(.light-theme) .collabStack {
+  border-left-color: rgba(0, 0, 0, 0.1);
+}
+
+.collabAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  margin-left: -12px;
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+
+.collabAvatar:hover {
+  transform: translateY(-4px);
+  z-index: 10;
+}
+
+.collabAvatar:first-child {
+  margin-left: 0;
+}
+
+.interactions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.statBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.statBtn:hover {
+  color: var(--foreground);
+}
+
+.statBtnActive {
+  color: var(--primary);
+}
+
+.coverImage {
+  width: 100%;
+  height: 450px;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 32px 0;
+  border: 1px solid var(--outline-color);
+}
+
+.coverImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.content {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: var(--foreground);
+  opacity: 0.9;
+  max-width: 800px;
+  margin: 0 auto 60px;
+}
+
+.content p {
+  margin-bottom: 1.5rem;
+}
+
+.content h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 2.5rem 0 1rem;
+  color: var(--foreground);
+}
+
+.content blockquote {
+  border-left: 4px solid var(--primary);
+  padding-left: 1.5rem;
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--foreground);
+  opacity: 0.8;
+  margin: 2.5rem 0;
+  background: rgba(var(--primary-rgb), 0.05);
+  padding: 1.5rem;
+  border-radius: 0 8px 8px 0;
+}
+
+@media (max-width: 768px) {
+  .authorRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .interactions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .collabStack {
+    border-left: none;
+    padding-left: 0;
+    margin-left: 0;
+    margin-top: 12px;
+  }
+
+  .authors {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}

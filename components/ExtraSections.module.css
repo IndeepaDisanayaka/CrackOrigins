@@ -1145,3 +1145,109 @@
   font-weight: 500;
   margin: 0;
 }
+
+/* --- Responsive Layout Enhancements --- */
+.teaserGrid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.leaderboardContainer {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 0;
+}
+
+.globalSteamCard {
+  display: flex;
+  flex-direction: row;
+}
+
+.leaderboardLeft,
+.globalSteamLeft {
+  border-right: 1px solid var(--outline-color);
+}
+
+.teaserTitle {
+  font-size: 3.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--foreground);
+  margin: 1.5rem 0;
+  line-height: 1;
+}
+
+@media (max-width: 1024px) {
+  .teaserGrid, 
+  .leaderboardContainer {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .globalSteamCard {
+    flex-direction: column !important;
+  }
+
+  .leaderboardLeft,
+  .globalSteamLeft {
+    border-right: none !important;
+    border-bottom: 1px solid var(--outline-color);
+  }
+
+  .teaserTitle {
+    font-size: 2.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .sectionTitle {
+    font-size: 1.8rem;
+  }
+
+  .discountPrice {
+    font-size: 1.75rem;
+  }
+
+  .aboutHeroTitle {
+    font-size: 2rem;
+  }
+  
+  .teaserGrid {
+    padding: 2.5rem !important;
+    gap: 2rem;
+  }
+
+  .teaserTitle {
+    font-size: 2rem;
+  }
+  
+  .featureGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .steamInfo {
+    padding: 1.25rem;
+  }
+
+  .steamTitle {
+    font-size: 1.25rem;
+  }
+
+  .keyContainer {
+    flex-direction: column !important;
+    gap: 0.5rem;
+  }
+
+  .btnUnlock {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+  }
+
+  .hiddenKey {
+    width: 100%;
+    font-size: 0.85rem;
+    padding: 0.75rem;
+  }
+}

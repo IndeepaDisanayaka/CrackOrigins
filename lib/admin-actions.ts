@@ -1,16 +1,68 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from './firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+
 import { encrypt, decrypt } from './crypto';
 import { getBlogPosts } from './blog';
+
+export interface RewardLevel {
+    id?: string;
+    title: string;
+    description?: string;
+    onetime_reward_xp: number;
+    payment_commision: number;
+    min_xp: number;
+    max_xp: number;
+}
+
+
+export interface UserRecord {
+    uid: string;
+    name: string | null;
+    email: string | null;
+    photoURL: string | null;
+    isOwner: boolean;
+    country: string;
+    lastLoginAt?: string | null;
+    createdAt?: string | null;
+    isAnonymous?: boolean;
+    ruleId: string | null;
+    xp: number;
+    affiliateLevel: string;
+    affiliateId?: string | null;
+}
+
+export interface PaymentRecord {
+    id: string;
+    userId: string;
+    game: string;
+    payerEmail: string;
+    amount: string;
+    status: string;
+    purchaseDate: string;
+    steamKey: string | null;
+    paypalOrderId: string | null;
+    coupon: string | null;
+    source: "payment" | "offerPayment";
+}
+
+export interface AdminDashboardData {
+    users: UserRecord[];
+    payments: PaymentRecord[];
+    offers: any[];
+    games: any[];
+    coupons: any[];
+}
 
 /**
  * Server Action: Generate a unique slug from title
  */
 export async function generateGameSlug(title: string) {
+    if (!title) return "";
     return title
         .toLowerCase()
+        .trim()
         .replace(/[^\w\s-]/g, '')
         .replace(/[\s_-]+/g, '-')
         .replace(/^-+|-+$/g, '');
@@ -143,18 +195,11 @@ export async function syncUserRecord(uid: string, data: {
             const inviterQuery = await adminDb.collection("accounts").where("affiliateId", "==", data.referralId).limit(1).get();
             
             if (!inviterQuery.empty) {
-                const inviterRef = inviterQuery.docs[0].ref;
-                const { FieldValue } = await import('firebase-admin/firestore');
+                const inviterDoc = inviterQuery.docs[0];
+                const inviterUid = inviterDoc.id;
                 
-                await inviterRef.collection("affiliates").doc(uid).set({
-                    uid: uid,
-                    date: Timestamp.now(),
-                    location: data.country || "Unknown"
-                });
-
-                await inviterRef.update({
-                    discount: FieldValue.increment(5)
-                });
+                // Add registration reward to inviter
+                await addAffiliateReward(inviterUid, 0, 'onetime');
 
                 referredBy = data.referralId;
             }
@@ -170,7 +215,8 @@ export async function syncUserRecord(uid: string, data: {
             last: data.last || null,
             updatedAt: Timestamp.now(),
             affiliateId,
-            discount,
+            xp: userData?.xp ?? userData?.discount ?? 0,
+
             country: data.country || "Unknown",
             emailVerified: data.emailVerified ?? false
         };
@@ -336,15 +382,43 @@ export async function checkAdminStatus(uid: string) {
             await rtdb.ref(`accounts/${uid}/isAdmin`).set(isAdmin);
         } catch (e) {}
 
+        const levelTitle = data?.affiliateLevel || "starter";
+        const levelsSnap = await adminDb.collection("reward_levels").get();
+        const allLevels = levelsSnap.docs.map(d => ({ ...d.data(), id: d.id } as RewardLevel));
+        
+        // Find current level details
+        const sortedLevelsAsc = [...allLevels].sort((a, b) => (a.min_xp || 0) - (b.min_xp || 0));
+        const sortedLevelsDesc = [...allLevels].sort((a, b) => (b.min_xp || 0) - (a.min_xp || 0));
+        
+        const currentLevel = sortedLevelsDesc.find(l => (data?.xp || 0) >= (l.min_xp || 0)) || 
+                           sortedLevelsAsc[0] || 
+                           { title: 'starter', onetime_reward_xp: 5, payment_commision: 2, min_xp: 0, max_xp: 100 };
+
+
+        // Find next level
+        const sortedLevels = [...allLevels].sort((a, b) => (a.min_xp || 0) - (b.min_xp || 0));
+        const nextLevel = sortedLevels.find(l => (l.min_xp || 0) > (currentLevel.min_xp || 0));
+
         return { 
             success: true, 
             isOwner: isOwner,
             isAdmin: isAdmin,
             affiliateId: data?.affiliateId || null,
-            discount: data?.discount || 0,
+            xp: data?.xp ?? data?.discount ?? 0,
+            affiliateLevel: currentLevel.title,
+            affiliateLevelDetails: {
+
+                title: currentLevel.title,
+                onetime_reward_xp: currentLevel.onetime_reward_xp,
+                payment_commision: currentLevel.payment_commision,
+                min_xp: currentLevel.min_xp,
+                max_xp: currentLevel.max_xp,
+                nextLevelGoal: nextLevel ? nextLevel.min_xp : null
+            },
             affiliateCount: affiliatesSnapshot.size
         };
     } catch (err) {
+        console.error("Error in checkAdminStatus:", err);
         return { success: false, isOwner: false, affiliateCount: 0 };
     }
 }
@@ -376,12 +450,12 @@ export async function getAdminDashboardData(adminUid: string) {
 
         const hasAccess = (col: string) => isOwner || (permissions[col] || []).includes('READ');
 
-        const results: any = { users: [], payments: [], offers: [], coupons: [] };
+        const results: AdminDashboardData = { users: [], payments: [], offers: [], games: [], coupons: [] };
 
         // 1. Fetch Users (if authorized)
         if (hasAccess('account')) {
             const accountsSnap = await adminDb.collection("accounts").get();
-            const firestoreUsersMap = new Map();
+            const firestoreUsersMap = new Map<string, UserRecord>();
             
             accountsSnap.forEach(d => {
                 const data = d.data() || {};
@@ -397,7 +471,10 @@ export async function getAdminDashboardData(adminUid: string) {
                     isOwner: data.isOwner === true,
                     country: data.country || "Unknown",
                     ruleId: data.ruleId || null,
+                    xp: data.xp || data.discount || 0,
+                    affiliateLevel: data.affiliateLevel || "starter",
                 });
+
             });
 
             await ensureFirebaseAdminInitialized();
@@ -417,8 +494,11 @@ export async function getAdminDashboardData(adminUid: string) {
                     lastLoginAt: authUser.metadata.lastSignInTime,
                     createdAt: authUser.metadata.creationTime,
                     isAnonymous: authUser.providerData.length === 0,
-                    ruleId: fsUser?.ruleId || null
+                    ruleId: fsUser?.ruleId || null,
+                    xp: fsUser?.xp || 0,
+                    affiliateLevel: fsUser?.affiliateLevel || "starter",
                 });
+
                 seenUids.add(authUser.uid);
             });
 
@@ -447,7 +527,7 @@ export async function getAdminDashboardData(adminUid: string) {
                     gameUrl: data.gameUrl || "",
                     expire: toIsoDate(data.expire) || data.expire || "",
                     isGiveaway: data.isGiveaway || false,
-                    targetAffiliates: data.targetAffiliates || 10,
+                    targetXP: data.targetXP || data.targetAffiliates || 10,
                     offerScope: data.offerScope || "local",
                     listed: toIsoDate(data.listed),
                 };
@@ -503,7 +583,7 @@ export async function getAdminDashboardData(adminUid: string) {
                 adminDb.collectionGroup("offers").get()
             ]);
 
-            const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
+            const pushPayment = (doc: FirebaseFirestore.QueryDocumentSnapshot, source: "payment" | "offerPayment") => {
                 const pathParts = doc.ref.path.split('/');
                 if (pathParts.length < 4 || pathParts[0] !== 'accounts') return;
                 
@@ -583,8 +663,8 @@ export async function generateAffiliateCoupon(uid: string) {
         if (!userDoc.exists) return { success: false, error: "User not found." };
         
         const data = userDoc.data()!;
-        const discountVal = data.discount || 0;
-        if (discountVal <= 0) return { success: false, error: "No discount points." };
+        const xpVal = data.xp ?? data.discount ?? 0;
+        if (xpVal <= 0) return { success: false, error: "No XP available." };
 
         const couponCode = `REF-${Math.random().toString(36).substring(2, 12).toUpperCase()}`;
         const expireDate = new Date();
@@ -592,7 +672,7 @@ export async function generateAffiliateCoupon(uid: string) {
 
         await adminDb.collection("coupons").doc(couponCode).set({
             name: `Affiliate Reward (${data.name})`,
-            discount: `${discountVal}%`,
+            discount: `${xpVal} XP`,
             quantity: 1,
             expire: expireDate.toISOString().split('T')[0],
             createdAt: Timestamp.now(),
@@ -600,7 +680,7 @@ export async function generateAffiliateCoupon(uid: string) {
             userId: uid
         });
 
-        await userRef.update({ discount: 0 });
+        await userRef.update({ xp: 0, discount: 0 });
         return { success: true, couponCode };
     } catch (error: any) {
         console.error("Error generating affiliate coupon:", error);
@@ -676,6 +756,7 @@ export async function createOffer(adminUid: string, offerData: {
     platform: string;
     gameUrl?: string;
     isGiveaway?: boolean;
+    targetXP?: number;
     targetAffiliates?: number;
 }) {
     try {
@@ -695,7 +776,7 @@ export async function createOffer(adminUid: string, offerData: {
             quantity: Number(offerData.quantity),
             expire: Timestamp.fromDate(new Date(offerData.expire)),
             listed: Timestamp.now(),
-            targetAffiliates: Number(offerData.targetAffiliates || 10),
+            targetXP: Number(offerData.targetXP || offerData.targetAffiliates || 10),
         });
 
         return { success: true };
@@ -783,27 +864,25 @@ export async function getUserKey(uid: string, offerId: string) {
     }
 }
 
-/**
- * Server Action: Get affiliate recruitment progress for a specific offer
- */
-export async function getAffiliateProgress(uid: string, listedDateIso: string) {
+export async function getAffiliateProgress(uid: string, listedTime: string, offerId: string) {
     try {
         const adminDb = await getAdminDb();
-        const { Timestamp } = await import('firebase-admin/firestore');
         
-        const listedDate = new Date(listedDateIso);
-        if (isNaN(listedDate.getTime())) return { success: true, count: 0 };
+        // Query the user's own 'offers' subcollection to see their individual investment progress
+        const offerDoc = await adminDb.collection("accounts").doc(uid).collection("offers").doc(offerId).get();
+        
+        if (!offerDoc.exists) {
+            return { success: true, count: 0 };
+        }
 
-        const affiliatesRef = adminDb.collection("accounts").doc(uid).collection("affiliates");
-        const q = affiliatesRef.where('date', '>=', Timestamp.fromDate(listedDate));
-        const snapshot = await q.get();
-        
-        return { success: true, count: snapshot.size };
-    } catch (error: any) {
-        console.error("Error fetching affiliate progress:", error);
-        return { success: false, error: error.message };
+        const data = offerDoc.data();
+        return { success: true, count: data?.investedXP || 0 };
+    } catch (err: any) {
+        console.error("Error fetching affiliate progress:", err);
+        return { success: false, error: err.message };
     }
 }
+
 /**
  * Server Action: Delete a blog post file (Owner only)
  */
@@ -1134,12 +1213,15 @@ export async function getGameBySlug(slug: string) {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("games").get();
         
+        const decodedSlug = decodeURIComponent(slug);
+        const inputSlugNormalized = await generateGameSlug(decodedSlug);
+        
         let targetDoc = null;
         for (const doc of snapshot.docs) {
             const data = doc.data();
             const generated = await generateGameSlug(data.title || "");
             
-            if (generated === slug) {
+            if (generated === inputSlugNormalized) {
                 targetDoc = doc;
                 break;
             }
@@ -1591,8 +1673,10 @@ export async function updateOffer(adminUid: string, offerId: string, offerData: 
         if (offerData.quantity !== undefined) {
              payload.quantity = Number(offerData.quantity);
         }
-        if (offerData.targetAffiliates !== undefined) {
-             payload.targetAffiliates = Number(offerData.targetAffiliates);
+        if (offerData.targetXP !== undefined) {
+             payload.targetXP = Number(offerData.targetXP);
+        } else if (offerData.targetAffiliates !== undefined) {
+             payload.targetXP = Number(offerData.targetAffiliates);
         }
 
         if (offerData.expire) {
@@ -1610,3 +1694,380 @@ export async function updateOffer(adminUid: string, offerId: string, offerData: 
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Server Action: Fetch all reward levels
+ */
+export async function getRewardLevels() {
+    try {
+        const adminDb = await getAdminDb();
+        const snapshot = await adminDb.collection("reward_levels").orderBy("min_xp", "asc").get();
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as RewardLevel[];
+    } catch (err: any) {
+        return [];
+    }
+}
+
+/**
+ * Server Action: Save/Update affiliate level (Owner only)
+ */
+export async function saveRewardLevel(adminUid: string, levelData: any) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        const { id, ...data } = levelData;
+        const levelRef = id ? adminDb.collection("reward_levels").doc(id) : adminDb.collection("reward_levels").doc();
+        await levelRef.set(data, { merge: true });
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Server Action: Delete affiliate level (Owner only)
+ */
+export async function deleteRewardLevel(adminUid: string, levelId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+
+        await adminDb.collection("reward_levels").doc(levelId).delete();
+        return { success: true };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+
+/**
+ * Server Action: Update user's reward level based on XP
+ */
+export async function updateUserLevel(uid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const userRef = adminDb.collection("accounts").doc(uid);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return;
+
+        const userData = userDoc.data()!;
+        const currentXP = userData.xp ?? userData.discount ?? 0; // Support both fields during transition
+
+        const levelsSnap = await adminDb.collection("reward_levels").orderBy("min_xp", "desc").get();
+        let newLevel = "starter";
+        
+        for (const d of levelsSnap.docs) {
+            const level = d.data();
+            if (currentXP >= (level.min_xp || 0)) {
+                newLevel = level.title;
+                break; // Found the highest level
+            }
+        }
+
+
+        await userRef.update({ affiliateLevel: newLevel });
+    } catch (err) {}
+}
+
+/**
+ * Server Action: Add reward XP to an inviter
+ */
+export async function addAffiliateReward(inviterUid: string, amount: number, type: 'onetime' | 'commission') {
+    try {
+        const adminDb = await getAdminDb();
+        const userRef = adminDb.collection("accounts").doc(inviterUid);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return { success: false, error: "Inviter not found." };
+
+        const userData = userDoc.data()!;
+        const currentLevelTitle = userData.affiliateLevel || "starter";
+
+        // Fetch level config
+        const levelsSnap = await adminDb.collection("reward_levels").where("title", "==", currentLevelTitle).get();
+        const levelData = levelsSnap.docs[0]?.data();
+        const commPercent = levelData?.payment_commision || 2;
+
+        let rewardXP = 0;
+        if (type === 'onetime') {
+            rewardXP = levelData?.onetime_reward_xp || 5;
+        } else {
+            // commission based on payment amount
+            rewardXP = Math.ceil((amount * commPercent) / 100);
+        }
+
+        console.log(`[AffiliateReward] User: ${inviterUid}, Level: ${currentLevelTitle}, Reward: ${rewardXP} XP, Type: ${type}`);
+
+        if (rewardXP > 0) {
+            await userRef.update({
+                xp: FieldValue.increment(rewardXP),
+                discount: FieldValue.increment(rewardXP) // Keep syncing to discount for now just in case
+            });
+
+
+            // Log history
+            await userRef.collection("reward_history").add({
+                type: type,
+                rewardXP: rewardXP,
+                amount: amount,
+                timestamp: Timestamp.now()
+            });
+
+            // Log to unified activity
+            await userRef.collection("activity").add({
+                type: 'gain',
+                subType: type === 'onetime' ? 'referral' : 'commission',
+                xp: rewardXP,
+                title: type === 'onetime' ? 'New Recruit Reward' : 'Mission Commission',
+                details: type === 'onetime' ? 'Successfully recruited a new agent.' : `Earned commission from a recruit's purchase.`,
+                date: Timestamp.now()
+            });
+
+            // Update level after getting XP
+            await updateUserLevel(inviterUid);
+
+        }
+
+        return { success: true };
+    } catch (err: any) {
+        console.error("Error adding affiliate reward:", err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Server Action: Invest XP into an offer
+ */
+export async function investXP(uid: string, offerId: string, xp: number) {
+    try {
+        const adminDb = await getAdminDb();
+        const userRef = adminDb.collection("accounts").doc(uid);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return { success: false, error: "User not found." };
+
+        const userData = userDoc.data()!;
+        const currentXP = userData.xp ?? userData.discount ?? 0;
+        if (currentXP < xp) {
+
+            return { success: false, error: "Insufficient XP." };
+        }
+
+        // Check if goal reached
+
+        const offerRef = adminDb.collection("offers").doc(offerId);
+        const offerDoc = await offerRef.get();
+        const offerData = offerDoc.data();
+        if (!offerData) return { success: false, error: "Offer not found." };
+
+        const targetXP = Number(offerData.targetXP || offerData.targetAffiliates || 10);
+        let currentProgress = 0;
+
+        if (offerData.offerScope === 'global') {
+            // Global: community-wide progress
+            const investmentsSnap = await offerRef.collection("investments").get();
+            investmentsSnap.forEach(d => currentProgress += Number(d.data().xp || 0));
+        } else {
+            // Local: individual user progress
+            const userOfferDoc = await userRef.collection("offers").doc(offerId).get();
+            if (userOfferDoc.exists) {
+                currentProgress = userOfferDoc.data()?.investedXP || 0;
+            }
+        }
+
+        if (currentProgress >= targetXP) {
+             return { success: false, error: "Goal already reached! Investment failed." };
+        }
+
+
+        // Subtract XP
+
+        await userRef.update({
+            xp: FieldValue.increment(-xp),
+            discount: FieldValue.increment(-xp)
+        });
+
+        // Add to user's offer record
+        await userRef.collection("offers").doc(offerId).set({
+            offerId: offerId,
+            investedXP: FieldValue.increment(xp),
+            lastInvested: Timestamp.now(),
+            status: "investing"
+        }, { merge: true });
+
+
+        // Add to global offer investments (using add() for separate records)
+        await adminDb.collection("offers").doc(offerId).collection("investments").add({
+            uid: uid,
+            xp: xp,
+            datetime: Timestamp.now(),
+            email: userData.email,
+            name: userData.name,
+            photoURL: userData.photoURL
+        });
+
+        // Log to unified activity
+        await userRef.collection("activity").add({
+            type: 'spent',
+            subType: 'investment',
+            xp: -xp,
+            title: `Invested in ${offerData.title}`,
+            details: `Committed XP to help reach the giveaway goal.`,
+            date: Timestamp.now(),
+            offerId: offerId
+        });
+
+
+
+
+        // Update level after spending points
+        await updateUserLevel(uid);
+
+        return { success: true };
+    } catch (err: any) {
+        console.error("Error investing XP:", err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Server Action: Get unified user activity (Affiliates, Investments, Refunds)
+ */
+export async function getUserActivity(uid: string) {
+
+    try {
+        const adminDb = await getAdminDb();
+        const userRef = adminDb.collection("accounts").doc(uid);
+        
+        // 1. Fetch from unified activity collection
+        const activitySnap = await userRef.collection("activity").orderBy("date", "desc").limit(50).get();
+        const activity: any[] = activitySnap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+            date: toIsoDate(d.data().date)
+        }));
+
+
+        // 2. Fallback: If unified activity is empty (legacy users), fetch from reward_history
+        if (activity.length === 0) {
+            const historySnap = await userRef.collection("reward_history").orderBy("timestamp", "desc").limit(20).get();
+            for (const d of historySnap.docs) {
+                const data = d.data();
+                activity.push({
+                    id: d.id,
+                    type: 'gain',
+                    subType: data.type || 'onetime',
+                    xp: data.rewardXP || 0,
+                    date: toIsoDate(data.timestamp),
+                    title: data.type === 'onetime' ? 'Referral Reward' : 'Mission Commission',
+                    details: `Legacy reward record.`
+                });
+            }
+        }
+
+
+        return { success: true, activity };
+    } catch (err: any) {
+        console.error("Error fetching user activity:", err);
+        return { success: false, error: err.message };
+    }
+}
+
+
+/**
+ * Server Action: Return XP to users who didn't win (Admin only)
+ */
+export async function returnGameXP(adminUid: string, offerId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.data()?.isOwner && !adminDoc.data()?.ruleId) {
+            return { success: false, error: "Unauthorized." };
+        }
+
+        const offerRef = adminDb.collection("offers").doc(offerId);
+        const investmentsSnap = await offerRef.collection("investments").get();
+        
+        if (investmentsSnap.empty) return { success: true, message: "No investments to return." };
+
+        // Aggregate by user to find the winner
+        const userXPMap: { [uid: string]: number } = {};
+        investmentsSnap.forEach(d => {
+            const data = d.data();
+            const uid = data.uid;
+            if (!uid) return;
+            const xp = Number(data.xp || 0);
+            userXPMap[uid] = (userXPMap[uid] || 0) + xp;
+        });
+
+        // Find winner (uid with most XP)
+        let winnerUid = "";
+        let maxXP = -1;
+        for (const [uid, xp] of Object.entries(userXPMap)) {
+            if (xp > maxXP) {
+                maxXP = xp;
+                winnerUid = uid;
+            }
+        }
+
+        const offerDoc = await offerRef.get();
+        const offerData = offerDoc.data();
+        if (!offerData) return { success: false, error: "Offer not found." };
+
+        const targetXP = Number(offerData.targetXP || 10);
+
+        let currentTotal = 0;
+        investmentsSnap.forEach(d => currentTotal += Number(d.data().xp || 0));
+        
+        // If goal not reached, no one is a winner, return to everyone
+        const goalReached = currentTotal >= targetXP;
+        const actualWinner = goalReached ? winnerUid : null;
+
+        let returnCount = 0;
+        for (const d of investmentsSnap.docs) {
+            const data = d.data();
+            if (data.isReturned) continue;
+            if (actualWinner && data.uid === actualWinner) continue; // Winner doesn't get XP back
+
+
+            const xpToReturn = Number(data.xp || 0);
+            if (xpToReturn <= 0) continue;
+
+            const userRef = adminDb.collection("accounts").doc(data.uid);
+            
+            // Return XP to user
+            try {
+                await userRef.update({
+                    xp: FieldValue.increment(xpToReturn),
+                    discount: FieldValue.increment(xpToReturn)
+                });
+                
+                // Log to unified activity
+                await userRef.collection("activity").add({
+                    type: 'gain',
+                    subType: 'refund',
+                    xp: xpToReturn,
+                    title: `XP Returned`,
+                    details: `Refunded XP for unreached goal or lost challenge.`,
+                    date: Timestamp.now(),
+                    offerId: offerId
+                });
+
+                // Mark as returned
+                await d.ref.update({ isReturned: true });
+                returnCount++;
+            } catch (uErr) {
+                console.error(`Failed to return XP to user ${data.uid}:`, uErr);
+            }
+
+        }
+
+        return { success: true, message: `Successfully returned XP for ${returnCount} investments. Winner UID: ${winnerUid}.` };
+    } catch (err: any) {
+        console.error("Error returning XP:", err);
+        return { success: false, error: err.message };
+    }
+}
+
+

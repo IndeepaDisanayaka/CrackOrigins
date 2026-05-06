@@ -20,7 +20,7 @@ export default function Hero() {
         <div className={styles.heroContent}>
           <div className={`${styles.heroBadge} animateText animateText1`}>
             <span className={styles.badgeNew}>Notice</span>
-            <span className={styles.badgeText}>Collect unique experiences with COS's</span>
+            <span className={styles.badgeText}>Collect unique experiences with CO's</span>
           </div>
 
           <h1 className={`${styles.heroTitle} animateText animateText2`}>

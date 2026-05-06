@@ -1,33 +1,57 @@
 'use client';
 import React, { useState } from 'react';
 import styles from './AffiliateSection.module.css';
-import { UserPlus, Share2, Ticket, TrendingUp, Gift, ChevronRight, Copy, Check } from 'lucide-react';
+import { UserPlus, Share2, Ticket, TrendingUp, Gift, ChevronRight, Copy, Check, Users, Trophy, Activity } from 'lucide-react';
+
 import { useToast } from './Toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateAffiliateCoupon, getUserCoupons } from '@/lib/admin-actions';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { generateAffiliateCoupon, getUserCoupons, getRewardLevels, getUserActivity } from '@/lib/admin-actions';
+
+
 import { auth } from '@/lib/firebase';
 import Modal from './Modal';
 
-const MILESTONES = [
-  { friends: 1, discount: '5%', label: 'Scout' },
-  { friends: 5, discount: '25%', label: 'Commander' },
-  { friends: 10, discount: '50%', label: 'Legend' },
-  { friends: 20, discount: '100%', label: 'God Tier' },
-];
+// Removed static MILESTONES as we now use dynamic Affiliate Levels from the database.
 
-export default function AffiliateSection({ affiliateId, friendsCount = 0, discount = 0, onRefresh }: { affiliateId: string | null, friendsCount?: number, discount?: number, onRefresh?: () => void }) {
+export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0, onRefresh }: { affiliateId: string | null, friendsCount?: number, xp?: number, onRefresh?: () => void }) {
+
   const [isCopied, setIsCopied] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isCouponsModalOpen, setIsCouponsModalOpen] = useState(false);
-  const [userCoupons, setUserCoupons] = useState<any[]>([]);
-  const [holdProgress, setHoldProgress] = useState(0);
-  const [holdTimer, setHoldTimer] = useState<NodeJS.Timeout | null>(null);
+  const [levels, setLevels] = useState<any[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+
   const { showToast } = useToast();
+
+  React.useEffect(() => {
+    getRewardLevels().then(res => {
+        if (Array.isArray(res)) {
+            setLevels(res);
+        }
+    });
+  }, []);
+
+
+  const { affiliateLevel, affiliateLevelDetails } = useAuth();
+  const MILESTONES = levels.map(l => ({
+    friends: l.min_xp,
+    label: l.title,
+    reward: l.onetime_reward_xp,
+    commission: l.payment_commision
+  }));
+  
+  const currentXP = xp;
+  const nextLevel = levels.find(l => l.min_xp > currentXP);
+  const lastLevel = levels.length > 0 ? levels[levels.length - 1] : null;
+  const maxXP = nextLevel ? nextLevel.min_xp : (lastLevel ? lastLevel.min_xp : 20);
+
+
+
 
   const referralLink = affiliateId 
     ? `${window.location.origin}/?ref=${affiliateId}` 
     : "Please login to get your referral link";
-  const currentDiscount = discount;
 
   const handleCopy = () => {
     if (!affiliateId) {
@@ -40,77 +64,29 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const handleGenerateCoupon = async () => {
+  // Removed discount conversion logic as points are now automatically added to the account balance.
+
+  const handleViewRewards = async () => {
     if (!auth.currentUser) {
         showToast("Please login first!", "error");
         return;
     }
-    if (discount <= 0) {
-        showToast("You don't have any discount to apply.", "error");
-        return;
-    }
-
-    setIsGenerating(true);
+    
+    setIsHistoryOpen(true);
+    setIsLoadingActivity(true);
     try {
-        const res = await generateAffiliateCoupon(auth.currentUser.uid);
-        if (res.success) {
-            showToast(`Success! Your coupon code: ${res.couponCode}`, "success");
-            if (onRefresh) onRefresh();
+        const res = await getUserActivity(auth.currentUser.uid);
+        if (res.success && res.activity) {
+            setActivity(res.activity);
         } else {
-            showToast(res.error || "Failed to generate coupon.", "error");
+            showToast(res.error || "Failed to load activity", "error");
         }
     } catch (err) {
-        showToast("Error processing request.", "error");
+        showToast("Error loading activity history", "error");
     } finally {
-        setIsGenerating(false);
-        setHoldProgress(0);
+        setIsLoadingActivity(false);
     }
-  };
 
-  const startHold = () => {
-    if (isGenerating || discount <= 0) return;
-    
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += 2; // 2% every 100ms = 5 seconds total
-        setHoldProgress(progress);
-        
-        if (progress >= 100) {
-            clearInterval(interval);
-            setHoldTimer(null);
-            handleGenerateCoupon();
-        }
-    }, 100);
-    setHoldTimer(interval);
-  };
-
-  const stopHold = () => {
-    if (holdTimer) {
-        clearInterval(holdTimer);
-        setHoldTimer(null);
-        if (holdProgress < 100) {
-            setHoldProgress(0);
-        }
-    }
-  };
-
-  const handleViewCoupons = async () => {
-    if (!auth.currentUser) {
-        showToast("Please login first!", "error");
-        return;
-    }
-    try {
-        const res = await getUserCoupons(auth.currentUser.uid);
-        if (res.success) {
-            setUserCoupons(res.coupons || []);
-            setIsCouponsModalOpen(true);
-        } else {
-            showToast(res.error || "Failed to fetch coupons.", "error");
-        }
-    } catch (err: any) {
-        console.error("DEBUG FETCH:", err);
-        showToast("Error processing request.", "error");
-    }
   };
 
   return (
@@ -137,11 +113,12 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
             >
                 <TrendingUp size={12} /> Affiliate Program
             </motion.span>
-            <h2 className={styles.title}>Grow the Tribe, <span className={styles.highlight}>Shrink the Price</span></h2>
+            <h2 className={styles.title}>Grow the Tribe, <span className={styles.highlight}>Rise the Ranks</span></h2>
             <div className={styles.description}>
-              Every comrade you bring to the battlefield earns you a permanent <strong>5% stacking discount</strong>.
-              Invite friends, collect power-ups, and unlock your library for free.
+              Every comrade you recruit earns you permanent <strong>Affiliate XP</strong>. 
+              Climb the ranks, unlock higher commissions, and earn automatic rewards with every milestone.
             </div>
+
           </div>
 
           <div className={styles.referralBox}>
@@ -160,10 +137,10 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
                 {isCopied ? <Check size={18} /> : <Copy size={18} />}
               </motion.button>
             </div>
-            <motion.button 
+              <motion.button 
                 className={styles.inviteBtn}
                 whileHover={{ scale: 1.05, rotate: -1 }}
-                onClick={handleViewCoupons}
+                onClick={handleViewRewards}
             >
               <Ticket size={16} /> My Rewards History
             </motion.button>
@@ -171,10 +148,11 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
 
           <div className={styles.statsRow}>
             {[
-                { val: friendsCount, label: "Friends Invited" },
-                { val: `${currentDiscount}%`, label: "Current Discount" },
-                { val: "$0.00", label: "Total Saved" }
+                { val: friendsCount, label: "Comrades Recruited" },
+                { val: currentXP, label: "Total Rank XP" },
+                { val: affiliateLevel.toUpperCase(), label: "Current Rank" }
             ].map((stat, i) => (
+
                 <motion.div 
                     key={i} 
                     className={styles.statCard}
@@ -192,26 +170,28 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
         {/* Right Side: Visual Progress */}
         <div className={styles.progressVisual}>
           <div className={styles.progHeader}>
-            <h3 className={styles.progTitle}>Milestone Rewards</h3>
-            <span className={styles.progSubtitle}>Stack up to 100% OFF</span>
+            <h3 className={styles.progTitle}>Affiliate Ranks</h3>
+            <span className={styles.progSubtitle}>Earn up to {levels.length > 0 ? levels[levels.length-1].payment_commision : 0}% Commission</span>
           </div>
 
           <div className={styles.milestoneList}>
             {MILESTONES.map((m, i) => {
-              const isActive = friendsCount >= m.friends;
+              const isActive = currentXP >= m.friends;
               return (
+
                 <motion.div 
                     key={i} 
                     className={`${styles.milestoneItem} ${isActive ? styles.activeItem : ''}`}
                     whileHover={{ x: 5, scale: 1.02 }}
                 >
-                  <div className={styles.iconCircle}>
-                    {isActive ? <Check size={16} /> : <Gift size={16} />}
+                <div className={styles.iconCircle}>
+                    {isActive ? <Check size={16} /> : <TrendingUp size={16} />}
                   </div>
                   <div className={styles.mInfo}>
                     <span className={styles.mLabel}>{m.label}</span>
-                    <span className={styles.mDesc}>{m.friends} Friend{m.friends > 1 ? 's' : ''} — <strong>{m.discount} OFF</strong></span>
+                    <span className={styles.mDesc}>{m.friends} XP — <strong>{m.commission}% Commission</strong></span>
                   </div>
+
                   <ChevronRight size={16} />
                 </motion.div>
               );
@@ -221,84 +201,100 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, discou
           <div className={styles.progressBarWrapper}>
             <div className={styles.progressLabels}>
                 {MILESTONES.map((m, i) => (
-                    <span key={i} className={styles.progLabel} style={{ left: `${(m.friends / 20) * 100}%` }}>{m.friends}</span>
+                    <span key={i} className={styles.progLabel} style={{ left: `${(m.friends / maxXP) * 100}%` }}>{m.friends}</span>
                 ))}
             </div>
+
             <div className={styles.progressBar}>
               <motion.div 
                 className={styles.progressFill} 
                 initial={{ width: 0 }}
-                whileInView={{ width: `${Math.min(100, (friendsCount / 20) * 100)}%` }}
+                whileInView={{ width: `${Math.min(100, (currentXP / maxXP) * 100)}%` }}
                 transition={{ duration: 1.5, ease: "circOut" }}
+
               >
                   <div className={styles.glowEffect}></div>
               </motion.div>
-              {MILESTONES.map((m, i) => (
-                  <div 
-                    key={i} 
-                    className={`${styles.marker} ${friendsCount >= m.friends ? styles.activeMarker : ''}`}
-                    style={{ left: `${(m.friends / 20) * 100}%` }}
-                  ></div>
-              ))}
+              {MILESTONES.map((m, i) => {
+                  const isMarkerActive = currentXP >= m.friends;
+                  return (
+                    <div 
+                        key={i} 
+                        className={`${styles.marker} ${isMarkerActive ? styles.activeMarker : ''}`}
+                        style={{ 
+                            left: `${(m.friends / maxXP) * 100}%`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        {isMarkerActive && <Check size={8} color="#000" strokeWidth={4} />}
+                    </div>
+                  );
+              })}
             </div>
           </div>
 
-          <motion.button 
-            className={styles.applyAllBtn}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            disabled={isGenerating || discount <= 0}
-            onMouseDown={startHold}
-            onMouseUp={stopHold}
-            onMouseLeave={stopHold}
-            onTouchStart={startHold}
-            onTouchEnd={stopHold}
-          >
-            <div className={styles.buttonHoldFill} style={{ width: `${holdProgress}%` }}></div>
-            <div className={styles.buttonText}>
-                {isGenerating ? "Processing..." : holdProgress > 0 ? `Hold to Apply... ${Math.ceil((100 - holdProgress) / 20)}s` : <><Ticket size={18} /> Apply Combined Discount ({discount}%)</>}
-            </div>
-          </motion.button>
+          <div className={styles.xpNotice}>
+
+            <TrendingUp size={16} color="var(--primary)" />
+            <span>XP is automatically added to your balance on every successful referral.</span>
+          </div>
+
         </div>
       </motion.div>
 
-      {/* Coupons View Modal */}
-      <Modal isOpen={isCouponsModalOpen} onClose={() => setIsCouponsModalOpen(false)} title="My Reward Coupons">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem 0' }}>
-            {userCoupons.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem 0' }}>
-                    No coupons generated yet. Invite friends to earn discounts!
-                </div>
-            ) : (
-                userCoupons.map((c, i) => {
-                    const expireDate = new Date(c.expire);
-                    if (c.expire.length <= 10) expireDate.setHours(23, 59, 59, 999);
-                    const isExpired = expireDate < new Date();
-                    const isUsed = c.quantity <= 0;
+      {/* Removed Coupons Modal as discounts are no longer generated */}
 
-                    return (
-                        <div key={i} className={`${styles.couponDetailCard} ${(isExpired || isUsed) ? styles.dimmedCoupon : ''}`}>
-                            <div className={styles.couponInfo}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span className={styles.couponName}>{c.name}</span>
-                                    {isUsed && <span className={styles.statusBadge_used}>Used</span>}
-                                    {isExpired && !isUsed && <span className={styles.statusBadge_expired}>Expired</span>}
-                                </div>
-                                <span className={styles.couponExpire}>Expires: {c.expire}</span>
-                            </div>
-                            <div className={styles.couponAction}>
-                                <span className={styles.couponCodeText}>{c.code}</span>
-                                <button className={styles.miniCopy} onClick={() => { navigator.clipboard.writeText(c.code); showToast("Copied!", "success"); }}>
-                                    <Copy size={12} />
-                                </button>
-                            </div>
-                            <div className={styles.couponBadge}>{c.discount}</div>
+      <Modal 
+        isOpen={isHistoryOpen} 
+        onClose={() => setIsHistoryOpen(false)} 
+        title="Account Activity"
+        maxWidth="500px"
+      >
+        <div className={styles.recruitsList}>
+            {isLoadingActivity ? (
+                <div className={styles.emptyState}>
+                    <div className="premiumLoader"><div className="glitchLoader">SYNCING...</div></div>
+                    <p>Fetching your activity records...</p>
+                </div>
+            ) : activity.length > 0 ? (
+                activity.map((item, i) => (
+                    <motion.div 
+                        key={i} 
+                        className={styles.recruitItem}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                    >
+                        <div className={styles.recruitAvatar} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--outline-color)' }}>
+                            {item.type === 'spent' ? (
+                                <TrendingUp size={20} color="#ff4d4d" />
+                            ) : (
+                                <Gift size={20} color="var(--primary)" />
+                            )}
                         </div>
-                    );
-                })
+                        <div className={styles.recruitInfo}>
+                            <span className={styles.recruitName}>{item.title}</span>
+                            <span className={styles.recruitType}>{item.details} • {item.date}</span>
+                        </div>
+                        <div className={styles.recruitXP}>
+                            <span className={styles.earnedXP} style={{ color: item.xp < 0 ? '#ff4d4d' : 'var(--primary)' }}>
+                                {item.xp > 0 ? '+' : ''}{item.xp}
+                            </span>
+                            <span className={styles.earnedLabel}>XP</span>
+                        </div>
+                    </motion.div>
+                ))
+            ) : (
+                <div className={styles.emptyState}>
+                    <Activity size={48} className={styles.emptyIcon} />
+                    <p>No activity found yet. Start earning and investing XP!</p>
+                </div>
             )}
         </div>
       </Modal>
+
     </motion.section>
   );
 }

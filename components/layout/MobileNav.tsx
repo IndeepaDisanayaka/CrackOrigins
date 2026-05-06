@@ -39,6 +39,9 @@ export default function MobileNav({ isOpen, setIsOpen }: { isOpen: boolean, setI
         <Link href="/blog" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <MessageSquare size={18} /> Blog
         </Link>
+        <Link href="/ideas" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
+          <Briefcase size={18} /> Ideas
+        </Link>
         <Link href="/#keys" onClick={() => setIsOpen(false)} className={styles.mobileLink}>
           <Swords size={18} /> Keys
         </Link>

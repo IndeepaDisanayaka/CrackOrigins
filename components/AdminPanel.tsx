@@ -45,8 +45,10 @@ import {
   cleanupExpiredOffers,
   getMyPermissions,
   assignRuleToUser,
-  getAccountRules
+  getAccountRules,
+  returnGameXP
 } from '@/lib/admin-actions';
+
 import RolesModal from './admin/RolesModal';
 import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
@@ -55,6 +57,7 @@ import { rtdb } from '../lib/firebase';
 import { ref, onValue, remove } from 'firebase/database';
 import Link from 'next/link';
 import { formatDate } from 'date-fns';
+import AffiliateLevelModal from './admin/AffiliateLevelModal';
 
 interface AdminPanelProps {
   userUid: string;
@@ -113,6 +116,11 @@ export default function AdminPanel({
   const [keyModal, setKeyModal] = useState<{ open: boolean; targetUid: string; paymentId: string; key: string }>({
     open: false, targetUid: "", paymentId: "", key: ""
   });
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+  const [refundConfirm, setRefundConfirm] = useState<{ open: boolean; offerId: string; title: string }>({
+    open: false, offerId: "", title: ""
+  });
+
   
   // Creation Modals
   const [showAddOffer, setShowAddOffer] = useState(false);
@@ -123,6 +131,7 @@ export default function AdminPanel({
   const [assignRoleModal, setAssignRoleModal] = useState<{ open: boolean; targetUid: string; currentRuleId?: string; name: string }>({
     open: false, targetUid: "", name: ""
   });
+  const [showAffiliateLevels, setShowAffiliateLevels] = useState(false);
   
   const [editGameData, setEditGameData] = useState<any>(null);
   const [editOfferData, setEditOfferData] = useState<any>(null);
@@ -295,6 +304,31 @@ export default function AdminPanel({
       fetchData();
     } else showToast(res.error || "Error", "error");
   };
+
+  const handleReturnXPClick = (offerId: string, title: string) => {
+    setRefundConfirm({ open: true, offerId, title });
+  };
+
+  const confirmRefund = async () => {
+    if (isProcessingRefund) return;
+    setIsProcessingRefund(true);
+    try {
+        const res = await returnGameXP(userUid, refundConfirm.offerId);
+        if (res.success) {
+            showToast(res.message || "XP successfully returned.", "success");
+            setRefundConfirm({ open: false, offerId: "", title: "" });
+            fetchData();
+        } else {
+            showToast(res.error || "Failed to return XP.", "error");
+        }
+    } catch (e) {
+        showToast("An error occurred.", "error");
+    } finally {
+        setIsProcessingRefund(false);
+    }
+  };
+
+
 
   const toggleOwner = async () => {
     const res = await updateUserOwnerStatus(userUid, roleConfirm.targetUid, roleConfirm.nextOwner);
@@ -1010,6 +1044,14 @@ export default function AdminPanel({
                             >
                               <Shield size={13} /> Manage Rules
                             </button>
+                            <button 
+                              onClick={() => setShowAffiliateLevels(true)} 
+                              className="btnSolid" 
+                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem' }}
+                            >
+                              <TrendingUp size={13} /> Reward Levels
+
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1188,6 +1230,9 @@ export default function AdminPanel({
                                        <div><strong>Name:</strong> {u.name || "Anonymous"}</div>
                                        <div><strong>Country:</strong> {u.country || "Unknown"}</div>
                                        <div><strong>Role:</strong> {u.isOwner ? "OWNER" : "USER"}</div>
+                                       <div><strong>XP Balance:</strong> {u.xp || u.discount || 0} XP</div>
+
+                                       <div><strong>Affiliate Level:</strong> <span style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{u.affiliateLevel || "starter"}</span></div>
                                      </div>
                                    </td>
                                  </tr>
@@ -1332,6 +1377,16 @@ export default function AdminPanel({
                                          <RefreshCw size={12} style={{ marginRight: '0.2rem' }} /> Edit Offer
                                        </button>
                                      )}
+                                     {hasPerm('offers', 'UPDATE') && (
+                                       <button 
+                                         onClick={() => handleReturnXPClick(g.id, g.title)}
+                                         className="btnOutline" 
+                                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', color: '#ff8c00', borderColor: '#ff8c00' }}
+                                       >
+                                         <RefreshCw size={12} style={{ marginRight: '0.2rem' }} /> Return XP
+                                       </button>
+                                     )}
+
                                    </div>
                                  </td>
                                </tr>
@@ -1404,6 +1459,12 @@ export default function AdminPanel({
     <RolesModal 
         isOpen={showRolesModal} 
         onClose={() => setShowRolesModal(false)} 
+        adminUid={userUid} 
+      />
+
+    <AffiliateLevelModal 
+        isOpen={showAffiliateLevels} 
+        onClose={() => setShowAffiliateLevels(false)} 
         adminUid={userUid} 
       />
 
@@ -1573,6 +1634,31 @@ export default function AdminPanel({
             </div>
         </div>
     </Modal>
+    {/* Refund XP Confirmation */}
+    <Modal isOpen={refundConfirm.open} onClose={() => setRefundConfirm({ ...refundConfirm, open: false })} maxWidth="400px">
+        <div style={{ padding: '2rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                <RefreshCw size={30} color="#ff8c00" className={isProcessingRefund ? 'spin' : ''} />
+            </div>
+            <h3 style={{ fontWeight: 800, marginBottom: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Return XP?</h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem', lineHeight: 1.6 }}>
+                Are you sure you want to return XP to all non-winners for <strong>{refundConfirm.title}</strong>? <br/>
+                <span style={{ color: '#ff8c00', fontWeight: 700 }}>This action is permanent and cannot be undone.</span>
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.8rem' }} onClick={() => setRefundConfirm({ ...refundConfirm, open: false })} disabled={isProcessingRefund}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ width: '100%', padding: '0.8rem', background: '#ff8c00', color: '#000', border: 'none', fontWeight: 900 }} 
+                    onClick={confirmRefund}
+                    disabled={isProcessingRefund}
+                >
+                    {isProcessingRefund ? 'PROCESSING...' : 'CONFIRM REFUND'}
+                </button>
+            </div>
+        </div>
+    </Modal>
+
     </>
   );
 }
