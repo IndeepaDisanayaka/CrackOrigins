@@ -1209,9 +1209,11 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
  * Server Action: Fetch a single game by its slug (generated from title)
  */
 export async function getGameBySlug(slug: string) {
+    console.log(`[getGameBySlug] Fetching game with slug: "${slug}"`);
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("games").get();
+        console.log(`[getGameBySlug] Found ${snapshot.size} games in collection.`);
         
         const decodedSlug = decodeURIComponent(slug);
         const inputSlugNormalized = await generateGameSlug(decodedSlug);
@@ -1238,7 +1240,7 @@ export async function getGameBySlug(slug: string) {
                 min: data.requirement?.min || {},
                 max: data.requirement?.max || {}
             },
-            time: data.time?.toDate()?.toISOString() || new Date().toISOString(),
+            time: toIsoDate(data.time) || new Date().toISOString(),
             downloadCount: data.downloadCount || 0
         };
 
@@ -1261,7 +1263,7 @@ export async function getGameBySlug(slug: string) {
         const reviews = reviewsSnap.docs.map(r => ({ 
             id: r.id, 
             ...r.data(),
-            time: r.data().time?.toDate()?.toISOString() || new Date().toISOString()
+            time: toIsoDate(r.data().time) || new Date().toISOString()
         }));
 
         return { success: true, game, updates, reviews };

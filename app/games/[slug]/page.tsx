@@ -63,9 +63,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function GamePage({ params }: Props) {
     const { slug } = await params;
+    console.log(`[GamePage] Loading page for slug: ${slug}`);
     const res = await getGameBySlug(slug);
+    console.log(`[GamePage] getGameBySlug result: success=${res.success}`);
 
     if (!res.success || !res.game) {
+        console.log(`[GamePage] Game not found or error, triggering notFound()`);
         notFound();
     }
 

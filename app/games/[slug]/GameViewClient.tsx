@@ -254,7 +254,7 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                 <div className={styles.breadcrumb}>
                                     <Link href="/" style={{ color: 'inherit' }}>Home</Link> 
                                     <ChevronRight size={12} /> 
-                                    <span>Creations</span> 
+                                    <Link href="/games" style={{ color: 'inherit' }}>Creations</Link> 
                                     <ChevronRight size={12} /> 
                                     <span style={{ color: 'var(--foreground)' }}>{game.title}</span>
                                 </div>

@@ -76,7 +76,7 @@ export async function getGiveawayLeaderboard(target: number, listedTime: string,
         // Fetch all investments for this specific offer
         const investmentsSnap = await adminDb.collection("offers").doc(offerId).collection("investments").get();
 
-        const userMap = new Map<string, { displayName: string, xp: number, photoURL?: string }>();
+        const userMap = new Map<string, { uid: string, displayName: string, xp: number, photoURL?: string }>();
         let totalFilled = 0;
 
         investmentsSnap.forEach(d => {

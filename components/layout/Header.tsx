@@ -1,18 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { Gamepad2, Menu, X, User, Shield, Tag, Swords, Plus, FileUp, ChevronDown } from 'lucide-react';
+import { Gamepad2, Menu, X, User, Shield, Tag, Swords, Plus, FileUp, ChevronDown, FileText } from 'lucide-react';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useModals } from '../../lib/contexts/ModalContext';
 import ThemeToggle from '../ThemeToggle';
 import styles from '../../app/page.module.css';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+
+const CreateIdeaModal = dynamic(() => import('../ideas/CreateIdeaModal'), { ssr: false });
 
 export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (v: boolean) => void }) {
   const { user, isAdmin, isOwner, permissions, isAuthLoading, xp, logout } = useAuth();
 
-  const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen, setIsDispatchModalOpen } = useModals();
+  const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen, setIsDispatchModalOpen, setIsCreateIdeaOpen, isCreateIdeaOpen } = useModals();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -22,15 +25,16 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
   if (!mounted) return null;
 
   return (
+    <>
     <header className={styles.header}>
       <div className={styles.navLinks}>
         <Link href="/" className={styles.link}>Home</Link>
         <div className={styles.dropdownContainer}>
-          <Link href="/#games" className={styles.link}>
+          <Link href="/games" className={styles.link}>
             Games <ChevronDown size={12} className={styles.dropdownArrow} />
           </Link>
           <div className={styles.dropdownMenu}>
-            <Link href="/#games" className={styles.dropdownItem}>Our Games</Link>
+            <Link href="/games" className={styles.dropdownItem}>Our Games</Link>
             <Link href="/#keys" className={styles.dropdownItem}>Offer Games</Link>
           </div>
         </div>
@@ -66,6 +70,14 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
           </div>
         ) : user ? (
           <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button
+              className={`${styles.desktopOnlyAction} btnOutline`}
+              onClick={() => setIsCreateIdeaOpen(true)}
+              title="Publish New Story (Idea)"
+              style={{ padding: '0.6rem', border: '1px solid var(--primary)', cursor: 'pointer' }}
+            >
+              <FileText size={18} />
+            </button>
             {isAdmin && (
               <>
                 {(isOwner || (permissions['blogs'] || []).includes('WRITE')) && (
@@ -165,5 +177,10 @@ export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMo
         </button>
       </div>
     </header>
+    <CreateIdeaModal 
+      isOpen={isCreateIdeaOpen} 
+      onClose={() => setIsCreateIdeaOpen(false)} 
+    />
+  </>
   );
 }

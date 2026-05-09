@@ -193,7 +193,7 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 if (!inviterQuery.empty) {
                     const inviterUid = inviterQuery.docs[0].id;
                     console.log(`[PayPal] Triggering affiliate reward for ${inviterUid} from user ${uid}`);
-                    await addAffiliateReward(inviterUid, 'payment', uid, parseFloat(amount));
+                    await addAffiliateReward(inviterUid, parseFloat(amount), 'commission');
                 }
             }
 
