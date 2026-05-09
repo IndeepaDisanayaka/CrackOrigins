@@ -60,6 +60,12 @@
   transition: all 0.2s ease;
 }
 
+.toolBtn:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .toolBtn:hover {
   background: rgba(254, 182, 12, 0.1);
   color: var(--primary);
@@ -225,7 +231,6 @@
   content: attr(data-placeholder);
   color: var(--primary);
   opacity: 0.3;
-  font-style: italic;
   text-transform: none;
   letter-spacing: normal;
 }
@@ -283,7 +288,21 @@
   content: attr(data-placeholder);
   color: var(--primary);
   opacity: 0.3;
-  font-style: italic;
+}
+
+.removeBtnPara {
+  background: transparent;
+  border: none;
+  color: rgba(254, 182, 12, 0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px;
+}
+
+.removeBtnPara:hover {
+  color: #ff4d4d;
+  background: rgba(255, 77, 77, 0.1);
+  border-radius: 4px;
 }
 
 .editableParagraph:focus {
@@ -346,17 +365,112 @@
   background: rgba(var(--primary-rgb), 0.05);
 }
 
+/* Insertion Divider */
+.insertDivider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  margin: -10px 0;
+  position: relative;
+  z-index: 10;
+}
+
+.insertBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px dashed rgba(254, 182, 12, 0.2);
+  border-radius: 20px;
+  color: var(--primary);
+  padding: 4px 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.3;
+}
+
+.insertBtn:hover {
+  opacity: 1;
+  background: rgba(254, 182, 12, 0.05);
+  border-style: solid;
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+/* Standardized Confirm Modal */
+.confirmModalInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.confirmIconBox {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(254, 182, 12, 0.1);
+  border: 1px solid rgba(254, 182, 12, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  box-shadow: 0 0 20px rgba(254, 182, 12, 0.1);
+}
+
+.confirmMessage {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--foreground);
+  opacity: 0.8;
+  max-width: 320px;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.confirmActions button {
+  flex: 1;
+}
+
+.modalCancelBtn {
+  background: transparent;
+  border: 1px solid var(--outline-color);
+  color: var(--foreground);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modalCancelBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--primary);
+}
+
 /* Empty State */
 .emptyState {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 40px;
+  padding: 100px 20px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.02);
-  border: 2px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
+  background: rgba(254, 182, 12, 0.02);
+  border: 2px dashed rgba(254, 182, 12, 0.1);
+  border-radius: 20px;
+  color: var(--text-muted);
 }
 
 .emptyIcon {

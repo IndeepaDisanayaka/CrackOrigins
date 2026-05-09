@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Eye, Heart, Share2, MessageSquare } from 'lucide-react';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { ArrowLeft, Eye, Heart, Share2, MessageSquare, Pencil } from 'lucide-react';
+import { doc, getDoc, Timestamp, collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { fireStore } from '@/lib/firebase';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
@@ -17,8 +17,8 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useModals } from '@/lib/contexts/ModalContext';
 import AuthModal from '@/components/AuthModal';
 import IdeaEditor from '@/components/ideas/IdeaEditor';
-import { saveCollaborationContent } from '@/lib/idea-actions';
 import { useToast } from '@/components/Toast';
+import { getIdeaSections, saveCollaborationContent } from '@/lib/idea-actions';
 import { parseHtmlToStructured, structuredToHtml } from '@/lib/text-parser';
 
 const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
@@ -37,6 +37,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isLiked, setIsLiked] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mode, setMode] = useState<'reader' | 'editor'>('reader');
+  const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const { user, isAdmin, login } = useAuth();
@@ -60,7 +61,16 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setIdea({ id: docSnap.id, ...data });
+          
+          // Fetch sections using Server Action to bypass client permission issues
+          const sectionsRes = await getIdeaSections(id);
+          const sectionsData = sectionsRes.success ? sectionsRes.sections : [];
+
+          setIdea({ 
+            id: docSnap.id, 
+            ...data,
+            sections: sectionsData
+          });
           
           if (slug && data.slug && slug !== data.slug) {
             router.replace(`/ideas/${id}/${data.slug}`);
@@ -281,7 +291,21 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
               <div className={`blog-content ${styles.readerContent}`}>
                 {idea.sections && idea.sections.map((section: any, index: number) => (
                   <section key={section.id || index} className={styles.blogSection}>
-                    <h1 className={styles.blogSectionTitle}>{section.title}</h1>
+                    <div className={styles.sectionHeaderReader}>
+                      <button 
+                        className={styles.inlineEditBtn} 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTargetSectionId(section.id);
+                          setMode('editor');
+                        }}
+                        title="Edit this section"
+                      >
+                        <Pencil size={14} />
+                        <span>Edit Section</span>
+                      </button>
+                      <h1 className={styles.blogSectionTitle}>{section.title}</h1>
+                    </div>
                     {section.paragraphs.map((para: any, pIndex: number) => {
                       const htmlContent = typeof para === 'string' ? para : structuredToHtml(para);
                       return <p key={pIndex} dangerouslySetInnerHTML={{ __html: htmlContent }} />;
@@ -306,6 +330,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                   initialContent={idea.sections || []}
                   onSave={handleSaveContent}
                   isSaving={isSaving}
+                  targetSectionId={targetSectionId}
                 />
 
                 <div style={{ marginTop: '3rem', textAlign: 'center' }}>

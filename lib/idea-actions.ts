@@ -136,10 +136,31 @@ export async function saveCollaborationContent(
         }
 
         await batch.commit();
-
         return { success: true, approved: isAuthor };
     } catch (error: any) {
         console.error("Error saving content:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getIdeaSections(ideaId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const sectionsRef = adminDb.collection("ideas").doc(ideaId).collection("creator");
+        const snapshot = await sectionsRef.orderBy('orderid', 'asc').get();
+        
+        const sections = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                title: data.subtitle || '',
+                paragraphs: data.paragraph || []
+            };
+        });
+        
+        return { success: true, sections };
+    } catch (error: any) {
+        console.error("Error fetching sections:", error);
         return { success: false, error: error.message };
     }
 }
