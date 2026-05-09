@@ -283,6 +283,21 @@
   align-self: flex-start;
 }
 
+.savingIndicator {
+  font-size: 0.7rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  color: var(--primary);
+  opacity: 0.8;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .authorRow {

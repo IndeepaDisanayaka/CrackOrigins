@@ -17,6 +17,9 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useModals } from '@/lib/contexts/ModalContext';
 import AuthModal from '@/components/AuthModal';
 import IdeaEditor from '@/components/ideas/IdeaEditor';
+import { saveCollaborationContent } from '@/lib/idea-actions';
+import { useToast } from '@/components/Toast';
+import { parseHtmlToStructured, structuredToHtml } from '@/lib/text-parser';
 
 const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
 const CouponModal = dynamic(() => import('@/components/admin/CouponModal'), { ssr: false });
@@ -34,8 +37,10 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isLiked, setIsLiked] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mode, setMode] = useState<'reader' | 'editor'>('reader');
+  const [isSaving, setIsSaving] = useState(false);
 
   const { user, isAdmin, login } = useAuth();
+  const { showToast } = useToast();
   const { 
     isAuthModalOpen, setIsAuthModalOpen,
     isAdminModalOpen, setIsAdminModalOpen,
@@ -95,6 +100,49 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
       </div>
     );
   }
+
+  const handleSaveContent = async (content: any[], toCloud?: boolean) => {
+    // Always update local state
+    setIdea((prev: any) => ({ ...prev, sections: content }));
+
+    if (toCloud) {
+      if (!user) {
+        showToast("Authentication Required", "warning", { subtitle: "You must be logged in to save to the cloud." });
+        setIsAuthModalOpen(true);
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        // Transform paragraphs to structured data (typography) as requested
+        const structuredSections = content.map(section => ({
+          ...section,
+          paragraphs: section.paragraphs.map((p: string) => parseHtmlToStructured(p))
+        }));
+
+        const res = await saveCollaborationContent(id, {
+          uid: user.uid,
+          name: user.displayName || 'Anonymous',
+          photo: user.photoURL || ''
+        }, structuredSections);
+
+        if (res.success) {
+          showToast(
+            res.approved ? "Changes Published" : "Draft Saved", 
+            "success", 
+            { subtitle: res.approved ? "Your changes are now live!" : "Your contribution has been saved for review." }
+          );
+        } else {
+          showToast("Save Failed", "error", { subtitle: res.error });
+        }
+      } catch (err: any) {
+        console.error("Cloud save error:", err);
+        showToast("System Error", "error", { subtitle: "An unexpected error occurred while saving." });
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
 
   if (error || !idea) {
     return (
@@ -234,9 +282,10 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 {idea.sections && idea.sections.map((section: any, index: number) => (
                   <section key={section.id || index} className={styles.blogSection}>
                     <h1 className={styles.blogSectionTitle}>{section.title}</h1>
-                    {section.paragraphs.map((para: string, pIndex: number) => (
-                      <p key={pIndex} dangerouslySetInnerHTML={{ __html: para }} />
-                    ))}
+                    {section.paragraphs.map((para: any, pIndex: number) => {
+                      const htmlContent = typeof para === 'string' ? para : structuredToHtml(para);
+                      return <p key={pIndex} dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+                    })}
                   </section>
                 ))}
                 {!idea.sections && (
@@ -247,19 +296,21 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
               </div>
             ) : (
               <div className={styles.editorModeContent}>
-                <span className={styles.editorHint}>Editor Mode Active</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span className={styles.editorHint}>Editor Mode Active</span>
+                  {isSaving && <span className={styles.savingIndicator}>Saving to Cloud...</span>}
+                </div>
                 
                 <IdeaEditor 
+                  id={id}
                   initialContent={idea.sections || []}
-                  onSave={async (content) => {
-                    console.log("Saving content:", content);
-                    setIdea({ ...idea, sections: content });
-                  }}
+                  onSave={handleSaveContent}
+                  isSaving={isSaving}
                 />
 
                 <div style={{ marginTop: '3rem', textAlign: 'center' }}>
-                  <p style={{ color: 'var(--primary)', fontWeight: 800 }}>DRAFT SAVED AUTOMATICALLY</p>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>You are in live editing mode. Changes will be synced to the database.</p>
+                  <p style={{ color: 'var(--primary)', fontWeight: 800 }}>DRAFT SAVED LOCALLY</p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Use "SAVE TO CLOUD" to sync your changes to the database.</p>
                 </div>
               </div>
             )}

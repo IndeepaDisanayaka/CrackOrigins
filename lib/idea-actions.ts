@@ -55,3 +55,91 @@ export async function publishIdea(uid: string, ideaData: {
         return { success: false, error: error.message };
     }
 }
+
+export async function saveCollaborationContent(
+    ideaId: string, 
+    editorData: {
+        uid: string;
+        name: string;
+        photo?: string;
+    },
+    sections: any[]
+) {
+    try {
+        const adminDb = await getAdminDb();
+        const ideaRef = adminDb.collection("ideas").doc(ideaId);
+        const ideaDoc = await ideaRef.get();
+
+        if (!ideaDoc.exists) {
+            return { success: false, error: "Idea not found." };
+        }
+
+        const ideaData = ideaDoc.data();
+        const isAuthor = ideaData?.authorUid === editorData.uid;
+
+        const batch = adminDb.batch();
+        
+        if (isAuthor) {
+            // Creator exclusive sub-collection
+            const creatorCollectionRef = ideaRef.collection("creator");
+            
+            // Clear existing creator sections
+            const existingCreatorDocs = await creatorCollectionRef.get();
+            existingCreatorDocs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+
+            // Save new sections to creator collection
+            sections.forEach((section, index) => {
+                const creatorDocRef = creatorCollectionRef.doc();
+                batch.set(creatorDocRef, {
+                    id: section.id || creatorDocRef.id,
+                    subtitle: section.title || '',
+                    paragraph: section.paragraphs || [],
+                    orderid: index + 1,
+                    isApproved: true,
+                    time: Timestamp.now(),
+                });
+            });
+
+            // Also update the main document's sections for the Reader view
+            batch.update(ideaRef, {
+                sections: sections.map((s, index) => ({
+                    ...s,
+                    order: index
+                })),
+                lastUpdated: Timestamp.now()
+            });
+        } else {
+            // Guest/Collaborator sub-collection
+            const collabCollectionRef = ideaRef.collection("collaborations");
+
+            // Clear existing collaboration sections by this editor
+            const existingDocs = await collabCollectionRef.where("authorId", "==", editorData.uid).get();
+            existingDocs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+
+            // Add new sections
+            sections.forEach((section, index) => {
+                const collabDocRef = collabCollectionRef.doc();
+                batch.set(collabDocRef, {
+                    authorId: editorData.uid,
+                    id: section.id || collabDocRef.id,
+                    subtitle: section.title || '',
+                    paragraph: section.paragraphs || [],
+                    orderid: index + 1,
+                    isApproved: false,
+                    time: Timestamp.now(),
+                });
+            });
+        }
+
+        await batch.commit();
+
+        return { success: true, approved: isAuthor };
+    } catch (error: any) {
+        console.error("Error saving content:", error);
+        return { success: false, error: error.message };
+    }
+}
