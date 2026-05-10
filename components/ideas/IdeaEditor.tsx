@@ -25,18 +25,18 @@ interface IdeaEditorProps {
   targetSectionId?: string | null;
 }
 
-const ConfirmModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title, 
-  message 
-}: { 
-  isOpen: boolean, 
-  onClose: () => void, 
-  onConfirm: () => void, 
-  title: string, 
-  message: string 
+const ConfirmModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message
+}: {
+  isOpen: boolean,
+  onClose: () => void,
+  onConfirm: () => void,
+  title: string,
+  message: string
 }) => (
   <Modal isOpen={isOpen} onClose={onClose} title={title}>
     <div className={styles.confirmModalInner}>
@@ -158,7 +158,7 @@ const SectionItem = ({
             <div className={styles.paragraphActions}>
               {section.paragraphs.length > 1 && (
                 <button
-                  onClick={() => removeParagraph(section.id, pIndex)} 
+                  onClick={() => removeParagraph(section.id, pIndex)}
                   className={styles.removeBtnPara}
                   title="Remove Paragraph"
                 >
@@ -186,7 +186,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
   const initialized = useRef(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [focusType, setFocusType] = useState<'title' | 'paragraph' | null>(null);
-  
+
   // Ref to track and scroll to target section
   useEffect(() => {
     if (targetSectionId && initialized.current) {
@@ -228,14 +228,14 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
     const processInitialContent = (content: ContentSection[]) => {
       return content.map(section => ({
         ...section,
-        paragraphs: section.paragraphs.map((p: any) => 
+        paragraphs: section.paragraphs.map((p: any) =>
           typeof p === 'string' ? p : structuredToHtml(p)
         )
       }));
     };
 
     const savedDraft = localStorage.getItem(`idea_draft_${id}`);
-    
+
     // If we have a saved draft, use it
     if (savedDraft && !initialized.current) {
       try {
@@ -244,8 +244,8 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
       } catch (e) {
         console.error("Draft parse error", e);
       }
-    } 
-    
+    }
+
     // If no draft yet, but initialContent arrived, use it
     if (!initialized.current && initialContent.length > 0) {
       setSections(processInitialContent(initialContent));
@@ -265,7 +265,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
     const processInitialContent = (content: ContentSection[]) => {
       return content.map(section => ({
         ...section,
-        paragraphs: section.paragraphs.map((p: any) => 
+        paragraphs: section.paragraphs.map((p: any) =>
           typeof p === 'string' ? p : structuredToHtml(p)
         )
       }));
@@ -282,7 +282,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
         const processInitialContent = (content: ContentSection[]) => {
           return content.map(section => ({
             ...section,
-            paragraphs: section.paragraphs.map((p: any) => 
+            paragraphs: section.paragraphs.map((p: any) =>
               typeof p === 'string' ? p : structuredToHtml(p)
             )
           }));
@@ -299,7 +299,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
 
   const saveLocally = (content: ContentSection[]) => {
     setIsLocalSaving(true);
-    
+
     // Simulate a brief delay for a premium feel
     setTimeout(() => {
       localStorage.setItem(`idea_draft_${id}`, JSON.stringify(content));
@@ -315,7 +315,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
       title: 'New Section Title',
       paragraphs: ['']
     };
-    
+
     if (typeof index === 'number') {
       const newSections = [...sections];
       newSections.splice(index, 0, newSection);
@@ -433,8 +433,8 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
         </div>
 
         <div className={styles.toolbarGroup} style={{ marginLeft: 'auto', gap: '12px' }}>
-          <button 
-            onClick={() => saveLocally(sections)} 
+          <button
+            onClick={() => saveLocally(sections)}
             className={`${styles.saveBtn} ${isLocalSaving ? styles.btnProcessing : ''}`}
             disabled={isLocalSaving}
           >
@@ -466,35 +466,35 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
             {sections
               .filter(s => !isSingleMode || s.id === targetSectionId)
               .map((section, index) => (
-              <React.Fragment key={section.id}>
-                <SectionItem 
-                  section={section}
-                  activeSectionId={activeSectionId}
-                  setActiveSectionId={(id, type) => {
-                    setActiveSectionId(id);
-                    setFocusType(type);
-                  }}
-                  updateTitle={updateTitle}
-                  removeSection={removeSection}
-                  updateParagraph={updateParagraph}
-                  removeParagraph={removeParagraph}
-                  addParagraph={addParagraph}
-                  sectionsLength={sections.length}
-                />
-                
-                {/* Insert between sections */}
-                <div className={styles.insertDivider}>
-                  <button 
-                    onClick={() => addSection(index + 1)} 
-                    className={styles.insertBtn}
-                    title="Insert section here"
-                  >
-                    <Plus size={14} />
-                    <span>INSERT SECTION</span>
-                  </button>
-                </div>
-              </React.Fragment>
-            ))}
+                <React.Fragment key={section.id}>
+                  <SectionItem
+                    section={section}
+                    activeSectionId={activeSectionId}
+                    setActiveSectionId={(id, type) => {
+                      setActiveSectionId(id);
+                      setFocusType(type);
+                    }}
+                    updateTitle={updateTitle}
+                    removeSection={removeSection}
+                    updateParagraph={updateParagraph}
+                    removeParagraph={removeParagraph}
+                    addParagraph={addParagraph}
+                    sectionsLength={sections.length}
+                  />
+
+                  {/* Insert between sections */}
+                  <div className={styles.insertDivider}>
+                    <button
+                      onClick={() => addSection(index + 1)}
+                      className={styles.insertBtn}
+                      title="Insert section here"
+                    >
+                      <Plus size={14} />
+                      <span>INSERT SECTION</span>
+                    </button>
+                  </div>
+                </React.Fragment>
+              ))}
           </AnimatePresence>
         </Reorder.Group>
 
@@ -510,7 +510,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
         )}
       </div>
 
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={showSyncConfirm}
         onClose={() => setShowSyncConfirm(false)}
         onConfirm={loadLiveContent}
