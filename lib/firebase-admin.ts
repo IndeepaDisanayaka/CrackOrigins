@@ -29,10 +29,58 @@ export async function ensureFirebaseAdminInitialized() {
     console.log("Firebase Admin initialized securely.");
 }
 
-export async function getAdminDb() {
-    const { getFirestore } = await import('firebase-admin/firestore');
-    await ensureFirebaseAdminInitialized();
-    return getFirestore();
+import { FirestoreToMongoAdapter } from './firestore-to-mongo-adapter';
+
+export interface AdminDb {
+    collection(name: string): CollectionRef;
+    collectionGroup(name: string): CollectionRef;
+    batch(): Batch;
+}
+export interface CollectionRef {
+    doc(id?: string): DocRef;
+    add(data: any): Promise<DocRef>;
+    where(f: string, op: string, v: any): Query;
+    orderBy(f: string, dir?: string): Query;
+    limit(n: number): Query;
+    get(): Promise<QuerySnap>;
+}
+export interface Query {
+    where(f: string, op: string, v: any): Query;
+    orderBy(f: string, dir?: string): Query;
+    limit(n: number): Query;
+    get(): Promise<QuerySnap>;
+}
+export interface DocRef {
+    id: string;
+    path: string;
+    collection(name: string): CollectionRef;
+    get(): Promise<DocSnap>;
+    set(data: any, options?: any): Promise<void>;
+    update(data: any): Promise<void>;
+    delete(): Promise<void>;
+}
+export interface QuerySnap {
+    empty: boolean;
+    size: number;
+    docs: DocSnap[];
+    forEach(cb: (doc: DocSnap) => void): void;
+}
+export interface DocSnap {
+    id: string;
+    ref: DocRef;
+    exists: boolean;
+    data(): any;
+}
+export interface Batch {
+    set(ref: DocRef, data: any, options?: any): void;
+    update(ref: DocRef, data: any): void;
+    delete(ref: DocRef): void;
+    commit(): Promise<void>;
+}
+
+export async function getAdminDb(): Promise<AdminDb> {
+    // We seamlessly route all admin Firestore requests to MongoDB using the adapter!
+    return new FirestoreToMongoAdapter() as any;
 }
 
 export async function getAdminRtdb() {

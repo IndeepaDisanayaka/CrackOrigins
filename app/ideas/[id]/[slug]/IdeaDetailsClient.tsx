@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Eye, Heart, Share2, MessageSquare, Pencil } from 'lucide-react';
-import { doc, getDoc, Timestamp, collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { fireStore } from '@/lib/firebase';
+import { Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft } from 'lucide-react';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -18,7 +16,7 @@ import { useModals } from '@/lib/contexts/ModalContext';
 import AuthModal from '@/components/AuthModal';
 import IdeaEditor from '@/components/ideas/IdeaEditor';
 import { useToast } from '@/components/Toast';
-import { getIdeaSections, saveCollaborationContent } from '@/lib/idea-actions';
+import { getIdeaSections, saveCollaborationContent, getIdeaById } from '@/lib/idea-actions';
 import { parseHtmlToStructured, structuredToHtml } from '@/lib/text-parser';
 
 const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
@@ -56,18 +54,17 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
       if (!id) return;
       setLoading(true);
       try {
-        const docRef = doc(fireStore, 'ideas', id);
-        const docSnap = await getDoc(docRef);
+        const ideaRes = await getIdeaById(id);
         
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        if (ideaRes.success && ideaRes.idea) {
+          const data = ideaRes.idea;
           
           // Fetch sections using Server Action to bypass client permission issues
           const sectionsRes = await getIdeaSections(id);
           const sectionsData = sectionsRes.success ? sectionsRes.sections : [];
 
           setIdea({ 
-            id: docSnap.id, 
+            id: data._id || id, 
             ...data,
             sections: sectionsData
           });
@@ -99,7 +96,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'Recently';
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
+    const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 

@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import { fireStore } from '../../lib/firebase';
+import { getIdeas } from '../../lib/idea-actions';
 import { motion } from 'framer-motion';
 import { TrendingUp, Bookmark, Heart, ArrowRight, Zap, FileText, LayoutGrid, List, Search, Filter } from 'lucide-react';
 import Header from '../../components/layout/Header';
@@ -58,26 +57,25 @@ export default function IdeasClient() {
   };
 
   useEffect(() => {
-    const q = query(collection(fireStore, 'ideas'), orderBy('time', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ideasData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setIdeas(ideasData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching ideas: ", error);
-      setLoading(false);
-    });
+    const fetchIdeas = async () => {
+      try {
+        const res = await getIdeas();
+        if (res.success && res.ideas) {
+          setIdeas(res.ideas);
+        }
+      } catch (error) {
+        console.error("Error fetching ideas: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    fetchIdeas();
   }, []);
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'Just now';
-    const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
+    const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
@@ -332,13 +330,13 @@ export default function IdeasClient() {
                 </div>
               ) : ideas.map((post, i) => (
                 <motion.article 
-                  key={post.id} 
+                  key={post.id || post._id} 
                   className={styles.articleCard}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6 }}
-                  onClick={() => router.push(`/ideas/${post.id}/${post.slug || getSlug(post.title || 'story')}`)}
+                  onClick={() => router.push(`/ideas/${post.id || post._id}/${post.slug || getSlug(post.title || 'story')}`)}
                   style={{ cursor: 'pointer' }}
                 >
                   {post.image && (

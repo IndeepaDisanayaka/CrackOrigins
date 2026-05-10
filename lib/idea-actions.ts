@@ -1,7 +1,7 @@
 "use server";
 
-import { getAdminDb } from './firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { getMongoDb } from './mongodb';
+import { ObjectId } from 'mongodb';
 
 export async function generateSlug(title: string) {
     return title
@@ -20,7 +20,7 @@ export async function publishIdea(uid: string, ideaData: {
     authorPhoto?: string;
 }) {
     try {
-        const adminDb = await getAdminDb();
+        const db = await getMongoDb();
         
         // Basic validation
         if (!uid || !ideaData.title || !ideaData.description) {
@@ -31,14 +31,15 @@ export async function publishIdea(uid: string, ideaData: {
         let slug = baseSlug;
         
         // Check for slug uniqueness
-        const existing = await adminDb.collection("ideas").where("slug", "==", slug).limit(1).get();
-        if (!existing.empty) {
+        const existing = await db.collection<any>("ideas").findOne({ slug });
+        if (existing) {
             slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
         }
 
-        const ideaRef = adminDb.collection("ideas").doc();
+        const newId = new ObjectId().toHexString();
         
-        await ideaRef.set({
+        await db.collection<any>("ideas").insertOne({
+            _id: newId,
             title: ideaData.title,
             slug: slug,
             description: ideaData.description,
@@ -46,10 +47,10 @@ export async function publishIdea(uid: string, ideaData: {
             author: ideaData.author,
             authorUid: uid,
             authorPhoto: ideaData.authorPhoto || '',
-            time: Timestamp.now(),
+            time: new Date(),
         });
 
-        return { success: true, id: ideaRef.id, slug: slug };
+        return { success: true, id: newId, slug: slug };
     } catch (error: any) {
         console.error("Error publishing idea:", error);
         return { success: false, error: error.message };
@@ -66,76 +67,60 @@ export async function saveCollaborationContent(
     sections: any[]
 ) {
     try {
-        const adminDb = await getAdminDb();
-        const ideaRef = adminDb.collection("ideas").doc(ideaId);
-        const ideaDoc = await ideaRef.get();
+        const db = await getMongoDb();
+        const ideaDoc = await db.collection<any>("ideas").findOne({ _id: ideaId });
 
-        if (!ideaDoc.exists) {
+        if (!ideaDoc) {
             return { success: false, error: "Idea not found." };
         }
 
-        const ideaData = ideaDoc.data();
-        const isAuthor = ideaData?.authorUid === editorData.uid;
+        const isAuthor = ideaDoc.authorUid === editorData.uid;
 
-        const batch = adminDb.batch();
-        
         if (isAuthor) {
-            // Creator exclusive sub-collection
-            const creatorCollectionRef = ideaRef.collection("creator");
-            
-            // Clear existing creator sections
-            const existingCreatorDocs = await creatorCollectionRef.get();
-            existingCreatorDocs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
+            // Delete existing creator sections
+            await db.collection<any>("idea_creator_sections").deleteMany({ ideaId });
 
-            // Save new sections to creator collection
-            sections.forEach((section, index) => {
-                const creatorDocRef = creatorCollectionRef.doc();
-                batch.set(creatorDocRef, {
-                    id: section.id || creatorDocRef.id,
+            // Insert new sections
+            if (sections.length > 0) {
+                const docsToInsert = sections.map((section, index) => ({
+                    _id: section.id || new ObjectId().toHexString(),
+                    ideaId,
                     subtitle: section.title || '',
                     paragraph: section.paragraphs || [],
                     orderid: index + 1,
                     isApproved: true,
-                    time: Timestamp.now(),
-                });
-            });
+                    time: new Date(),
+                }));
+                await db.collection<any>("idea_creator_sections").insertMany(docsToInsert);
+            }
 
-            // Also update the main document's sections for the Reader view
-            batch.update(ideaRef, {
-                sections: sections.map((s, index) => ({
-                    ...s,
-                    order: index
-                })),
-                lastUpdated: Timestamp.now()
+            // Update main document's sections array (for Reader view)
+            await db.collection<any>("ideas").updateOne({ _id: ideaId }, {
+                $set: {
+                    sections: sections.map((s, index) => ({ ...s, order: index })),
+                    lastUpdated: new Date()
+                }
             });
         } else {
-            // Guest/Collaborator sub-collection
-            const collabCollectionRef = ideaRef.collection("collaborations");
-
-            // Clear existing collaboration sections by this editor
-            const existingDocs = await collabCollectionRef.where("authorId", "==", editorData.uid).get();
-            existingDocs.forEach(doc => {
-                batch.delete(doc.ref);
-            });
+            // Delete existing collaboration sections by this editor
+            await db.collection<any>("idea_collaborations").deleteMany({ ideaId, authorId: editorData.uid });
 
             // Add new sections
-            sections.forEach((section, index) => {
-                const collabDocRef = collabCollectionRef.doc();
-                batch.set(collabDocRef, {
+            if (sections.length > 0) {
+                const docsToInsert = sections.map((section, index) => ({
+                    _id: section.id || new ObjectId().toHexString(),
+                    ideaId,
                     authorId: editorData.uid,
-                    id: section.id || collabDocRef.id,
                     subtitle: section.title || '',
                     paragraph: section.paragraphs || [],
                     orderid: index + 1,
                     isApproved: false,
-                    time: Timestamp.now(),
-                });
-            });
+                    time: new Date(),
+                }));
+                await db.collection<any>("idea_collaborations").insertMany(docsToInsert);
+            }
         }
 
-        await batch.commit();
         return { success: true, approved: isAuthor };
     } catch (error: any) {
         console.error("Error saving content:", error);
@@ -145,22 +130,42 @@ export async function saveCollaborationContent(
 
 export async function getIdeaSections(ideaId: string) {
     try {
-        const adminDb = await getAdminDb();
-        const sectionsRef = adminDb.collection("ideas").doc(ideaId).collection("creator");
-        const snapshot = await sectionsRef.orderBy('orderid', 'asc').get();
+        const db = await getMongoDb();
+        const snapshot = await db.collection<any>("idea_creator_sections")
+            .find({ ideaId })
+            .sort({ orderid: 1 })
+            .toArray();
         
-        const sections = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                title: data.subtitle || '',
-                paragraphs: data.paragraph || []
-            };
-        });
+        const sections = snapshot.map(doc => ({
+            id: doc._id,
+            title: doc.subtitle || '',
+            paragraphs: doc.paragraph || []
+        }));
         
         return { success: true, sections };
     } catch (error: any) {
         console.error("Error fetching sections:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getIdeaById(ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        const idea = await db.collection<any>("ideas").findOne({ _id: ideaId });
+        if (!idea) return { success: false, error: "Not found" };
+        return { success: true, idea: JSON.parse(JSON.stringify(idea)) };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getIdeas() {
+    try {
+        const db = await getMongoDb();
+        const ideas = await db.collection<any>("ideas").find().sort({ time: -1 }).toArray();
+        return { success: true, ideas: JSON.parse(JSON.stringify(ideas)) };
+    } catch (error: any) {
         return { success: false, error: error.message };
     }
 }
