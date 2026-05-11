@@ -78,54 +78,64 @@ export async function saveCollaborationContent(
 
         const isAuthor = ideaDoc.authorUid === editorData.uid;
 
-        if (isAuthor) {
-            // Delete existing creator sections
-            await db.collection("creator").deleteMany({ ideaId });
+        // Process sections and form the version chain
+        if (sections.length > 0) {
+            const docsToInsert = await Promise.all(sections.map(async (section, index) => {
+                // Find all approved versions from both collections
+                const [creatorLatest, collabLatest] = await Promise.all([
+                    db.collection("creator").findOne(
+                        { ideaId, sectionId: section.id, isApproved: true },
+                        { sort: { updated_time: -1, time: -1 } }
+                    ),
+                    db.collection("idea_collaborations").findOne(
+                        { ideaId, sectionId: section.id, isApproved: true },
+                        { sort: { updated_time: -1, time: -1 } }
+                    )
+                ]);
 
-            // Insert new sections
-            if (sections.length > 0) {
-                const docsToInsert = sections.map((section, index) => ({
-                    _id: section.id || new ObjectId().toHexString(),
+                // Determine the absolute latest approved version across both collections
+                let lastApproved = null;
+                if (creatorLatest && collabLatest) {
+                    const creatorTime = creatorLatest.updated_time || creatorLatest.time || 0;
+                    const collabTime = collabLatest.updated_time || collabLatest.time || 0;
+                    lastApproved = creatorTime >= collabTime ? creatorLatest : collabLatest;
+                } else {
+                    lastApproved = creatorLatest || collabLatest;
+                }
+
+                return {
+                    _id: new ObjectId(),
                     ideaId,
+                    sectionId: section.id,
+                    authorId: editorData.uid,
                     subtitle: section.title || '',
                     paragraph: section.paragraphs.map((p: any) => ({
-                        text: p.text || '',
+                        text: typeof p === 'string' ? p : (p.text || ''),
                         Typography: p.Typography || []
                     })),
                     orderid: index + 1,
-                    isApproved: true,
+                    isApproved: isAuthor, // Only authors are auto-approved
+                    parentId: lastApproved ? lastApproved._id : null,
                     time: new Date(),
-                }));
-                await db.collection("creator").insertMany(docsToInsert);
-            }
+                    updated_time: new Date()
+                };
+            }));
 
-            // Update main document
+            const collectionName = isAuthor ? "creator" : "idea_collaborations";
+            await db.collection(collectionName).insertMany(docsToInsert as any[]);
+        }
+
+        if (isAuthor) {
+            // Update the main ideas document with the flattened latest state for quick listing
             await db.collection<any>("ideas").updateOne({ _id: ideaId }, {
                 $set: {
                     sections: sections.map((s, index) => ({ ...s, order: index })),
                     lastUpdated: new Date()
                 }
             });
-        } else {
-            // Delete existing collaboration sections by this editor
-            await db.collection("idea_collaborations").deleteMany({ ideaId, authorId: editorData.uid });
-
-            // Add new sections
-            if (sections.length > 0) {
-                const docsToInsert = sections.map((section, index) => ({
-                    _id: section.id || new ObjectId().toHexString(),
-                    ideaId,
-                    authorId: editorData.uid,
-                    subtitle: section.title || '',
-                    paragraph: section.paragraphs || [],
-                    orderid: index + 1,
-                    isApproved: false,
-                    time: new Date(),
-                }));
-                await db.collection("idea_collaborations").insertMany(docsToInsert);
-            }
         }
 
+        // Trigger Next.js revalidation
         try {
             const { revalidatePath, revalidateTag } = await import('next/cache');
             revalidatePath('/ideas');
@@ -179,30 +189,55 @@ export const getIdeaById = cache(
 );
 
 export const getIdeaSections = cache(
-    async (ideaId: string) => {
-        return unstable_cache(
-            async () => {
-                try {
-                    const db = await getMongoDb();
-                    const snapshot = await db.collection("creator")
-                        .find({ ideaId })
-                        .sort({ orderid: 1 })
-                        .toArray();
-                    
-                    const sections = snapshot.map(doc => ({
-                        id: doc._id,
-                        title: doc.subtitle || '',
-                        paragraphs: doc.paragraph || []
-                    }));
-                    
-                    return { success: true, sections };
-                } catch (error: any) {
-                    console.error("Error fetching sections:", error);
-                    return { success: false, error: error.message };
-                }
-            },
-            [`idea-sections-${ideaId}`],
-            { revalidate: 60, tags: [`idea-sections-${ideaId}`] }
-        )();
+    async (ideaId: string, userId?: string) => {
+        try {
+            const db = await getMongoDb();
+            
+            // Build the query to find:
+            // 1. ALL Approved content (creator or collaborations)
+            // 2. The Current User's own (potentially unapproved) content so they don't lose their work
+            const sections = await db.collection("creator").aggregate([
+                { $match: { ideaId, isApproved: true } },
+                { 
+                    $unionWith: { 
+                        coll: "idea_collaborations", 
+                        pipeline: [
+                            // Include ALL approved ones OR the specific user's own edits
+                            { 
+                                $match: { 
+                                    ideaId, 
+                                    $or: [
+                                        { isApproved: true },
+                                        { authorId: userId } // Show my own drafts to me
+                                    ]
+                                } 
+                            }
+                        ] 
+                    } 
+                },
+                { $sort: { updated_time: -1, time: -1 } },
+                { 
+                    $group: {
+                        _id: "$sectionId",
+                        title: { $first: "$subtitle" },
+                        paragraph: { $first: "$paragraph" },
+                        orderid: { $first: "$orderid" },
+                        dbId: { $first: "$_id" }
+                    }
+                },
+                { $sort: { orderid: 1 } }
+            ]).toArray();
+            
+            const mappedSections = sections.map(doc => ({
+                id: doc._id,
+                title: doc.title || '',
+                paragraphs: doc.paragraph || []
+            }));
+            
+            return { success: true, sections: mappedSections };
+        } catch (error: any) {
+            console.error("Error fetching sections:", error);
+            return { success: false, error: error.message };
+        }
     }
 );

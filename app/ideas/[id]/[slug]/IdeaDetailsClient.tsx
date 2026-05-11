@@ -39,6 +39,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isSaving, setIsSaving] = useState(false);
 
   const { user, isAdmin, login } = useAuth();
+  const isAuthor = user && idea && user.uid === idea.authorUid;
   const { showToast } = useToast();
   const { 
     isAuthModalOpen, setIsAuthModalOpen,
@@ -328,6 +329,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                   onSave={handleSaveContent}
                   isSaving={isSaving}
                   targetSectionId={targetSectionId}
+                  isAuthor={isAuthor}
                 />
 
                 <div style={{ marginTop: '3rem', textAlign: 'center' }}>

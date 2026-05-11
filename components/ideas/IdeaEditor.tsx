@@ -23,6 +23,7 @@ interface IdeaEditorProps {
   isSaving?: boolean;
   onSave?: (content: ContentSection[], toCloud?: boolean) => void;
   targetSectionId?: string | null;
+  isAuthor?: boolean;
 }
 
 const ConfirmModal = ({
@@ -95,7 +96,8 @@ const SectionItem = ({
   updateParagraph,
   removeParagraph,
   addParagraph,
-  sectionsLength
+  sectionsLength,
+  isAuthor
 }: {
   section: ContentSection,
   activeSectionId: string | null,
@@ -105,7 +107,8 @@ const SectionItem = ({
   updateParagraph: (sectionId: string, pIndex: number, content: string) => void,
   removeParagraph: (sectionId: string, pIndex: number) => void,
   addParagraph: (sectionId: string) => void,
-  sectionsLength: number
+  sectionsLength: number,
+  isAuthor: boolean
 }) => {
   const controls = useDragControls();
 
@@ -113,8 +116,10 @@ const SectionItem = ({
     <Reorder.Item
       id={`editor-section-${section.id}`}
       value={section}
-      dragListener={false}
+      dragListener={isAuthor} // Restricted to authors
       dragControls={controls}
+      dragElastic={isAuthor ? 0.1 : 0} // No elasticity if locked
+      layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
@@ -122,13 +127,15 @@ const SectionItem = ({
       onFocus={() => setActiveSectionId(section.id, 'paragraph')} // Default focus
     >
       <div className={styles.blockHeader}>
-        <div
-          className={styles.dragHandle}
-          onPointerDown={(e) => controls.start(e)}
-          style={{ cursor: 'grab' }}
-        >
-          <GripVertical size={16} />
-        </div>
+        {isAuthor && (
+          <div
+            className={styles.dragHandle}
+            onPointerDown={(e) => controls.start(e)}
+            style={{ cursor: 'grab' }}
+          >
+            <GripVertical size={16} />
+          </div>
+        )}
         <div onFocus={(e) => { e.stopPropagation(); setActiveSectionId(section.id, 'title'); }}>
           <EditableContent
             initialValue={section.title}
@@ -181,7 +188,14 @@ const SectionItem = ({
   );
 };
 
-const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSaving, onSave, targetSectionId }) => {
+export default function IdeaEditor({ 
+  id, 
+  initialContent = [], 
+  isSaving, 
+  onSave, 
+  targetSectionId,
+  isAuthor = false
+}: IdeaEditorProps) {
   const [sections, setSections] = useState<ContentSection[]>([]);
   const initialized = useRef(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -480,6 +494,7 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
                     removeParagraph={removeParagraph}
                     addParagraph={addParagraph}
                     sectionsLength={sections.length}
+                    isAuthor={isAuthor}
                   />
 
                   {/* Insert between sections */}
@@ -519,6 +534,4 @@ const IdeaEditor: React.FC<IdeaEditorProps> = ({ id, initialContent = [], isSavi
       />
     </div>
   );
-};
-
-export default IdeaEditor;
+}

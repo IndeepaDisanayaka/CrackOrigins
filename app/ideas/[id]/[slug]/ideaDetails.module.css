@@ -259,8 +259,8 @@
 /* ─── Reader Mode ────────────────────────────────────────────────────── */
 .readerContent {
   margin-top: 2rem;
-  max-width: 800px;
-  margin-left: auto;
+  width: 100%;
+  max-width: 1000px;
   margin-right: auto;
 }
 
