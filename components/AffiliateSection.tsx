@@ -9,7 +9,6 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { generateAffiliateCoupon, getUserCoupons, getRewardLevels, getUserActivity } from '@/lib/admin-actions';
 
 
-import { auth } from '@/lib/firebase';
 import Modal from './Modal';
 
 // Removed static MILESTONES as we now use dynamic Affiliate Levels from the database.
@@ -33,7 +32,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
   }, []);
 
 
-  const { affiliateLevel, affiliateLevelDetails } = useAuth();
+  const { user, affiliateLevel, affiliateLevelDetails } = useAuth();
   const MILESTONES = levels.map(l => ({
     friends: l.min_xp,
     label: l.title,
@@ -67,7 +66,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
   // Removed discount conversion logic as points are now automatically added to the account balance.
 
   const handleViewRewards = async () => {
-    if (!auth.currentUser) {
+    if (!user) {
         showToast("Please login first!", "error");
         return;
     }
@@ -75,7 +74,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
     setIsHistoryOpen(true);
     setIsLoadingActivity(true);
     try {
-        const res = await getUserActivity(auth.currentUser.uid);
+        const res = await getUserActivity(user.uid);
         if (res.success && res.activity) {
             setActivity(res.activity);
         } else {

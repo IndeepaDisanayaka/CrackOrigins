@@ -10,7 +10,7 @@ export async function getGlobalOffers() {
         const adminDb = await getAdminDb();
         const snap = await adminDb.collection("offers").get();
         
-        const offers = snap.docs.map(d => {
+        const offers = snap.docs.map((d: any) => {
             const data = d.data();
             
             let discountPercent = 0;
@@ -49,10 +49,10 @@ export async function getGlobalOffers() {
             };
         });
 
-        return offers.filter(o => {
+        return offers.filter((o: any) => {
             const expireTime = new Date(o.endTime).getTime();
             return !isNaN(expireTime) && expireTime > Date.now();
-        }).sort((a, b) => {
+        }).sort((a: any, b: any) => {
             const aIsFree = parseFloat(a.discountPrice.replace('$', '')) === 0;
             const bIsFree = parseFloat(b.discountPrice.replace('$', '')) === 0;
             if (aIsFree && !bIsFree) return -1;
@@ -79,7 +79,7 @@ export async function getGiveawayLeaderboard(target: number, listedTime: string,
         const userMap = new Map<string, { uid: string, displayName: string, xp: number, photoURL?: string }>();
         let totalFilled = 0;
 
-        investmentsSnap.forEach(d => {
+        investmentsSnap.forEach((d: any) => {
             const data = d.data();
             const xp = Number(data.xp || data.points || 0);
             const uid = data.uid || d.id; 

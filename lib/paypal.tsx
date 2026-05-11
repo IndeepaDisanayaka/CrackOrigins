@@ -2,8 +2,7 @@
 
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useEffect, useState } from "react";
-import { auth } from "./firebase";
-import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { useAuth } from './contexts/AuthContext';
 import { useToast } from "../components/Toast";
 
 import { capturePayPalOrder } from "./paypal-actions";
@@ -20,16 +19,9 @@ interface CheckoutProps {
 }
 
 export default function Checkout({ amount, game, gameId, isOwned, onSuccess, appliedCoupon, offerId, onPaymentActivityChange }: CheckoutProps) {
-    const [user, setUser] = useState<FirebaseUser | null>(null);
+    const { user } = useAuth();
     const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
     const { showToast } = useToast();
-
-    useEffect(() => {
-        const unsub = onAuthStateChanged(auth, (u) => {
-            setUser(u);
-        });
-        return () => unsub();
-    }, []);
 
     const base = parseFloat(amount.replace(/[^0-9.]/g, '')) || 0;
     const discRaw = appliedCoupon?.discount;

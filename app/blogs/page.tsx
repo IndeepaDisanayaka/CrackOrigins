@@ -2,15 +2,12 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDate } from 'date-fns';
-import { ChevronRight, MessageCircle, SendHorizontal, MessageSquare, Share2, Eye, Heart } from 'lucide-react';
-import HeaderWrapper from '@/components/blog/HeaderWrapper';
-import Footer from '@/components/layout/Footer';
-import SubHeader from '@/components/layout/SubHeader';
 import { getBlogPosts } from '@/lib/blog';
 import { Metadata } from 'next';
 import styles from '../page.module.css';
 import blogStyles from './blog.module.css';
 import BlogCardInteractions from '@/components/blog/BlogCardInteractions';
+import { Eye, Heart } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Dispatch Archive | Crack Origins Chronicles',
@@ -61,8 +58,8 @@ export default async function BlogPage() {
             </div>
           ) : (
             <div className={blogStyles.blogGrid}>
-              {sortedPosts.map((post) => (
-                <div key={post.slug}>
+              {sortedPosts.map((post:any) => (
+                <div key={post._id || post.blogId}>
                   <div className={blogStyles.card}>
                     <Link href={`/blogs/${post.slug}`} className="block">
                       {/* Image Header */}

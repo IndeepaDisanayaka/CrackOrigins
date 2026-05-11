@@ -226,22 +226,29 @@
 .visualCardPrimary {
   width: 100%;
   max-width: 450px;
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
+  background: rgba(var(--primary-rgb), 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
   z-index: 2;
   transform: rotate(-2deg);
-  transition: transform 0.5s ease;
+  box-shadow: none;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+:global(.light-theme) .visualCardPrimary {
+  background: rgba(var(--primary-rgb), 0.02);
 }
 
 .heroVisuals:hover .visualCardPrimary {
-  transform: rotate(0deg) translateY(-10px);
+  transform: rotate(0deg) translateY(-20px);
+  border-color: var(--primary);
+  box-shadow: 0 0 30px rgba(254, 182, 12, 0.2);
 }
 
 .vcHeader {
-  background: #1e293b;
+  background: rgba(30, 41, 59, 0.5);
   padding: 12px 16px;
   display: flex;
   gap: 8px;
@@ -262,15 +269,16 @@
 }
 
 .vcLine {
-  height: 12px;
-  background: #334155;
-  border-radius: 6px;
+  height: 10px;
+  background: rgba(51, 65, 85, 0.5);
+  border-radius: 5px;
 }
 
 .vcLinePrimary {
-  height: 12px;
-  background: var(--primary);
-  border-radius: 6px;
+  height: 10px;
+  background: linear-gradient(90deg, var(--primary), #feb60c);
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(254, 182, 12, 0.3);
 }
 
 .vcBtn {
@@ -278,25 +286,28 @@
   background: var(--primary);
   color: #000;
   border: none;
-  padding: 12px;
+  padding: 14px;
   font-weight: 900;
-  border-radius: 4px;
+  border-radius: 6px;
   text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  box-shadow: 0 4px 14px 0 rgba(254, 182, 12, 0.39);
 }
 
 .visualCardSecondary {
   position: absolute;
-  bottom: 20px;
-  left: -40px;
+  bottom: 10%;
+  left: -20px;
   background: var(--background);
   border: 1px solid var(--primary);
-  padding: 16px 24px;
-  border-radius: 8px;
+  padding: 20px 28px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 16px;
   z-index: 3;
-  transform: translateY(20px);
+  box-shadow: none;
   animation: float 6s ease-in-out infinite;
 }
 
@@ -534,7 +545,11 @@
 }
 
 .articleList.horizontalView .articleExcerpt {
+  display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   margin-bottom: 1rem;
 }
 
@@ -559,7 +574,7 @@
 }
 
 .articleCard {
-  background: var(--background);
+  background: transparent;
   border: 1px solid var(--outline-color);
   border-radius: 12px;
   display: flex;
@@ -569,12 +584,31 @@
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   text-decoration: none !important;
   height: 100%;
+  box-shadow: none;
 }
 
 .articleCard:hover {
   border-color: var(--primary);
   transform: translateY(-8px) scale(1.02);
-  background: rgba(var(--primary-rgb, 254, 182, 12), 0.02);
+  background: rgba(var(--primary-rgb), 0.04);
+  box-shadow: none;
+}
+
+.articleCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  transform: scaleX(0);
+  transition: transform 0.5s ease;
+  z-index: 20;
+}
+
+.articleCard:hover::before {
+  transform: scaleX(1);
 }
 
 .articleImageWrapper {

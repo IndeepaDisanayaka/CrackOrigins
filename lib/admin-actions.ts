@@ -1,10 +1,10 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from './firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized, Timestamp, FieldValue, getAuth } from './firebase-admin';
 
 import { encrypt, decrypt } from './crypto';
 import { getBlogPosts } from './blog';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 export interface RewardLevel {
     id?: string;
@@ -72,6 +72,9 @@ function toIsoDate(value: any): string | null {
     if (!value) return null;
     if (typeof value === 'string') return value;
     if (typeof value?.toDate === 'function') return value.toDate().toISOString();
+    if (value && typeof value.seconds === 'number') {
+        return new Date(value.seconds * 1000 + (value.nanoseconds || 0) / 1e6).toISOString();
+    }
     try {
         return new Date(value).toISOString();
     } catch {
@@ -83,25 +86,35 @@ function toIsoDate(value: any): string | null {
  * Server Action: List a new game in the 'games' collection
  */
 export async function listGame(adminUid: string, gameData: any) {
+    if (!adminUid) return { success: false, error: "Unauthorized: Missing Admin UID." };
+    if (!gameData || !gameData.title) return { success: false, error: "Validation: Game title is required." };
+
     try {
         const adminDb = await getAdminDb();
         const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!userDoc.exists) return { success: false, error: "Unauthorized: Admin account not found." };
+        
         const userData = userDoc.data();
         const canWrite = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'games', 'WRITE'));
 
-        if (!userDoc.exists || !canWrite) {
-            return { success: false, error: "Unauthorized." };
+        if (!canWrite) {
+            return { success: false, error: "Unauthorized: Insufficient permissions." };
         }
 
-        const gameRef = adminDb.collection("games").doc(); // Use auto-generated ID
+        const gameRef = adminDb.collection("games").doc(); 
 
-        // Remove redundant keys from the data object - stop saving slug as requested
-        const { gameId, image, ...cleanedData } = gameData;
+        const { gameId, image, slug, ...cleanedData } = gameData;
 
         await gameRef.set({
             ...cleanedData,
-            time: Timestamp.now(),
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
         });
+
+        try {
+            revalidatePath('/games');
+            revalidatePath('/');
+        } catch (e) {}
 
         return { success: true, id: gameRef.id };
     } catch (error: any) {
@@ -117,7 +130,7 @@ export async function getGames() {
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("games").get();
-        const games = await Promise.all(snapshot.docs.map(async (doc) => {
+        const games = await Promise.all(snapshot.docs.map(async (doc: any) => {
             const data = doc.data();
             const generatedSlug = await generateGameSlug(data.title || "");
 
@@ -173,7 +186,7 @@ export async function syncUserRecord(uid: string, data: {
 
         const userData = userDoc.data();
         let affiliateId = userData?.affiliateId || null;
-        let discount = userData?.discount || 0;
+        const discount = userData?.discount || 0;
         let referredBy = userData?.referredBy || null;
 
         // 1. Generate unique affiliate ID if it doesn't exist
@@ -228,13 +241,7 @@ export async function syncUserRecord(uid: string, data: {
 
         await userRef.set(userPayload, { merge: true });
 
-        // SYNC TO RTDB SECURELY (New)
-        try {
-            const rtdb = await getAdminRtdb();
-            await rtdb.ref(`accounts/${uid}/isOwner`).set(userPayload.isOwner);
-        } catch (rtdbErr) {
-            console.warn("RTDB Permission Sync Failed (syncUserRecord):", rtdbErr);
-        }
+
 
         return { success: true, affiliateId };
     } catch (error: any) {
@@ -282,8 +289,8 @@ export async function getOwnedGames(uid: string) {
             }
         };
 
-        paymentsSnap.forEach(doc => processDoc(doc));
-        offersSnap.forEach(doc => processDoc(doc, true));
+        paymentsSnap.forEach((doc: any) => processDoc(doc));
+        offersSnap.forEach((doc: any) => processDoc(doc, true));
 
         return { success: true, games, details };
     } catch (error: any) {
@@ -375,20 +382,15 @@ export async function checkAdminStatus(uid: string) {
         const isOwner = data?.isOwner === true;
         const isAdmin = isOwner || !!data?.ruleId;
 
-        // Sync to RTDB for security rules during status check (covers existing users)
-        try {
-            const rtdb = await getAdminRtdb();
-            await rtdb.ref(`accounts/${uid}/isOwner`).set(isOwner);
-            await rtdb.ref(`accounts/${uid}/isAdmin`).set(isAdmin);
-        } catch (e) { }
+
 
         const levelTitle = data?.affiliateLevel || "starter";
         const levelsSnap = await adminDb.collection("reward_levels").get();
-        const allLevels = levelsSnap.docs.map(d => ({ ...d.data(), id: d.id } as RewardLevel));
+        const allLevels = levelsSnap.docs.map((d: any) => ({ ...d.data(), id: d.id } as RewardLevel));
 
         // Find current level details
-        const sortedLevelsAsc = [...allLevels].sort((a, b) => (a.min_xp || 0) - (b.min_xp || 0));
-        const sortedLevelsDesc = [...allLevels].sort((a, b) => (b.min_xp || 0) - (a.min_xp || 0));
+        const sortedLevelsAsc = [...allLevels].sort((a: any, b: any) => (a.min_xp || 0) - (b.min_xp || 0));
+        const sortedLevelsDesc = [...allLevels].sort((a: any, b: any) => (b.min_xp || 0) - (a.min_xp || 0));
 
         const currentLevel = sortedLevelsDesc.find(l => (data?.xp || 0) >= (l.min_xp || 0)) ||
             sortedLevelsAsc[0] ||
@@ -396,8 +398,8 @@ export async function checkAdminStatus(uid: string) {
 
 
         // Find next level
-        const sortedLevels = [...allLevels].sort((a, b) => (a.min_xp || 0) - (b.min_xp || 0));
-        const nextLevel = sortedLevels.find(l => (l.min_xp || 0) > (currentLevel.min_xp || 0));
+        const sortedLevels = [...allLevels].sort((a: any, b: any) => (a.min_xp || 0) - (b.min_xp || 0));
+        const nextLevel = sortedLevels.find((l: any) => (l.min_xp || 0) > (currentLevel.min_xp || 0));
 
         return {
             success: true,
@@ -415,11 +417,15 @@ export async function checkAdminStatus(uid: string) {
                 max_xp: currentLevel.max_xp,
                 nextLevelGoal: nextLevel ? nextLevel.min_xp : null
             },
-            affiliateCount: affiliatesSnapshot.size
+            affiliateCount: affiliatesSnapshot.size,
+            metadata: {
+                creationTime: toIsoDate(data?.created) || null,
+                lastSignInTime: toIsoDate(data?.last) || null
+            }
         };
     } catch (err) {
         console.error("Error in checkAdminStatus:", err);
-        return { success: false, isOwner: false, affiliateCount: 0 };
+        return { success: false, isOwner: false, affiliateCount: 0, metadata: { creationTime: null, lastSignInTime: null } };
     }
 }
 
@@ -457,7 +463,7 @@ export async function getAdminDashboardData(adminUid: string) {
             const accountsSnap = await adminDb.collection("accounts").get();
             const firestoreUsersMap = new Map<string, UserRecord>();
 
-            accountsSnap.forEach(d => {
+            accountsSnap.forEach((d: any) => {
                 const data = d.data() || {};
                 let decryptedEmail = data.email || null;
                 if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
@@ -478,11 +484,17 @@ export async function getAdminDashboardData(adminUid: string) {
             });
 
             await ensureFirebaseAdminInitialized();
-            const { getAuth } = await import('firebase-admin/auth');
-            const authUsersResult = await getAuth().listUsers(1000);
+            // Try to use auth if available, otherwise fallback gracefully
+            let authUsersResult: any = { users: [] };
+            try {
+                const auth = await getAuth();
+                authUsersResult = await auth.listUsers(1000);
+            } catch (e) {
+                console.warn("Firebase Auth Listing failed.");
+            }
 
             const seenUids = new Set();
-            authUsersResult.users.forEach(authUser => {
+            authUsersResult.users.forEach((authUser: any) => {
                 const fsUser = firestoreUsersMap.get(authUser.uid);
                 results.users.push({
                     uid: authUser.uid,
@@ -514,7 +526,7 @@ export async function getAdminDashboardData(adminUid: string) {
                 adminDb.collection("games").get()
             ]);
 
-            results.offers = offersSnap.docs.map(d => {
+            results.offers = offersSnap.docs.map((d: any) => {
                 const data = d.data() || {};
                 return {
                     id: d.id,
@@ -533,7 +545,7 @@ export async function getAdminDashboardData(adminUid: string) {
                 };
             });
 
-            results.games = gamesSnap.docs.map(d => {
+            results.games = gamesSnap.docs.map((d: any) => {
                 const data = d.data() || {};
                 return {
                     id: d.id,
@@ -561,7 +573,7 @@ export async function getAdminDashboardData(adminUid: string) {
         // 3. Fetch Coupons
         if (hasAccess('coupons')) {
             const couponsSnap = await adminDb.collection("coupons").get();
-            results.coupons = couponsSnap.docs.map(d => {
+            results.coupons = couponsSnap.docs.map((d: any) => {
                 const data = d.data() || {};
                 return {
                     id: d.id,
@@ -613,8 +625,8 @@ export async function getAdminDashboardData(adminUid: string) {
                 });
             };
 
-            paymentsGroupSnap.forEach((doc) => pushPayment(doc, "payment"));
-            offersGroupSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
+            paymentsGroupSnap.forEach((doc: any) => pushPayment(doc, "payment"));
+            offersGroupSnap.forEach((doc: any) => pushPayment(doc, "offerPayment"));
 
             results.payments.sort((a: any, b: any) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
         }
@@ -637,13 +649,7 @@ export async function updateUserOwnerStatus(adminUid: string, targetUid: string,
 
         await adminDb.collection("accounts").doc(targetUid).set({ isOwner: isOwner === true }, { merge: true });
 
-        // SYNC TO RTDB SECURELY (New)
-        try {
-            const rtdb = await getAdminRtdb();
-            await rtdb.ref(`accounts/${targetUid}/isOwner`).set(isOwner === true);
-        } catch (rtdbErr) {
-            console.warn("RTDB Permission Sync Failed (updateUserOwnerStatus):", rtdbErr);
-        }
+
 
         return { success: true };
     } catch (error: any) {
@@ -697,7 +703,7 @@ export async function getUserCoupons(uid: string) {
         const snapshot = await adminDb.collection("coupons").where("userId", "==", uid).get();
 
         const coupons: any[] = [];
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc: any) => {
             const data = doc.data();
             coupons.push({
                 code: doc.id,
@@ -772,12 +778,17 @@ export async function createOffer(adminUid: string, offerData: {
 
         await adminDb.collection("offers").doc(offerData.id).set({
             ...offerData,
-            originalPrice: Number(offerData.originalPrice),
-            quantity: Number(offerData.quantity),
-            expire: Timestamp.fromDate(new Date(offerData.expire)),
+            originalPrice: Number(offerData.originalPrice || 0),
+            quantity: Number(offerData.quantity || 0),
+            expire: Timestamp.fromDate(new Date(offerData.expire || Date.now())),
             listed: Timestamp.now(),
             targetXP: Number(offerData.targetXP || offerData.targetAffiliates || 10),
         });
+
+        try {
+            revalidatePath('/offers');
+            revalidateTag('offers', 'max');
+        } catch (e) {}
 
         return { success: true };
     } catch (error: any) {
@@ -830,7 +841,7 @@ export async function getUserKey(uid: string, offerId: string) {
         const userRef = adminDb.collection("accounts").doc(uid);
 
         // 1. Try 'offers' subcollection (New way: doc id is offer id)
-        let offerDoc = await userRef.collection("offers").doc(offerId).get();
+        const offerDoc = await userRef.collection("offers").doc(offerId).get();
         let data = offerDoc.exists ? offerDoc.data() : null;
 
         // 2. Try 'payments' subcollection (Old way for backward compatibility)
@@ -886,7 +897,7 @@ export async function getAffiliateProgress(uid: string, listedTime: string, offe
 /**
  * Server Action: Delete a blog post file (Owner only)
  */
-export async function deleteBlogPost(adminUid: string, slug: string) {
+export async function deleteBlogPost(adminUid: string, blogId: string, slug?: string) {
     try {
         const adminDb = await getAdminDb();
         const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
@@ -895,37 +906,37 @@ export async function deleteBlogPost(adminUid: string, slug: string) {
 
         if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
 
-        // Find document by slug field since doc ID is now auto-generated
-        const blogQuery = await adminDb.collection('blogs').where('slug', '==', slug).limit(1).get();
-
-        if (blogQuery.empty) return { success: false, error: "Post not found." };
-
-        const blogDoc = blogQuery.docs[0];
-        const blogRef = blogDoc.ref;
-
-        // Delete all contents in the sub-collection first
-        const contentsSnapshot = await blogRef.collection('contents').get();
-        const batch = adminDb.batch();
-        contentsSnapshot.docs.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
-
-        // Delete the main blog document
-        batch.delete(blogRef);
-
-        await batch.commit();
-
-        try {
-            const { revalidatePath } = await import('next/cache');
-            revalidatePath('/blog');
-            revalidatePath(`/blog/${slug}`);
-        } catch (e) {
-            console.error('Revalidation failed:', e);
+        let success = false;
+        if (blogId) {
+            // Delete from 'contents' collection
+            const contentsSnap = await adminDb.collection('contents').where('blogId', '==', blogId).get();
+            const batch = adminDb.batch();
+            contentsSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
+            batch.delete(adminDb.collection('blogs').doc(blogId));
+            await batch.commit();
+            success = true;
+        } else if (slug) {
+            const blogQuery = await adminDb.collection('blogs').where('slug', '==', slug).limit(1).get();
+            if (!blogQuery.empty) {
+                const bId = blogQuery.docs[0].id;
+                const contentsSnap = await adminDb.collection('contents').where('blogId', '==', bId).get();
+                const batch = adminDb.batch();
+                contentsSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
+                batch.delete(blogQuery.docs[0].ref);
+                await batch.commit();
+                success = true;
+            }
         }
 
-        return { success: true };
+        try {
+            revalidatePath('/blog');
+            revalidatePath('/blogs');
+            revalidateTag('blogs', 'max');
+        } catch (e) {}
+
+        return { success };
     } catch (error: any) {
-        console.error("Error deleting blog post from Firestore:", error);
+        console.error("Error deleting blog post:", error);
         return { success: false, error: error.message };
     }
 }
@@ -960,11 +971,11 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
 
         // Delete from Firebase Auth
         await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
         try {
-            await getAuth().deleteUser(targetUid);
+            const auth = await getAuth();
+            await auth.deleteUser(targetUid);
         } catch (authError) {
-            console.warn("User already gone from Auth or error:", authError);
+            console.warn("User deletion from Auth failed:", authError);
         }
 
         // Delete subcollections
@@ -975,9 +986,9 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
         ]);
 
         const batch = adminDb.batch();
-        payments.forEach(d => batch.delete(d.ref));
-        offers.forEach(d => batch.delete(d.ref));
-        affiliates.forEach(d => batch.delete(d.ref));
+        payments.forEach((d: any) => batch.delete(d.ref));
+        offers.forEach((d: any) => batch.delete(d.ref));
+        affiliates.forEach((d: any) => batch.delete(d.ref));
         batch.delete(userRef);
 
         await batch.commit();
@@ -1016,13 +1027,17 @@ export async function deleteAnonymousUsers(adminUid: string) {
 
         // 2. Collect from Auth (to catch those not in Firestore)
         await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
-        const authUsers = await getAuth().listUsers(1000);
-        authUsers.users.forEach(u => {
-            if (u.providerData.length === 0 && !anonymousUids.includes(u.uid)) {
-                anonymousUids.push(u.uid);
-            }
-        });
+        try {
+            const auth = await getAuth();
+            const authUsers = await auth.listUsers(1000);
+            authUsers.users.forEach((u: any) => {
+                if (u.providerData.length === 0 && !anonymousUids.includes(u.uid)) {
+                    anonymousUids.push(u.uid);
+                }
+            });
+        } catch (e) {
+            console.warn("Bulk anonymous cleanup from Auth skipped.");
+        }
 
         if (anonymousUids.length === 0) return { success: true, count: 0 };
 
@@ -1035,7 +1050,8 @@ export async function deleteAnonymousUsers(adminUid: string) {
             // Delete from Auth in parallel for this chunk
             await Promise.all(chunk.map(async (uid) => {
                 try {
-                    await getAuth().deleteUser(uid);
+                    const auth = await getAuth();
+                    await auth.deleteUser(uid);
                 } catch (e) {
                     console.error(`Auth deletion failed for ${uid}:`, e);
                 }
@@ -1108,16 +1124,20 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
 
         // 2. Check Auth for users that DON'T have a Firestore record (Ghost anonymous users)
         await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
-        const authUsersResult = await getAuth().listUsers(1000);
-
-        for (const authUser of authUsersResult.users) {
-            if (seenUids.has(authUser.uid)) continue;
-
-            // If it's an anonymous account in Auth with NO Firestore record, delete it
-            if (authUser.providerData.length === 0) {
-                uidsToDelete.push(authUser.uid);
+        try {
+            const auth = await getAuth();
+            const authUsersResult = await auth.listUsers(1000);
+            
+            for (const authUser of authUsersResult.users) {
+                if (seenUids.has(authUser.uid)) continue;
+                
+                // If it's an anonymous account in Auth with NO Firestore record, delete it
+                if (authUser.providerData.length === 0) {
+                    uidsToDelete.push(authUser.uid);
+                }
             }
+        } catch (e) {
+            console.warn("Auth check for deactivated users skipped.");
         }
 
         if (uidsToDelete.length === 0) return { success: true, count: 0 };
@@ -1128,7 +1148,10 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
             const chunk = uidsToDelete.slice(i, i + 400);
             for (const uid of chunk) {
                 batch.delete(adminDb.collection("accounts").doc(uid));
-                try { await getAuth().deleteUser(uid); } catch (e) { }
+                try { 
+                    const auth = await getAuth();
+                    await auth.deleteUser(uid); 
+                } catch (e) { }
             }
             await batch.commit();
             totalDeleted += chunk.length;
@@ -1180,8 +1203,8 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
             });
         };
 
-        paymentsSnap.forEach(doc => pushPayment(doc, "payment"));
-        offersPurchSnap.forEach(doc => pushPayment(doc, "offerPayment"));
+        paymentsSnap.forEach((doc: any) => pushPayment(doc, "payment"));
+        offersPurchSnap.forEach((doc: any) => pushPayment(doc, "offerPayment"));
         payments.sort((a, b) => {
             const dateA = a.purchaseDate || "";
             const dateB = b.purchaseDate || "";
@@ -1246,7 +1269,7 @@ export async function getGameBySlug(slug: string) {
 
         // Fetch updates
         const updatesSnap = await targetDoc.ref.collection("updates").orderBy("date", "desc").get();
-        const updates = await Promise.all(updatesSnap.docs.map(async (u) => {
+        const updates = await Promise.all(updatesSnap.docs.map(async (u: any) => {
             const uData = u.data();
             const uSlug = await generateGameSlug(uData.title || "");
             return {
@@ -1260,7 +1283,7 @@ export async function getGameBySlug(slug: string) {
 
         // Fetch reviews
         const reviewsSnap = await targetDoc.ref.collection("reviews").orderBy("time", "desc").get();
-        const reviews = reviewsSnap.docs.map(r => ({
+        const reviews = reviewsSnap.docs.map((r: any) => ({
             id: r.id,
             ...r.data(),
             time: toIsoDate(r.data().time) || new Date().toISOString()
@@ -1358,7 +1381,6 @@ export async function incrementDownloadCount(gameId: string, userId?: string) {
     try {
         const adminDb = await getAdminDb();
         const gameRef = adminDb.collection("games").doc(gameId);
-        const { Timestamp } = await import('firebase-admin/firestore');
 
         // If we have a user ID, we can prevent duplicate counts for that user
         if (userId) {
@@ -1388,7 +1410,6 @@ export async function incrementDownloadCount(gameId: string, userId?: string) {
             });
         }
 
-        const { FieldValue } = await import('firebase-admin/firestore');
         await gameRef.update({
             downloadCount: FieldValue.increment(1)
         });
@@ -1501,7 +1522,7 @@ export async function getAccountRules(adminUid: string) {
         }
 
         const snapshot = await adminDb.collection("account_rules").get();
-        const rules = snapshot.docs.map(doc => {
+        const rules = snapshot.docs.map((doc: any) => {
             const data = doc.data() as any;
             return {
                 id: doc.id,
@@ -1576,7 +1597,7 @@ export async function cleanupExpiredOffers(adminUid: string) {
         const offersSnap = await adminDb.collection("offers").get();
         const now = new Date();
 
-        const expiredOffers = offersSnap.docs.filter(doc => {
+        const expiredOffers = offersSnap.docs.filter((doc: any) => {
             const data = doc.data();
             const expireDate = data.expire?.toDate ? data.expire.toDate() : new Date(data.expire);
             return expireDate < now;
@@ -1590,7 +1611,7 @@ export async function cleanupExpiredOffers(adminUid: string) {
         const soldOfferIds = new Set<string>();
         const purchasesSnap = await adminDb.collectionGroup("offers").get();
 
-        purchasesSnap.forEach(doc => {
+        purchasesSnap.forEach((doc: any) => {
             // We only want documents from 'accounts/{uid}/offers' subcollections, 
             // not the root 'offers' collection itself.
             if (doc.ref.path.includes("accounts/")) {
@@ -1639,7 +1660,13 @@ export async function updateGame(adminUid: string, gameId: string, gameData: any
 
         await gameRef.update({
             ...cleanedData,
+            updatedAt: Timestamp.now()
         });
+
+        try {
+            revalidatePath('/games');
+            revalidatePath('/');
+        } catch (e) {}
 
         return { success: true };
     } catch (error: any) {
@@ -1654,16 +1681,15 @@ export async function updateGame(adminUid: string, gameId: string, gameData: any
 export async function updateOffer(adminUid: string, offerId: string, offerData: any) {
     try {
         const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = userDoc.data();
-        const canUpdate = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'offers', 'UPDATE'));
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        const adminData = adminDoc.data();
+        const canUpdate = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'offers', 'UPDATE'));
 
-        if (!userDoc.exists || !canUpdate) {
+        if (!adminDoc.exists || !canUpdate) {
             return { success: false, error: "Unauthorized." };
         }
 
         const offerRef = adminDb.collection("offers").doc(offerId);
-        const { Timestamp } = await import('firebase-admin/firestore');
 
         const payload: any = {
             ...offerData,
@@ -1689,7 +1715,6 @@ export async function updateOffer(adminUid: string, offerId: string, offerData: 
         delete payload.listed;
 
         await offerRef.update(payload);
-
         return { success: true };
     } catch (error: any) {
         console.error("Error updating offer:", error);
@@ -1704,7 +1729,7 @@ export async function getRewardLevels() {
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("reward_levels").orderBy("min_xp", "asc").get();
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as RewardLevel[];
+        return snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() })) as RewardLevel[];
     } catch (err: any) {
         return [];
     }
@@ -1869,7 +1894,7 @@ export async function investXP(uid: string, offerId: string, xp: number) {
         if (offerData.offerScope === 'global') {
             // Global: community-wide progress
             const investmentsSnap = await offerRef.collection("investments").get();
-            investmentsSnap.forEach(d => currentProgress += Number(d.data().xp || 0));
+            investmentsSnap.forEach((d: any) => currentProgress += Number(d.data().xp || 0));
         } else {
             // Local: individual user progress
             const userOfferDoc = await userRef.collection("offers").doc(offerId).get();
@@ -1944,7 +1969,7 @@ export async function getUserActivity(uid: string) {
 
         // 1. Fetch from unified activity collection
         const activitySnap = await userRef.collection("activity").orderBy("date", "desc").limit(50).get();
-        const activity: any[] = activitySnap.docs.map(d => ({
+        const activity: any[] = activitySnap.docs.map((d: any) => ({
             id: d.id,
             ...d.data(),
             date: toIsoDate(d.data().date)
@@ -1995,7 +2020,7 @@ export async function returnGameXP(adminUid: string, offerId: string) {
 
         // Aggregate by user to find the winner
         const userXPMap: { [uid: string]: number } = {};
-        investmentsSnap.forEach(d => {
+        investmentsSnap.forEach((d: any) => {
             const data = d.data();
             const uid = data.uid;
             if (!uid) return;
@@ -2020,7 +2045,7 @@ export async function returnGameXP(adminUid: string, offerId: string) {
         const targetXP = Number(offerData.targetXP || 10);
 
         let currentTotal = 0;
-        investmentsSnap.forEach(d => currentTotal += Number(d.data().xp || 0));
+        investmentsSnap.forEach((d: any) => currentTotal += Number(d.data().xp || 0));
 
         // If goal not reached, no one is a winner, return to everyone
         const goalReached = currentTotal >= targetXP;
@@ -2069,6 +2094,116 @@ export async function returnGameXP(adminUid: string, offerId: string) {
     } catch (err: any) {
         console.error("Error returning XP:", err);
         return { success: false, error: err.message };
+    }
+}
+
+/**
+ * SUPPORT CHAT ACTIONS (MongoDB Backed)
+ */
+
+export async function getSupportChats(adminUid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        if (!adminDoc.exists || (!adminDoc.data()?.isOwner && !adminDoc.data()?.ruleId)) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const snapshot = await adminDb.collection("support_chats").orderBy("updatedAt", "desc").get();
+        return { 
+            success: true, 
+            chats: snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getSupportMessages(uid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const snapshot = await adminDb.collection("support_messages")
+            .where("chatId", "==", uid)
+            .orderBy("timestamp", "asc")
+            .get();
+        
+        return { 
+            success: true, 
+            messages: snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function sendSupportMessage(uid: string, messageData: { text: string, senderId: string, senderName: string }) {
+    try {
+        const adminDb = await getAdminDb();
+        
+        // 1. Add message
+        await adminDb.collection("support_messages").add({
+            ...messageData,
+            chatId: uid,
+            timestamp: Date.now()
+        });
+
+        // 2. Update chat metadata
+        const chatRef = adminDb.collection("support_chats").doc(uid);
+        const chatDoc = await chatRef.get();
+        
+        const updateData: any = {
+            lastMessage: messageData.text,
+            updatedAt: Date.now(),
+        };
+
+        if (!chatDoc.exists) {
+            updateData.id = uid;
+            updateData.name = messageData.senderName;
+            updateData.status = 'open';
+            updateData.createdAt = Date.now();
+            await chatRef.set(updateData);
+        } else {
+            await chatRef.update(updateData);
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function assignChat(adminUid: string, adminName: string, chatId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        await adminDb.collection("support_chats").doc(chatId).update({
+            ownerId: adminUid,
+            ownerName: adminName,
+            status: 'active'
+        });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getUserPurchasedOffers(uid: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const paymentsSnap = await adminDb.collection("accounts").doc(uid).collection("payments").get();
+        const offersSnap = await adminDb.collection("accounts").doc(uid).collection("offers").get();
+
+        const dict: { [key: string]: any } = {};
+        paymentsSnap.forEach((d: any) => {
+            const data = d.data();
+            if (data.offerId) dict[data.offerId] = data;
+        });
+        offersSnap.forEach((d: any) => {
+            dict[d.id] = d.data();
+        });
+
+        return { success: true, purchasedOffers: dict };
+    } catch (error: any) {
+        return { success: false, error: error.message };
     }
 }
 

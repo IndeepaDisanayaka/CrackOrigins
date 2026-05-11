@@ -1,11 +1,12 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '../firebase-admin';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
+import { hasPermission } from './rules';
 
 export async function listGame(adminUid: string, gameData: any) {
     try {
@@ -39,7 +40,7 @@ export async function getGames() {
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("games").get();
-        const games = await Promise.all(snapshot.docs.map(async (doc) => {
+        const games = await Promise.all(snapshot.docs.map(async (doc: any) => {
             const data = doc.data();
             const generatedSlug = await generateGameSlug(data.title || "");
 
@@ -121,7 +122,7 @@ export async function getGameBySlug(slug: string) {
 
         // Fetch updates
         const updatesSnap = await targetDoc.ref.collection("updates").orderBy("date", "desc").get();
-        const updates = await Promise.all(updatesSnap.docs.map(async (u) => {
+        const updates = await Promise.all(updatesSnap.docs.map(async (u: any) => {
             const uData = u.data();
             const uSlug = await generateGameSlug(uData.title || "");
             return {
@@ -135,7 +136,7 @@ export async function getGameBySlug(slug: string) {
 
         // Fetch reviews
         const reviewsSnap = await targetDoc.ref.collection("reviews").orderBy("time", "desc").get();
-        const reviews = reviewsSnap.docs.map(r => ({ 
+        const reviews = reviewsSnap.docs.map((r: any) => ({ 
             id: r.id, 
             ...r.data(),
             time: toIsoDate(r.data().time) || new Date().toISOString()
@@ -224,7 +225,6 @@ export async function incrementDownloadCount(gameId: string, userId?: string) {
     try {
         const adminDb = await getAdminDb();
         const gameRef = adminDb.collection("games").doc(gameId);
-        const { Timestamp } = await import('firebase-admin/firestore');
         
         // If we have a user ID, we can prevent duplicate counts for that user
         if (userId) {
@@ -254,7 +254,6 @@ export async function incrementDownloadCount(gameId: string, userId?: string) {
             });
         }
 
-        const { FieldValue } = await import('firebase-admin/firestore');
         await gameRef.update({
             downloadCount: FieldValue.increment(1)
         });

@@ -1,13 +1,15 @@
 import { getMongoDb } from './mongodb';
 import { ObjectId } from 'mongodb';
-import { Timestamp as FirestoreTimestamp } from 'firebase-admin/firestore';
+import { Timestamp as FirestoreTimestamp } from './firebase-admin';
 
 export class FirestoreToMongoAdapter {
     collection(name: string) {
         return new MongoCollectionAdapter(name);
     }
     collectionGroup(name: string) {
-        return new MongoCollectionAdapter(name, true);
+        let mappedName = name;
+        if (name === 'offers') mappedName = 'user_offers';
+        return new MongoCollectionAdapter(mappedName, true);
     }
     batch() {
         return new MongoBatchAdapter();
@@ -51,12 +53,17 @@ class MongoDocAdapter {
         if (parentCol && parentId) {
             // Keep original Firestore path structure for scripts that rely on it
             const originalSubName = collectionName === 'user_offers' ? 'offers' : 
-                                  collectionName === 'idea_creator_sections' ? 'creator' :
-                                  collectionName === 'idea_collaborations' ? 'collaborations' : collectionName;
+                                   collectionName === 'idea_creator_sections' ? 'creator' :
+                                   collectionName === 'idea_collaborations' ? 'collaborations' : collectionName;
             this.path = `${parentCol}/${parentId}/${originalSubName}/${id}`;
         } else if (docData && docData.userId && (collectionName === 'payments' || collectionName === 'user_offers' || collectionName === 'affiliates')) {
             const originalSubName = collectionName === 'user_offers' ? 'offers' : collectionName;
             this.path = `accounts/${docData.userId}/${originalSubName}/${id}`;
+        } else if (docData && docData.blogId && collectionName === 'contents') {
+            this.path = `blogs/${docData.blogId}/contents/${id}`;
+        } else if (docData && docData.ideaId && (collectionName === 'idea_creator_sections' || collectionName === 'idea_collaborations')) {
+            const originalSubName = collectionName === 'idea_creator_sections' ? 'creator' : 'collaborations';
+            this.path = `ideas/${docData.ideaId}/${originalSubName}/${id}`;
         } else {
             this.path = `${collectionName}/${id}`;
         }
@@ -77,29 +84,57 @@ class MongoDocAdapter {
 
     async get() {
         const db = await getMongoDb();
-        const doc = await db.collection<any>(this.collectionName).findOne({ _id: this.id });
+        let queryId: any = this.id;
+        if (typeof this.id === 'string' && /^[0-9a-fA-F]{24}$/.test(this.id)) {
+            try { queryId = new ObjectId(this.id); } catch (e) { queryId = this.id; }
+        }
+        
+        const doc = await db.collection<any>(this.collectionName).findOne({ 
+            $or: [{ _id: queryId }, { _id: this.id }, { id: this.id }] 
+        });
         return new MongoDocSnapshotAdapter(this.id, doc, this);
     }
 
     async set(data: any, options?: { merge?: boolean }) {
         const db = await getMongoDb();
-        const updateData = processTimestamps(data);
+        const processed = processTimestamps(data);
+        
+        // Inject parent relationship if this is a sub-collection doc
+        if (this.parentCol && this.parentId) {
+            const parentKey = getParentKey(this.parentCol);
+            processed[parentKey] = this.parentId;
+        }
+
+        let queryId: any = this.id;
+        if (typeof this.id === 'string' && /^[0-9a-fA-F]{24}$/.test(this.id)) {
+            try { queryId = new ObjectId(this.id); } catch (e) { queryId = this.id; }
+        }
+
         if (options?.merge) {
-            await db.collection<any>(this.collectionName).updateOne({ _id: this.id }, { $set: updateData }, { upsert: true });
+            const update = processMongoUpdate(processed);
+            await db.collection<any>(this.collectionName).updateOne({ _id: queryId }, update, { upsert: true });
         } else {
-            await db.collection<any>(this.collectionName).replaceOne({ _id: this.id }, { _id: this.id, ...updateData }, { upsert: true });
+            await db.collection<any>(this.collectionName).replaceOne({ _id: queryId }, { _id: queryId, ...processed }, { upsert: true });
         }
     }
 
     async update(data: any) {
         const db = await getMongoDb();
-        const updateData = processTimestamps(data);
-        await db.collection<any>(this.collectionName).updateOne({ _id: this.id }, { $set: updateData });
+        const update = processMongoUpdate(data);
+        let queryId: any = this.id;
+        if (typeof this.id === 'string' && /^[0-9a-fA-F]{24}$/.test(this.id)) {
+            try { queryId = new ObjectId(this.id); } catch (e) { queryId = this.id; }
+        }
+        await db.collection<any>(this.collectionName).updateOne({ _id: queryId }, update);
     }
 
     async delete() {
         const db = await getMongoDb();
-        await db.collection<any>(this.collectionName).deleteOne({ _id: this.id });
+        let queryId: any = this.id;
+        if (typeof this.id === 'string' && /^[0-9a-fA-F]{24}$/.test(this.id)) {
+            try { queryId = new ObjectId(this.id); } catch (e) { queryId = this.id; }
+        }
+        await db.collection<any>(this.collectionName).deleteOne({ _id: queryId });
     }
 }
 
@@ -115,11 +150,11 @@ class MongoSubCollectionAdapter extends MongoCollectionAdapter {
     }
 
     async get() {
-        return new MongoQueryAdapter(this.name).where(getParentKey(this.parentCol), '==', this.parentId).get();
+        return new MongoQueryAdapter(this.name, this.parentCol, this.parentId).where(getParentKey(this.parentCol), '==', this.parentId).get();
     }
     
     where(field: string, op: string, val: any) {
-        return new MongoQueryAdapter(this.name).where(getParentKey(this.parentCol), '==', this.parentId).where(field, op, val);
+        return new MongoQueryAdapter(this.name, this.parentCol, this.parentId).where(getParentKey(this.parentCol), '==', this.parentId).where(field, op, val);
     }
 }
 
@@ -128,7 +163,7 @@ class MongoQueryAdapter {
     private sort: any = {};
     private limitCount: number = 0;
 
-    constructor(public collectionName: string) {}
+    constructor(public collectionName: string, public parentCol?: string, public parentId?: string) {}
 
     where(field: string, op: string, val: any) {
         if (op === '==') this.filter[field] = val;
@@ -137,6 +172,7 @@ class MongoQueryAdapter {
         else if (op === '<') this.filter[field] = { $lt: val };
         else if (op === '<=') this.filter[field] = { $lte: val };
         else if (op === 'array-contains') this.filter[field] = val;
+        else if (op === 'in' && Array.isArray(val)) this.filter[field] = { $in: val };
         return this;
     }
 
@@ -160,8 +196,8 @@ class MongoQueryAdapter {
         return {
             empty: docs.length === 0,
             size: docs.length,
-            docs: docs.map(d => new MongoDocSnapshotAdapter(d._id.toString(), d, new MongoDocAdapter(this.collectionName, d._id.toString(), undefined, undefined, d))),
-            forEach: (cb: any) => docs.forEach(d => cb(new MongoDocSnapshotAdapter(d._id.toString(), d, new MongoDocAdapter(this.collectionName, d._id.toString(), undefined, undefined, d))))
+            docs: docs.map(d => new MongoDocSnapshotAdapter(d._id.toString(), d, new MongoDocAdapter(this.collectionName, d._id.toString(), this.parentCol, this.parentId, d))),
+            forEach: (cb: any) => docs.forEach(d => cb(new MongoDocSnapshotAdapter(d._id.toString(), d, new MongoDocAdapter(this.collectionName, d._id.toString(), this.parentCol, this.parentId, d))))
         };
     }
 }
@@ -173,11 +209,11 @@ class MongoDocSnapshotAdapter {
     }
     data() {
         if (!this.dataObj) return undefined;
-        const res = { ...this.dataObj };
+        const { _id, ...res } = this.dataObj;
         for (const k in res) {
-            // Convert back to Firestore Timestamp for compatibility if it's a date
+            // Convert to ISO string for Next.js serialization compatibility
             if (res[k] instanceof Date) {
-                res[k] = FirestoreTimestamp.fromDate(res[k]);
+                res[k] = res[k].toISOString();
             }
         }
         return res;
@@ -207,15 +243,48 @@ function processTimestamps(data: any) {
     if (!data) return data;
     const res = { ...data };
     for (const k in res) {
-        if (res[k] && typeof res[k] === 'object' && 'toDate' in res[k]) {
-            res[k] = res[k].toDate();
+        if (res[k] && typeof res[k] === 'object') {
+            if ('toDate' in res[k]) {
+                res[k] = res[k].toDate();
+            }
         }
     }
     return res;
 }
 
+function processMongoUpdate(data: any) {
+    if (!data) return { $set: {} };
+    const set: any = {};
+    const inc: any = {};
+    const push: any = {};
+    const pull: any = {};
+
+    for (const k in data) {
+        const val = data[k];
+        if (val && typeof val === 'object' && '_type' in val) {
+            if (val._type === 'increment') inc[k] = val.value;
+            else if (val._type === 'arrayUnion') push[k] = { $each: val.value };
+            else if (val._type === 'arrayRemove') pull[k] = { $in: val.value };
+        } else if (val && typeof val === 'object' && 'toDate' in val) {
+            set[k] = val.toDate();
+        } else {
+            set[k] = val;
+        }
+    }
+
+    const update: any = {};
+    if (Object.keys(set).length > 0) update.$set = set;
+    if (Object.keys(inc).length > 0) update.$inc = inc;
+    if (Object.keys(push).length > 0) update.$push = push;
+    if (Object.keys(pull).length > 0) update.$pull = pull;
+    
+    return update;
+}
+
 function getParentKey(parentCol: string) {
     if (parentCol === 'accounts') return 'userId';
     if (parentCol === 'ideas') return 'ideaId';
+    if (parentCol === 'blogs') return 'blogId';
+    if (parentCol === 'games') return 'gameId';
     return 'parentId';
 }

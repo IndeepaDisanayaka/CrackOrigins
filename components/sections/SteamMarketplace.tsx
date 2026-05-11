@@ -7,9 +7,8 @@ import { ShoppingCart, Shield, Clock, CheckCircle2, User as UserIcon, TrendingUp
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { collection, onSnapshot} from "firebase/firestore";
-import { fireStore } from "../../lib/firebase";
-import { getUserKey, getAffiliateProgress, investXP } from '@/lib/admin-actions';
+
+import { getUserKey, getAffiliateProgress, investXP, getUserPurchasedOffers } from '@/lib/admin-actions';
 import { capturePayPalOrder } from '@/lib/paypal-actions';
 
 
@@ -835,6 +834,8 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
     }
   }, [modalState]);
 
+
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem('crack_origins_offers_cache');
@@ -846,169 +847,38 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
       }
     }
 
-    const unsubOffers = onSnapshot(collection(fireStore, 'offers'), (snap) => {
-      try {
-        const offers = snap.docs.map(d => {
-          try {
-            const data = d.data();
-            if (!data) return null;
-
-            let discountPercent = 0;
-            if (typeof data.discount === 'string') {
-              discountPercent = Number(data.discount.replace('%', '').replace('-', ''));
-            } else if (typeof data.discount === 'number') {
-              discountPercent = data.discount;
-            }
-            const originalPrice = Number(data.originalPrice || 0);
-            const discountPrice = isNaN(discountPercent) ? originalPrice : originalPrice - (originalPrice * discountPercent / 100);
-
-            let endTimeStr = new Date(Date.now() + 86400000).toISOString();
-            if (data.expire) {
-              try {
-                if (typeof data.expire.toDate === 'function') {
-                  endTimeStr = data.expire.toDate().toISOString();
-                } else if (data.expire.seconds) {
-                    endTimeStr = new Date(data.expire.seconds * 1000).toISOString();
-                } else {
-                  endTimeStr = new Date(data.expire).toISOString();
-                }
-              } catch (e) {
-                console.warn("Date parsing failed for offer:", d.id, e);
-              }
-            }
-
-            // Robust Listed Date parsing
-            let listedTimeStr = new Date().toISOString();
-            if (data.listed) {
-                try {
-                    if (typeof data.listed.toDate === 'function') {
-                        listedTimeStr = data.listed.toDate().toISOString();
-                    } else if (data.listed.seconds) {
-                        listedTimeStr = new Date(data.listed.seconds * 1000).toISOString();
-                    } else {
-                        const parsed = new Date(data.listed);
-                        if (!isNaN(parsed.getTime())) {
-                            listedTimeStr = parsed.toISOString();
-                        }
-                    }
-                } catch (e) {
-                    console.warn("Listed date parsing failed for offer:", d.id, e);
-                }
-            }
-
-            // Extract real Steam App ID from the gameUrl the admin provides
-            // e.g. https://store.steampowered.com/app/1234567/GameName/
-            const steamAppId = data.gameUrl?.match(/\/app\/(\d+)/)?.[1] || d.id;
-
-            return {
-              id: d.id,
-              title: data.title || 'Unknown Game',
-              originalPrice: `$${originalPrice.toFixed(2)}`,
-              discountPrice: `$${discountPrice.toFixed(2)}`,
-              discount: (typeof data.discount === 'string' && data.discount.includes('-')) ? data.discount : `-${discountPercent}%`,
-              image: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/header.jpg`,
-              platforms: data.operatingSystem ? [String(data.operatingSystem).toLowerCase()] : ['windows'],
-              steamUrl: data.gameUrl || `https://store.steampowered.com/app/${steamAppId}/`,
-              endTime: endTimeStr,
-              listed: listedTimeStr,
-              targetXP: Number(data.targetXP || data.targetAffiliates || 10),
-              quantity: Number(data.quantity || 0),
-              steamAppId: steamAppId,
-              offerScope: data.offerScope || 'local',
-            };
-
-          } catch (itemErr) {
-            console.error("Error parsing individual offer item:", d.id, itemErr);
-            return null;
-          }
-        }).filter((x): x is any => !!x);
-
-        const filteredSorted = offers
-          .filter((game) => {
-              if (!game.endTime) return false;
-              const expireTime = new Date(game.endTime).getTime();
-              return !isNaN(expireTime) && expireTime > Date.now();
-          })
-          .sort((a, b) => {
-            // Giveaways first
-            const aIsFree = parseFloat(a.discountPrice.replace('$', '')) === 0;
-            const bIsFree = parseFloat(b.discountPrice.replace('$', '')) === 0;
-            if (aIsFree && !bIsFree) return -1;
-            if (!aIsFree && bIsFree) return 1;
-
-            const aIsOut = a.quantity <= 0;
-            const bIsOut = b.quantity <= 0;
-            if (aIsOut && !bIsOut) return 1;
-            if (!aIsOut && bIsOut) return -1;
-            
-            const timeA = new Date(a.endTime).getTime();
-            const timeB = new Date(b.endTime).getTime();
-            if (isNaN(timeA)) return 1;
-            if (isNaN(timeB)) return -1;
-            return timeA - timeB;
-          });
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('crack_origins_offers_cache', JSON.stringify(filteredSorted));
-        }
-        setSteamGames(filteredSorted);
-        setIsLoadingOffers(false);
-      } catch (err) {
-        console.error("Critical error mapping offers: ", err);
-        setIsLoadingOffers(false);
-      }
-    }, async (error) => {
-        console.error("Firestore onSnapshot error:", error);
-        
-        // Fallback to Server Action if client-side listener fails (permission issues)
-        const fallbackOffers = await getGlobalOffers();
-        if (fallbackOffers && fallbackOffers.length > 0) {
-            setSteamGames(fallbackOffers);
+    const fetchOffers = async () => {
+        const offers = await getGlobalOffers();
+        if (offers && offers.length > 0) {
+            setSteamGames(offers);
             if (typeof window !== 'undefined') {
-                localStorage.setItem('crack_origins_offers_cache', JSON.stringify(fallbackOffers));
+                localStorage.setItem('crack_origins_offers_cache', JSON.stringify(offers));
             }
-        } else {
-            showToast("Failed to connect to offers database. Please check your connection.", "error");
         }
         setIsLoadingOffers(false);
-    });
+    };
 
-    return () => unsubOffers();
+    fetchOffers();
+    const interval = setInterval(fetchOffers, 60000); // Poll every minute
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    let unsubs: (() => void)[] = [];
-    if (user) {
-      let paymentsDict: { [key: string]: any } = {};
-      let offersDict: { [key: string]: any } = {};
-
-      const updateState = () => {
-        setPurchasedOffers({ ...paymentsDict, ...offersDict });
-      };
-
-      unsubs.push(onSnapshot(collection(fireStore, 'accounts', user.uid, 'payments'), (snap) => {
-        const dict: { [key: string]: any } = {};
-        snap.forEach(d => {
-          const data = d.data();
-          if (data.offerId) dict[data.offerId] = data;
-        });
-        paymentsDict = dict;
-        updateState();
-      }));
-
-      unsubs.push(onSnapshot(collection(fireStore, 'accounts', user.uid, 'offers'), (snap) => {
-        const dict: { [key: string]: any } = {};
-        snap.forEach(d => {
-          dict[d.id] = d.data();
-        });
-        offersDict = dict;
-        updateState();
-      }));
-    } else {
+    if (!user) {
       setPurchasedOffers({});
+      return;
     }
 
-    return () => { unsubs.forEach(unsub => unsub()); };
+    const fetchUserOffers = async () => {
+        const res = await getUserPurchasedOffers(user.uid);
+        if (res.success && res.purchasedOffers) {
+            setPurchasedOffers(res.purchasedOffers);
+        }
+    };
+
+    fetchUserOffers();
+    const interval = setInterval(fetchUserOffers, 10000); // Poll user offers every 10s
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleShowKey = async (offerId: string) => {

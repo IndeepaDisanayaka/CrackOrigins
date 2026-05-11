@@ -129,7 +129,7 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
 
         if (details.status === "COMPLETED") {
             const adminDb = await getAdminDb();
-            const { Timestamp, FieldValue } = await import('firebase-admin/firestore');
+            const { Timestamp, FieldValue } = await import('./firebase-admin');
 
             // If it's a limited offer purchase, decrement its quantity
             if (offerId) {
@@ -223,18 +223,18 @@ export async function getPayPalBalance(adminUid: string) {
 
         // Double checking the system: Aggregate all purchases to calculate real balance
         const accountsSnap = await adminDb.collection("accounts").get();
-        const promises = accountsSnap.docs.map(async (accountDoc) => {
+        const promises = accountsSnap.docs.map(async (accountDoc: any) => {
             const userRef = adminDb.collection("accounts").doc(accountDoc.id);
             const [paymentsSnap, offersSnap] = await Promise.all([
                 userRef.collection("payments").where("status", "==", "COMPLETED").get(),
                 userRef.collection("offers").where("status", "==", "COMPLETED").get()
             ]);
 
-            paymentsSnap.forEach(doc => {
+            paymentsSnap.forEach((doc: any) => {
                 const val = parseFloat(doc.data().amount);
                 if (!isNaN(val)) totalAmount += val;
             });
-            offersSnap.forEach(doc => {
+            offersSnap.forEach((doc: any) => {
                 const val = parseFloat(doc.data().amount);
                 if (!isNaN(val)) totalAmount += val;
             });

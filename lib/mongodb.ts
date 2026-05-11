@@ -22,5 +22,9 @@ export async function getMongoDb(): Promise<Db> {
   cachedDb = cachedClient.db('crack-origins-db');
   return cachedDb;
 }
+export async function getCollection(name: string) {
+    const db = await getMongoDb();
+    return db.collection(name);
+}
 
 export default getMongoDb;

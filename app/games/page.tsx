@@ -19,7 +19,7 @@ export default async function GamesPage() {
 
     return (
         <div className={styles.container}>
-            <Header isMobileMenuOpen={false} setIsMobileMenuOpen={() => {}} />
+            <Header />
             
             <main className={styles.main}>
                 <section className={styles.hero}>

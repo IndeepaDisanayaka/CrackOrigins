@@ -1,4 +1,5 @@
-import { getAdminDb } from './firebase-admin';
+import { getCollection } from './mongodb';
+import { ObjectId } from 'mongodb';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
@@ -32,45 +33,51 @@ export interface BlogPost {
 export const getBlogPosts = cache(
   unstable_cache(
     async (): Promise<BlogPost[]> => {
-      const db = await getAdminDb();
-      
-      const blogsSnapshot = await db.collection('blogs').get();
-      
-      const posts = await Promise.all(blogsSnapshot.docs.map(async (doc) => {
-        const data = doc.data();
+      try {
+        const blogsCol = await getCollection('blogs');
+        const blogs = await blogsCol.find().toArray();
         
-        const metatags = data.metatags || {};
-        const status = data.status || {};
-        const authorId = data.authorId || '';
+        const accountsCol = await getCollection('accounts');
 
-        let authorName = 'System Author';
-        if (authorId) {
-          const authorDoc = await db.collection('accounts').doc(authorId).get();
-          if (authorDoc.exists) {
-            authorName = authorDoc.data()?.name || 'Anonymous Author';
+        const posts = await Promise.all(blogs.map(async (doc: any) => {
+          const metatags = doc.metatags || {};
+          const status = doc.status || {};
+          const authorId = doc.authorId || '';
+
+          let authorName = 'System Author';
+          if (authorId) {
+            const authorDoc = await accountsCol.findOne({ 
+                $or: [{ _id: authorId }, { uid: authorId }] 
+            });
+            if (authorDoc) {
+              authorName = authorDoc.name || 'Anonymous Author';
+            }
           }
-        }
 
-        return {
-          blogId: doc.id,
-          slug: data.slug || doc.id,
-          title: metatags.title || 'Untitled',
-          date: metatags.date || new Date().toISOString(),
-          description: metatags.description || '',
-          readingTime: metatags.readingTime || '1 min read',
-          content: '',
-          image: metatags.image || '',
-          authorId,
-          authorName,
-          tags: metatags.tags || [],
-          views: status.views || 0,
-          likes: status.likes || 0,
-          isApproved: true,
-          editedTime: data.lastUpdated ? data.lastUpdated.toDate().toISOString() : new Date().toISOString(),
-        } as BlogPost;
-      }));
+          return {
+            blogId: doc._id.toString(),
+            slug: doc.slug || doc._id.toString(),
+            title: metatags.title || doc.title || 'Untitled',
+            date: metatags.date || doc.date || new Date().toISOString(),
+            description: metatags.description || doc.description || '',
+            readingTime: metatags.readingTime || '1 min read',
+            content: '',
+            image: metatags.image || doc.image || '',
+            authorId,
+            authorName,
+            tags: metatags.tags || doc.tags || [],
+            views: status.views || 0,
+            likes: status.likes || 0,
+            isApproved: doc.isApproved !== false,
+            editedTime: doc.lastUpdated ? new Date(doc.lastUpdated).toISOString() : new Date().toISOString(),
+          } as BlogPost;
+        }));
 
-      return posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return posts.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      } catch (error) {
+        console.error("Error fetching blogs from MongoDB:", error);
+        return [];
+      }
     },
     ['blog-posts-cache'],
     { revalidate: 60, tags: ['blogs'] }
@@ -82,33 +89,36 @@ export const getBlogPostBySlug = cache(
     return unstable_cache(
       async () => {
         try {
-          const db = await getAdminDb();
+          const blogsCol = await getCollection('blogs');
+          const blog = await blogsCol.findOne({ slug });
           
-          const blogQuery = await db.collection('blogs').where('slug', '==', slug).limit(1).get();
+          if (!blog) return null;
           
-          if (blogQuery.empty) return null;
-          
-          const blogDoc = blogQuery.docs[0];
-          const data = blogDoc.data();
-          const blogId = blogDoc.id;
-          const metatags = data.metatags || {};
-          const status = data.status || {};
+          const blogId = blog._id.toString();
+          const metatags = blog.metatags || {};
+          const status = blog.status || {};
 
-          const contentsSnapshot = await db
-            .collection('blogs')
-            .doc(blogId)
-            .collection('contents')
-            .where('isApproved', '==', true)
-            .get();
+          // MongoDB uses top-level 'contents' collection with blogId reference
+          const contentsCol = await getCollection('contents');
+          const contents = await contentsCol.find({ 
+              blogId: blogId, 
+              isApproved: true 
+          }).sort({ editedTime: -1 }).limit(1).toArray();
 
-          if (contentsSnapshot.empty) return null;
+          let body = '';
+          if (contents.length > 0) {
+            body = contents[0].body || '';
+          } else {
+            // Fallback to searching by string blogId just in case
+            const fallbackContents = await contentsCol.find({ blogId }).sort({ editedTime: -1 }).limit(1).toArray();
+            if (fallbackContents.length > 0) {
+              body = fallbackContents[0].body || '';
+            } else {
+              body = blog.content || '';
+            }
+          }
 
-          const contentDoc = contentsSnapshot.docs.sort((a, b) => 
-            (b.data().editedTime?.toMillis() || 0) - (a.data().editedTime?.toMillis() || 0)
-          )[0];
-          
-          const contentData = contentDoc.data();
-          const body = contentData.body || '';
+          if (!body) return null;
 
           const processedContent = await unified()
             .use(remarkParse)
@@ -127,18 +137,18 @@ export const getBlogPostBySlug = cache(
           return {
             blogId,
             slug,
-            title: metatags.title || 'Untitled',
-            date: metatags.date || new Date().toISOString(),
-            description: metatags.description || '',
+            title: metatags.title || blog.title || 'Untitled',
+            date: metatags.date || blog.date || new Date().toISOString(),
+            description: metatags.description || blog.description || '',
             readingTime: metatags.readingTime || readingTime(body).text,
             content: contentHtml,
-            image: metatags.image || '',
-            authorId: data.authorId || '',
-            tags: metatags.tags || [],
+            image: metatags.image || blog.image || '',
+            authorId: blog.authorId || '',
+            tags: metatags.tags || blog.tags || [],
             views: status.views || 0,
             likes: status.likes || 0,
             isApproved: true,
-            editedTime: data.lastUpdated ? data.lastUpdated.toDate().toISOString() : new Date().toISOString(),
+            editedTime: blog.lastUpdated ? new Date(blog.lastUpdated).toISOString() : new Date().toISOString(),
           } as BlogPost;
         } catch (error) {
           console.error(`Error loading blog post ${slug}:`, error);

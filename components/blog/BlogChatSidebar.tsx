@@ -2,30 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, ShieldAlert, MessageSquare, User, Loader2, Pencil, Heart, Trash2, AlertTriangle, CornerDownLeft } from 'lucide-react';
-import { fireStore, auth } from '@/lib/firebase';
-import { 
-  collection, 
-  query, 
-  onSnapshot, 
-  setDoc, 
-  doc, 
-  serverTimestamp, 
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  Timestamp,
-  QueryDocumentSnapshot,
-  DocumentData,
-  updateDoc,
-  increment,
-  deleteDoc,
-  getDoc,
-  arrayUnion,
-  arrayRemove
-} from 'firebase/firestore';
+import { getBlogComments, upsertBlogComment, deleteBlogComment, toggleCommentLike } from '@/lib/blog-actions';
 import styles from './blog-chat-sidebar.module.css';
 import { useToast } from '../Toast';
+import { useAuth } from '@/lib/contexts/AuthContext';
 
 interface Comment {
   id: string;
@@ -36,7 +16,6 @@ interface Comment {
   role?: 'admin' | 'user' | 'mod';
   avatar?: string;
   likes: number;
-  commenteddatetime?: Timestamp;
 }
 
 interface BlogChatSidebarProps {
@@ -49,12 +28,13 @@ interface BlogChatSidebarProps {
 const COMMENTS_PER_PAGE = 10;
 
 export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: BlogChatSidebarProps) {
+  const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [page, setPage] = useState(1);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
@@ -66,120 +46,64 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
 
   // Detect mobile
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Load liked comments — single doc read from accounts/{uid}/blogs/{blogId} for auth users
+  // Load liked comments from local storage (or could be moved to DB later)
   useEffect(() => {
     if (!blogId) return;
-    const user = auth.currentUser;
-
-    if (user) {
-      const fetchLiked = async () => {
-        try {
-          // accounts/{userId}/blogs/{blogId} is already allowed by existing rules
-          const likeDocRef = doc(fireStore, 'accounts', user.uid, 'blogs', blogId);
-          const likeSnap = await getDoc(likeDocRef);
-          if (likeSnap.exists()) {
-            setLikedCommentIds(likeSnap.data()?.likedCommentIds || []);
-          }
-        } catch (e) {
-          console.error('Error fetching liked comments:', e);
-        }
-      };
-      fetchLiked();
-    } else {
-      // Guest fallback: per-blog localStorage key
-      const saved = localStorage.getItem(`liked_comments_${blogId}`);
-      if (saved) setLikedCommentIds(JSON.parse(saved));
-    }
+    const saved = localStorage.getItem(`liked_comments_${blogId}`);
+    if (saved) setLikedCommentIds(JSON.parse(saved));
   }, [blogId]);
 
   // Initial Load
-  useEffect(() => {
-    if (!isOpen || !blogId) return;
-    
-    setLoading(true);
-    const commentsRef = collection(fireStore, 'blogs', blogId, 'comments');
-    const q = query(commentsRef, orderBy('commenteddatetime', 'desc'), limit(COMMENTS_PER_PAGE));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedComments = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        const userId = docSnap.id;
-        const isMe = auth.currentUser?.uid === userId;
-        
-        return {
-          id: userId,
-          sender: data.userName || 'Operative',
-          content: data.comment,
-          timestamp: data.commenteddatetime 
-            ? new Date(data.commenteddatetime.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
-            : '...',
-          isMe,
-          role: data.role || 'user',
-          avatar: data.userAvatar || null,
-          likes: data.likes || 0,
-          commenteddatetime: data.commenteddatetime
-        } as Comment;
-      });
-      
-      setComments(loadedComments);
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-      setHasMore(snapshot.docs.length === COMMENTS_PER_PAGE);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [isOpen, blogId]);
-
-  const loadMoreComments = async () => {
-    if (!hasMore || loading || !lastDoc || !blogId) return;
-
+  const loadComments = async (pageNum: number, append = false) => {
+    if (!blogId) return;
     setLoading(true);
     try {
-      const commentsRef = collection(fireStore, 'blogs', blogId, 'comments');
-      const q = query(
-        commentsRef, 
-        orderBy('commenteddatetime', 'desc'), 
-        startAfter(lastDoc), 
-        limit(COMMENTS_PER_PAGE)
-      );
-
-      const snapshot = await getDocs(q);
-      const moreComments = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        const userId = docSnap.id;
-        const isMe = auth.currentUser?.uid === userId;
-        
-        return {
-          id: userId,
-          sender: data.userName || 'Operative',
-          content: data.comment,
-          timestamp: data.commenteddatetime 
-            ? new Date(data.commenteddatetime.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+      const res = await getBlogComments(blogId, pageNum, COMMENTS_PER_PAGE);
+      if (res.success && Array.isArray(res.comments)) {
+        const mapped: Comment[] = res.comments.map((c: any) => ({
+          id: c.userId, // Using userId as id for existing logic
+          sender: c.userName || 'Operative',
+          content: c.comment,
+          timestamp: c.commenteddatetime 
+            ? new Date(c.commenteddatetime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) 
             : '...',
-          isMe,
-          role: data.role || 'user',
-          avatar: data.userAvatar || null,
-          likes: data.likes || 0,
-          commenteddatetime: data.commenteddatetime
-        } as Comment;
-      });
+          isMe: user?.id === c.userId,
+          role: c.role || 'user',
+          avatar: c.userAvatar || null,
+          likes: c.likes || 0
+        }));
+        
+        setComments(prev => append ? [...prev, ...mapped] : mapped);
+        setHasMore(res.comments.length === COMMENTS_PER_PAGE);
+      } else {
+        setHasMore(false);
+      }
 
-      setComments(prev => [...prev, ...moreComments]);
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-      setHasMore(snapshot.docs.length === COMMENTS_PER_PAGE);
-    } catch (error) {
-      console.error("Error loading more comments:", error);
+    } catch (e) {
+      console.error("Error loading comments:", e);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (isOpen && blogId) {
+      setPage(1);
+      loadComments(1);
+    }
+  }, [isOpen, blogId, user]);
+
+  const loadMoreComments = () => {
+    if (!hasMore || loading) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadComments(nextPage, true);
   };
 
   const handleEditClick = (commentId: string, content: string) => {
@@ -189,56 +113,41 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
   };
 
   const handleDeleteComment = async () => {
-    if (!commentToDelete || !blogId) return;
+    if (!commentToDelete || !blogId || !user) return;
     
     setLoading(true);
     try {
-      const commentDocRef = doc(fireStore, 'blogs', blogId, 'comments', commentToDelete);
-      await deleteDoc(commentDocRef);
-      showToast('Intelligence entry purged.', 'success');
-      setCommentToDelete(null);
+      const res = await deleteBlogComment(blogId, user.id);
+      if (res.success) {
+        showToast('Intelligence entry purged.', 'success');
+        setComments(prev => prev.filter(c => c.id !== user.id));
+        setCommentToDelete(null);
+      }
     } catch (error) {
-      console.error("Error deleting comment:", error);
       showToast('Purge failed.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLikeComment = async (commentId: string) => {
+  const handleLikeComment = async (commentUserId: string) => {
     if (!blogId) return;
 
-    const user = auth.currentUser;
-    const isAlreadyLiked = likedCommentIds.includes(commentId);
+    const isAlreadyLiked = likedCommentIds.includes(commentUserId);
     const nextLikedIds = isAlreadyLiked
-      ? likedCommentIds.filter(id => id !== commentId)
-      : [...likedCommentIds, commentId];
+      ? likedCommentIds.filter(id => id !== commentUserId)
+      : [...likedCommentIds, commentUserId];
 
-    // Optimistic UI update
     setLikedCommentIds(nextLikedIds);
+    localStorage.setItem(`liked_comments_${blogId}`, JSON.stringify(nextLikedIds));
 
     try {
-      if (user) {
-        // Authenticated: store liked IDs in accounts/{uid}/blogs/{blogId}
-        // This path is already covered by existing Firestore rules
-        const likeDocRef = doc(fireStore, 'accounts', user.uid, 'blogs', blogId);
-        await setDoc(likeDocRef, {
-          likedCommentIds: isAlreadyLiked ? arrayRemove(commentId) : arrayUnion(commentId)
-        }, { merge: true });
-      } else {
-        // Guest: per-blog localStorage key
-        localStorage.setItem(`liked_comments_${blogId}`, JSON.stringify(nextLikedIds));
-      }
-
-      // Update aggregate likes count on the comment document
-      const commentDocRef = doc(fireStore, 'blogs', blogId, 'comments', commentId);
-      await updateDoc(commentDocRef, {
-        likes: increment(isAlreadyLiked ? -1 : 1)
-      });
+      await toggleCommentLike(blogId, commentUserId, !isAlreadyLiked);
+      setComments(prev => prev.map(c => 
+        c.id === commentUserId ? { ...c, likes: c.likes + (isAlreadyLiked ? -1 : 1) } : c
+      ));
     } catch (error) {
       console.error('Error updating likes:', error);
-      // Revert optimistic update on failure
-      setLikedCommentIds(likedCommentIds);
     }
   };
 
@@ -246,37 +155,28 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
     if (e) e.preventDefault();
     if (!inputValue.trim() || isSubmitting) return;
 
-    if (!auth.currentUser) {
+    if (!user) {
       showToast('Authentication required.', 'error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const userId = auth.currentUser.uid;
-      const commentDocRef = doc(fireStore, 'blogs', blogId, 'comments', userId);
-      
-      const payload: any = {
+      const payload = {
         comment: inputValue.trim(),
-        lastUpdated: serverTimestamp(),
+        userName: user.name || 'Anonymous User',
+        userAvatar: user.image || null,
+        role: 'user'
       };
 
-      if (!editingCommentId) {
-        payload.commenteddatetime = serverTimestamp();
-        payload.userName = auth.currentUser.displayName || 'Anonymous User';
-        payload.userEmail = auth.currentUser.email;
-        payload.userAvatar = auth.currentUser.photoURL || null;
-        payload.role = 'user';
-        payload.likes = 0;
+      const res = await upsertBlogComment(blogId, user.id, payload);
+      if (res.success) {
+        setInputValue('');
+        setEditingCommentId(null);
+        showToast('Intelligence updated.', 'success');
+        loadComments(1); // Refresh
       }
-
-      await setDoc(commentDocRef, payload, { merge: true });
-
-      setInputValue('');
-      setEditingCommentId(null);
-      showToast('Intelligence updated.', 'success');
     } catch (error) {
-      console.error("Error submitting comment:", error);
       showToast('Transmission failure.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -284,8 +184,6 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // On Desktop: Enter = Submit, Shift+Enter = New Line
-    // On Mobile: Enter = New Line always (handled by default behavior)
     if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmitComment();
@@ -395,18 +293,18 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
         <form onSubmit={handleSubmitComment} className={styles.inputWrapper}>
           <textarea 
             ref={textareaRef}
-            placeholder={auth.currentUser ? "Broadcast intelligence..." : "Authentication required"} 
+            placeholder={user ? "Broadcast intelligence..." : "Authentication required"} 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isSubmitting || !auth.currentUser}
+            disabled={isSubmitting || !user}
             maxLength={1000}
           />
           <div className={styles.inputFooter}>
             <button 
               type="submit" 
               className={styles.sendBtn} 
-              disabled={isSubmitting || !inputValue.trim() || !auth.currentUser}
+              disabled={isSubmitting || !inputValue.trim() || !user}
             >
               {isSubmitting ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -421,7 +319,6 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
         </form>
       </div>
 
-      {/* Custom Alert Modal for Delete Confirmation */}
       {commentToDelete && (
         <div className={styles.modalOverlay}>
           <div className={styles.alertModal}>
@@ -452,3 +349,4 @@ export default function BlogChatSidebar({ isOpen, onClose, blogTitle, blogId }: 
     </div>
   );
 }
+

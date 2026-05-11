@@ -53,8 +53,7 @@ import RolesModal from './admin/RolesModal';
 import { getPayPalBalance } from '@/lib/paypal-actions';
 import { useToast } from './Toast';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { rtdb } from '../lib/firebase';
-import { ref, onValue, remove } from 'firebase/database';
+const rtdb = null;
 import Link from 'next/link';
 import { formatDate } from 'date-fns';
 import AffiliateLevelModal from './admin/AffiliateLevelModal';
@@ -104,8 +103,8 @@ export default function AdminPanel({
   const [roleConfirm, setRoleConfirm] = useState<{ open: boolean; targetUid: string; nextOwner: boolean; name: string }>({
     open: false, targetUid: "", nextOwner: false, name: ""
   });
-  const [blogDeleteConfirm, setBlogDeleteConfirm] = useState<{ open: boolean; slug: string; title: string }>({
-    open: false, slug: "", title: ""
+  const [blogDeleteConfirm, setBlogDeleteConfirm] = useState<{ open: boolean; id: string; slug: string; title: string }>({
+    open: false, id: "", slug: "", title: ""
   });
   const [userDeleteConfirm, setUserDeleteConfirm] = useState<{ open: boolean; uid: string; name: string }>({
     open: false, uid: "", name: ""
@@ -187,37 +186,10 @@ export default function AdminPanel({
     return perms.includes(action);
   };
 
-  // Live Cursor Users listener
-  useEffect(() => {
-    if (!showLiveCursors) return;
-    const presenceRef = ref(rtdb, 'presence');
-    const unsub = onValue(presenceRef, (snapshot) => {
-      const allUsers = snapshot.val() || {};
-      setLiveCursorUsers(allUsers);
-      // Extract chat messages from users who have a message
-      const msgs: { id: string; name: string; message: string; color: string; time: number }[] = [];
-      Object.entries(allUsers).forEach(([id, userData]: [string, any]) => {
-        if (userData.message) {
-          msgs.push({
-            id,
-            name: userData.name || 'Ghost',
-            message: userData.message,
-            color: userData.color || '#feb60c',
-            time: userData.lastActive || Date.now()
-          });
-        }
-      });
-      setChatMessages(prev => {
-        const newMsgs = msgs.filter(m => !prev.find(p => p.id === m.id && p.message === m.message));
-        if (newMsgs.length > 0) {
-          const merged = [...prev, ...newMsgs].slice(-100);
-          return merged;
-        }
-        return prev;
-      });
-    });
-    return () => unsub();
-  }, [showLiveCursors]);
+  // RTDB helpers disabled after migration
+  const handleDeletePresenceEntry = (id: string) => {};
+  const handlePurgeAllStale = () => {};
+  const handleDeleteAllPresence = () => {};
 
   // Auto-scroll chat
   useEffect(() => {
@@ -229,49 +201,6 @@ export default function AdminPanel({
     const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Auto-cleanup scheduler
-  useEffect(() => {
-    if (autoCleanupRef.current) {
-      clearInterval(autoCleanupRef.current);
-      autoCleanupRef.current = null;
-    }
-    if (!autoCleanupEnabled || !showLiveCursors) return;
-    autoCleanupRef.current = setInterval(() => {
-      const now = Date.now();
-      Object.entries(liveCursorUsers).forEach(([id, userData]: [string, any]) => {
-        if (now - (userData.lastActive || 0) > autoCleanupInterval * 1000) {
-          remove(ref(rtdb, `presence/${id}`));
-        }
-      });
-    }, 5000);
-    return () => {
-      if (autoCleanupRef.current) clearInterval(autoCleanupRef.current);
-    };
-  }, [autoCleanupEnabled, showLiveCursors, autoCleanupInterval, liveCursorUsers]);
-
-  // RTDB delete helpers
-  const handleDeletePresenceEntry = (id: string) => {
-    remove(ref(rtdb, `presence/${id}`));
-    showToast('Entry removed.', 'success');
-  };
-
-  const handlePurgeAllStale = () => {
-    const now = Date.now();
-    let count = 0;
-    Object.entries(liveCursorUsers).forEach(([id, userData]: [string, any]) => {
-      if (now - (userData.lastActive || 0) > 10000) {
-        remove(ref(rtdb, `presence/${id}`));
-        count++;
-      }
-    });
-    showToast(`Purged ${count} stale entries.`, 'success');
-  };
-
-  const handleDeleteAllPresence = () => {
-    remove(ref(rtdb, 'presence'));
-    showToast('All presence data cleared.', 'success');
-  };
 
   const handleTogglePaypalBalance = async () => {
     if (showPaypalBalance) {
@@ -391,12 +320,12 @@ export default function AdminPanel({
   };
 
   const handleDeleteBlog = async () => {
-    if (!blogDeleteConfirm.slug) return;
+    if (!blogDeleteConfirm.id) return;
     
-    const res = await deleteBlogPost(userUid, blogDeleteConfirm.slug);
+    const res = await deleteBlogPost(userUid, blogDeleteConfirm.id, blogDeleteConfirm.slug);
     if (res.success) {
       showToast("Blog post deleted successfully.", "success");
-      setBlogDeleteConfirm({ open: false, slug: "", title: "" });
+      setBlogDeleteConfirm({ open: false, id: "", slug: "", title: "" });
       fetchData();
     } else {
       showToast(res.error || "Failed to delete blog.", "error");
@@ -1393,8 +1322,8 @@ export default function AdminPanel({
                              ))}
 
                             {/* Blogs Rendering */}
-                            {activeTab === 'blogs' && filteredBlogs.map((b: any) => (
-                              <tr key={b.slug} style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                            {activeTab === 'blogs' && filteredBlogs.map((b: any, idx: number) => (
+                              <tr key={b.blogId || b._id || idx} style={{ borderBottom: '1px solid var(--outline-color)' }}>
                                 <td style={{ padding: '1rem' }}>
                                   <div style={{ fontWeight: 700 }}>{b.title}</div>
                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Slug: {b.slug}</div>
@@ -1426,7 +1355,7 @@ export default function AdminPanel({
                                     </Link>
                                     {hasPerm('blogs', 'DELETE') && (
                                       <button 
-                                        onClick={() => setBlogDeleteConfirm({ open: true, slug: b.slug, title: b.title })} 
+                                        onClick={() => setBlogDeleteConfirm({ open: true, id: b.blogId, slug: b.slug, title: b.title })} 
                                         className="btnOutline" 
                                         style={{ padding: '0.4rem 0.6rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
                                       >

@@ -1,37 +1,13 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { initializeFirestore, memoryLocalCache, getFirestore } from "firebase/firestore";
-import { getDatabase } from "firebase/database";
+/**
+ * Firebase Client SDK Stub
+ * This file is kept to avoid breaking existing imports, but it no longer
+ * initializes the Firebase SDK. All functionality has been migrated to MongoDB.
+ */
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
-};
+export const auth: any = null;
+export const fireStore: any = null;
+export const rtdb: any = null;
+export const storage: any = null;
+export const googleProvider: any = null;
 
-// During build time (static generation), environment variables might not be fully available
-// or Firebase initialization might happen in a restricted environment.
-// Initialize with a dummy config if apiKey is missing to prevent build crashes.
-const isVaidConfig = !!firebaseConfig.apiKey;
-const app = (getApps().length > 0) 
-  ? getApp() 
-  : initializeApp(isVaidConfig ? firebaseConfig : { apiKey: "BUILD_TIME_PLACEHOLDER", projectId: "placeholder" });
-
-let firestoreInstance;
-try {
-  firestoreInstance = initializeFirestore(app, {
-    localCache: memoryLocalCache()
-  });
-} catch (e) {
-  // Fallback if already initialized (e.g. during Next.js hot reloads)
-  firestoreInstance = getFirestore(app);
-}
-
-export const fireStore = firestoreInstance;
-export const auth = getAuth(app);
-export const rtdb = getDatabase(app);
+export default { auth, fireStore, rtdb, storage, googleProvider };

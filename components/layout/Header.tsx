@@ -12,8 +12,12 @@ import dynamic from 'next/dynamic';
 
 const CreateIdeaModal = dynamic(() => import('../ideas/CreateIdeaModal'), { ssr: false });
 
-export default function Header({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen: boolean, setIsMobileMenuOpen: (v: boolean) => void }) {
+export default function Header({ isMobileMenuOpen: propIsMobileMenuOpen, setIsMobileMenuOpen: propSetIsMobileMenuOpen }: { isMobileMenuOpen?: boolean, setIsMobileMenuOpen?: (v: boolean) => void }) {
   const { user, isAdmin, isOwner, permissions, isAuthLoading, xp, logout } = useAuth();
+  const [internalIsMobileMenuOpen, setInternalIsMobileMenuOpen] = useState(false);
+  
+  const isMobileMenuOpen = propIsMobileMenuOpen ?? internalIsMobileMenuOpen;
+  const setIsMobileMenuOpen = propSetIsMobileMenuOpen ?? setInternalIsMobileMenuOpen;
 
   const { setIsAuthModalOpen, setIsAdminModalOpen, setIsCouponModalOpen, setIsAddOfferModalOpen, setIsListGameOpen, setIsDispatchModalOpen, setIsCreateIdeaOpen, isCreateIdeaOpen } = useModals();
   const [mounted, setMounted] = useState(false);

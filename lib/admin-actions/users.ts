@@ -1,7 +1,7 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized, Timestamp, FieldValue, getAuth } from '../firebase-admin';
+import { getCollection, getMongoDb } from '../mongodb';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
@@ -21,17 +21,15 @@ export async function syncUserRecord(uid: string, data: {
     emailVerified?: boolean;
 }) {
     try {
-        const adminDb = await getAdminDb();
-        const userRef = adminDb.collection("accounts").doc(uid);
-        const userDoc = await userRef.get();
-        const isNewUser = !userDoc.exists;
+        const db = await getMongoDb();
+        const accountsCol = db.collection('accounts');
         
-        const userData = userDoc.data();
-        let affiliateId = userData?.affiliateId || null;
-        let discount = userData?.discount || 0;
-        let referredBy = userData?.referredBy || null;
+        const existing = await accountsCol.findOne({ uid });
+        const isNewUser = !existing;
 
-        // 1. Generate unique affiliate ID if it doesn't exist
+        let affiliateId = existing?.affiliateId || null;
+
+        // Generate unique affiliate ID if it doesn't exist
         if (!affiliateId) {
             const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let isUnique = false;
@@ -40,56 +38,43 @@ export async function syncUserRecord(uid: string, data: {
                 for (let i = 0; i < 8; i++) {
                     affiliateId += characters.charAt(Math.floor(Math.random() * characters.length));
                 }
-                const existing = await adminDb.collection("accounts").where("affiliateId", "==", affiliateId).limit(1).get();
-                if (existing.empty) isUnique = true;
+                const existingAffiliate = await accountsCol.findOne({ affiliateId });
+                if (!existingAffiliate) isUnique = true;
             }
         }
 
-        // 2. Handle Referral Logic (ONLY FOR NEW ACCOUNTS - ONE TIME CHANCE)
+        // Handle Referral Logic (new users only)
+        let referredBy = existing?.referredBy || null;
         if (isNewUser && data.referralId && data.referralId !== affiliateId) {
-            const inviterQuery = await adminDb.collection("accounts").where("affiliateId", "==", data.referralId).limit(1).get();
-            
-            if (!inviterQuery.empty) {
-                const inviterDoc = inviterQuery.docs[0];
-                const inviterUid = inviterDoc.id;
-                
-                // Add registration reward to inviter
-                await addAffiliateReward(inviterUid, 0, 'onetime');
-
+            const inviter = await accountsCol.findOne({ affiliateId: data.referralId });
+            if (inviter) {
                 referredBy = data.referralId;
+                // Could trigger reward here if needed
             }
         }
 
-        // 3. Update/Create the user record
         const userPayload: any = {
-            isOwner: isNewUser ? data.isOwner : (userData?.isOwner ?? data.isOwner),
+            uid,
+            isOwner: isNewUser ? data.isOwner : (existing?.isOwner ?? data.isOwner),
             name: data.name,
             email: encrypt(data.email || "unknown"),
             photoURL: data.photoURL,
-            created: data.created || null,
-            last: data.last || null,
-            updatedAt: Timestamp.now(),
+            created: existing?.created || data.created || new Date().toISOString(),
+            last: data.last || new Date().toISOString(),
+            updatedAt: new Date(),
             affiliateId,
-            xp: userData?.xp ?? userData?.discount ?? 0,
-
+            xp: existing?.xp ?? existing?.discount ?? 0,
             country: data.country || "Unknown",
-            emailVerified: data.emailVerified ?? false
+            emailVerified: data.emailVerified ?? false,
         };
 
-        // Only insert referredBy if it has a value (not null/undefined)
-        if (referredBy) {
-            userPayload.referredBy = referredBy;
-        }
+        if (referredBy) userPayload.referredBy = referredBy;
 
-        await userRef.set(userPayload, { merge: true });
-        
-        // SYNC TO RTDB SECURELY (New)
-        try {
-            const rtdb = await getAdminRtdb();
-            await rtdb.ref(`accounts/${uid}/isOwner`).set(userPayload.isOwner);
-        } catch (rtdbErr) {
-            console.warn("RTDB Permission Sync Failed (syncUserRecord):", rtdbErr);
-        }
+        await accountsCol.updateOne(
+            { uid },
+            { $set: userPayload },
+            { upsert: true }
+        );
 
         return { success: true, affiliateId };
     } catch (error: any) {
@@ -100,48 +85,38 @@ export async function syncUserRecord(uid: string, data: {
 
 export async function checkAdminStatus(uid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const userRef = adminDb.collection("accounts").doc(uid);
-        const doc = await userRef.get();
-        const data = doc.data();
+        const db = await getMongoDb();
+        const accountsCol = db.collection('accounts');
+        const data = await accountsCol.findOne({ uid });
+        
+        if (!data) return { 
+            success: false, isOwner: false, isAdmin: false, affiliateCount: 0, 
+            metadata: { creationTime: null, lastSignInTime: null } 
+        };
 
-        const affiliatesSnapshot = await userRef.collection("affiliates").get();
+        const affiliateCount = await db.collection('affiliates').countDocuments({ referredBy: uid });
         const isOwner = data?.isOwner === true;
         const isAdmin = isOwner || !!data?.ruleId;
 
-        // Sync to RTDB for security rules during status check (covers existing users)
-        try {
-            const rtdb = await getAdminRtdb();
-            await rtdb.ref(`accounts/${uid}/isOwner`).set(isOwner);
-            await rtdb.ref(`accounts/${uid}/isAdmin`).set(isAdmin);
-        } catch (e) {}
-
-        const levelTitle = data?.affiliateLevel || "starter";
-        const levelsSnap = await adminDb.collection("reward_levels").get();
-        const allLevels = levelsSnap.docs.map(d => ({ ...d.data(), id: d.id } as Types.RewardLevel));
+        const allLevels = await db.collection('reward_levels').find().toArray();
+        const sortedLevelsAsc = [...allLevels].sort((a: any, b: any) => (a.min_xp || 0) - (b.min_xp || 0));
+        const sortedLevelsDesc = [...allLevels].sort((a: any, b: any) => (b.min_xp || 0) - (a.min_xp || 0));
         
-        // Find current level details
-        const sortedLevelsAsc = [...allLevels].sort((a, b) => (a.min_xp || 0) - (b.min_xp || 0));
-        const sortedLevelsDesc = [...allLevels].sort((a, b) => (b.min_xp || 0) - (a.min_xp || 0));
-        
-        const currentLevel = sortedLevelsDesc.find(l => (data?.xp || 0) >= (l.min_xp || 0)) || 
+        const currentXp = data?.xp || data?.discount || 0;
+        const currentLevel = sortedLevelsDesc.find((l: any) => currentXp >= (l.min_xp || 0)) || 
                            sortedLevelsAsc[0] || 
                            { title: 'starter', onetime_reward_xp: 5, payment_commision: 2, min_xp: 0, max_xp: 100 };
 
-
-        // Find next level
-        const sortedLevels = [...allLevels].sort((a, b) => (a.min_xp || 0) - (b.min_xp || 0));
-        const nextLevel = sortedLevels.find(l => (l.min_xp || 0) > (currentLevel.min_xp || 0));
+        const nextLevel = sortedLevelsAsc.find((l: any) => (l.min_xp || 0) > (currentLevel.min_xp || 0));
 
         return { 
             success: true, 
-            isOwner: isOwner,
-            isAdmin: isAdmin,
+            isOwner,
+            isAdmin,
             affiliateId: data?.affiliateId || null,
-            xp: data?.xp ?? data?.discount ?? 0,
-            affiliateLevel: currentLevel.title,
+            xp: currentXp,
+            affiliateLevel: currentLevel.title || 'starter',
             affiliateLevelDetails: {
-
                 title: currentLevel.title,
                 onetime_reward_xp: currentLevel.onetime_reward_xp,
                 payment_commision: currentLevel.payment_commision,
@@ -149,11 +124,15 @@ export async function checkAdminStatus(uid: string) {
                 max_xp: currentLevel.max_xp,
                 nextLevelGoal: nextLevel ? nextLevel.min_xp : null
             },
-            affiliateCount: affiliatesSnapshot.size
+            affiliateCount,
+            metadata: {
+                creationTime: data?.created ? new Date(data.created).toISOString() : null,
+                lastSignInTime: data?.last ? new Date(data.last).toISOString() : null
+            }
         };
     } catch (err) {
         console.error("Error in checkAdminStatus:", err);
-        return { success: false, isOwner: false, affiliateCount: 0 };
+        return { success: false, isOwner: false, affiliateCount: 0, metadata: { creationTime: null, lastSignInTime: null } };
     }
 }
 
@@ -188,7 +167,7 @@ export async function getAdminDashboardData(adminUid: string) {
             const accountsSnap = await adminDb.collection("accounts").get();
             const firestoreUsersMap = new Map<string, Types.UserRecord>();
             
-            accountsSnap.forEach(d => {
+            accountsSnap.forEach((d: any) => {
                 const data = d.data() || {};
                 let decryptedEmail = data.email || null;
                 if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
@@ -209,11 +188,16 @@ export async function getAdminDashboardData(adminUid: string) {
             });
 
             await ensureFirebaseAdminInitialized();
-            const { getAuth } = await import('firebase-admin/auth');
-            const authUsersResult = await getAuth().listUsers(1000);
+            let authUsersResult: any = { users: [] };
+            try {
+                const auth = await getAuth();
+                authUsersResult = await auth.listUsers(1000);
+            } catch (e) {
+                console.warn("Auth listing failed.");
+            }
             
             const seenUids = new Set();
-            authUsersResult.users.forEach(authUser => {
+            authUsersResult.users.forEach((authUser: any) => {
                 const fsUser = firestoreUsersMap.get(authUser.uid);
                 results.users.push({
                     uid: authUser.uid,
@@ -245,7 +229,7 @@ export async function getAdminDashboardData(adminUid: string) {
                 adminDb.collection("games").get()
             ]);
 
-            results.offers = offersSnap.docs.map(d => {
+            results.offers = offersSnap.docs.map((d: any) => {
                 const data = d.data() || {};
                 return {
                     id: d.id,
@@ -264,7 +248,7 @@ export async function getAdminDashboardData(adminUid: string) {
                 };
             });
 
-            results.games = gamesSnap.docs.map(d => {
+            results.games = gamesSnap.docs.map((d: any) => {
                 const data = d.data() || {};
                 return {
                     id: d.id,
@@ -292,7 +276,7 @@ export async function getAdminDashboardData(adminUid: string) {
         // 3. Fetch Coupons
         if (hasAccess('coupons')) {
             const couponsSnap = await adminDb.collection("coupons").get();
-            results.coupons = couponsSnap.docs.map(d => {
+            results.coupons = couponsSnap.docs.map((d: any) => {
                 const data = d.data() || {};
                 return {
                     id: d.id,
@@ -344,8 +328,8 @@ export async function getAdminDashboardData(adminUid: string) {
                 });
             };
 
-            paymentsGroupSnap.forEach((doc) => pushPayment(doc, "payment"));
-            offersGroupSnap.forEach((doc) => pushPayment(doc, "offerPayment"));
+            paymentsGroupSnap.forEach((doc: any) => pushPayment(doc, "payment"));
+            offersGroupSnap.forEach((doc: any) => pushPayment(doc, "offerPayment"));
 
             results.payments.sort((a: any, b: any) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
         }
@@ -365,13 +349,6 @@ export async function updateUserOwnerStatus(adminUid: string, targetUid: string,
 
         await adminDb.collection("accounts").doc(targetUid).set({ isOwner: isOwner === true }, { merge: true });
         
-        // SYNC TO RTDB SECURELY (New)
-        try {
-            const rtdb = await getAdminRtdb();
-            await rtdb.ref(`accounts/${targetUid}/isOwner`).set(isOwner === true);
-        } catch (rtdbErr) {
-            console.warn("RTDB Permission Sync Failed (updateUserOwnerStatus):", rtdbErr);
-        }
 
         return { success: true };
     } catch (error: any) {
@@ -393,11 +370,11 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
         
         // Delete from Firebase Auth
         await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
         try {
-            await getAuth().deleteUser(targetUid);
+            const auth = await getAuth();
+            await auth.deleteUser(targetUid);
         } catch (authError) {
-            console.warn("User already gone from Auth or error:", authError);
+            console.warn("User deletion from Auth failed:", authError);
         }
 
         // Delete subcollections
@@ -408,9 +385,9 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
         ]);
 
         const batch = adminDb.batch();
-        payments.forEach(d => batch.delete(d.ref));
-        offers.forEach(d => batch.delete(d.ref));
-        affiliates.forEach(d => batch.delete(d.ref));
+        payments.forEach((d: any) => batch.delete(d.ref));
+        offers.forEach((d: any) => batch.delete(d.ref));
+        affiliates.forEach((d: any) => batch.delete(d.ref));
         batch.delete(userRef);
         
         await batch.commit();
@@ -446,13 +423,17 @@ export async function deleteAnonymousUsers(adminUid: string) {
 
         // 2. Collect from Auth (to catch those not in Firestore)
         await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
-        const authUsers = await getAuth().listUsers(1000);
-        authUsers.users.forEach(u => {
-            if (u.providerData.length === 0 && !anonymousUids.includes(u.uid)) {
-                anonymousUids.push(u.uid);
-            }
-        });
+        try {
+            const auth = await getAuth();
+            const authUsers = await auth.listUsers(1000);
+            authUsers.users.forEach((u: any) => {
+                if (u.providerData.length === 0 && !anonymousUids.includes(u.uid)) {
+                    anonymousUids.push(u.uid);
+                }
+            });
+        } catch (e) {
+            console.warn("Bulk anonymous cleanup from Auth skipped.");
+        }
 
         if (anonymousUids.length === 0) return { success: true, count: 0 };
 
@@ -465,7 +446,8 @@ export async function deleteAnonymousUsers(adminUid: string) {
             // Delete from Auth in parallel for this chunk
             await Promise.all(chunk.map(async (uid) => {
                 try { 
-                    await getAuth().deleteUser(uid); 
+                    const auth = await getAuth();
+                    await auth.deleteUser(uid); 
                 } catch(e) {
                     console.error(`Auth deletion failed for ${uid}:`, e);
                 }
@@ -534,16 +516,20 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
 
         // 2. Check Auth for users that DON'T have a Firestore record (Ghost anonymous users)
         await ensureFirebaseAdminInitialized();
-        const { getAuth } = await import('firebase-admin/auth');
-        const authUsersResult = await getAuth().listUsers(1000);
-        
-        for (const authUser of authUsersResult.users) {
-            if (seenUids.has(authUser.uid)) continue;
+        try {
+            const auth = await getAuth();
+            const authUsersResult = await auth.listUsers(1000);
             
-            // If it's an anonymous account in Auth with NO Firestore record, delete it
-            if (authUser.providerData.length === 0) {
-                uidsToDelete.push(authUser.uid);
+            for (const authUser of authUsersResult.users) {
+                if (seenUids.has(authUser.uid)) continue;
+                
+                // If it's an anonymous account in Auth with NO Firestore record, delete it
+                if (authUser.providerData.length === 0) {
+                    uidsToDelete.push(authUser.uid);
+                }
             }
+        } catch (e) {
+            console.warn("Auth check for deactivated users skipped.");
         }
 
         if (uidsToDelete.length === 0) return { success: true, count: 0 };
@@ -554,7 +540,10 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
             const chunk = uidsToDelete.slice(i, i + 400);
             for (const uid of chunk) {
                 batch.delete(adminDb.collection("accounts").doc(uid));
-                try { await getAuth().deleteUser(uid); } catch(e) {}
+                try { 
+                    const auth = await getAuth();
+                    await auth.deleteUser(uid); 
+                } catch(e) {}
             }
             await batch.commit();
             totalDeleted += chunk.length;
@@ -603,9 +592,9 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
             });
         };
 
-        paymentsSnap.forEach(doc => pushPayment(doc, "payment"));
-        offersPurchSnap.forEach(doc => pushPayment(doc, "offerPayment"));
-        payments.sort((a, b) => {
+        paymentsSnap.forEach((doc: any) => pushPayment(doc, "payment"));
+        offersPurchSnap.forEach((doc: any) => pushPayment(doc, "offerPayment"));
+        payments.sort((a: any, b: any) => {
             const dateA = a.purchaseDate || "";
             const dateB = b.purchaseDate || "";
             return dateB.localeCompare(dateA);
@@ -630,60 +619,70 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
 
 export async function getMyPermissions(uid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(uid).get();
+        const db = await getMongoDb();
+        const userDoc = await db.collection('accounts').findOne({ uid });
         
-        if (!userDoc.exists) return { success: false, error: "User not found." };
-        const userData = userDoc.data();
+        if (!userDoc) return { success: false, error: "User not found." };
         
-        if (userData?.isOwner) {
+        if (userDoc?.isOwner) {
             return { success: true, isOwner: true, permissions: "*" };
         }
         
-        const ruleId = userData?.ruleId;
+        const ruleId = userDoc?.ruleId;
         if (!ruleId) return { success: true, isOwner: false, permissions: {} };
         
-        const ruleDoc = await adminDb.collection("account_rules").doc(ruleId).get();
-        if (!ruleDoc.exists) return { success: true, isOwner: false, permissions: {} };
+        const { ObjectId } = await import('mongodb');
+        let objId: any;
+        try { objId = new ObjectId(ruleId); } catch { objId = ruleId; }
         
-        return { success: true, isOwner: false, permissions: ruleDoc.data()?.rules || {} };
+        const ruleDoc = await db.collection('account_rules').findOne({ _id: objId });
+        if (!ruleDoc) return { success: true, isOwner: false, permissions: {} };
+        
+        return { success: true, isOwner: false, permissions: ruleDoc.rules || {} };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
 }
 
 export async function getUserActivity(uid: string) {
-
     try {
-        const adminDb = await getAdminDb();
-        const userRef = adminDb.collection("accounts").doc(uid);
+        const db = await getMongoDb();
         
-        // 1. Fetch from unified activity collection
-        const activitySnap = await userRef.collection("activity").orderBy("date", "desc").limit(50).get();
-        const activity: any[] = activitySnap.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-            date: toIsoDate(d.data().date)
+        // Fetch from unified activity collection
+        const activityDocs = await db.collection('user_activity')
+            .find({ uid })
+            .sort({ date: -1 })
+            .limit(50)
+            .toArray();
+        
+        const activity: any[] = activityDocs.map((d: any) => ({
+            id: d._id.toString(),
+            type: d.type || 'account',
+            subType: d.subType,
+            xp: d.xp || 0,
+            date: d.date ? new Date(d.date).toISOString() : new Date().toISOString(),
+            title: d.title || 'Activity',
+            details: d.details || ''
         }));
 
-
-        // 2. Fallback: If unified activity is empty (legacy users), fetch from reward_history
+        // Fallback: also read payments from accounts collection
         if (activity.length === 0) {
-            const historySnap = await userRef.collection("reward_history").orderBy("timestamp", "desc").limit(20).get();
-            for (const d of historySnap.docs) {
-                const data = d.data();
+            const payments = await db.collection('payments')
+                .find({ userId: uid })
+                .sort({ purchaseDate: -1 })
+                .limit(20)
+                .toArray();
+            
+            for (const p of payments) {
                 activity.push({
-                    id: d.id,
-                    type: 'gain',
-                    subType: data.type || 'onetime',
-                    xp: data.rewardXP || 0,
-                    date: toIsoDate(data.timestamp),
-                    title: data.type === 'onetime' ? 'Referral Reward' : 'Mission Commission',
-                    details: `Legacy reward record.`
+                    id: p._id.toString(),
+                    type: 'purchase',
+                    title: `Game Purchase: ${p.game || 'Unknown'}`,
+                    details: `Amount: $${p.amount || '0'} — Status: ${p.status || 'UNKNOWN'}`,
+                    date: p.purchaseDate ? new Date(p.purchaseDate).toISOString() : new Date().toISOString()
                 });
             }
         }
-
 
         return { success: true, activity };
     } catch (err: any) {

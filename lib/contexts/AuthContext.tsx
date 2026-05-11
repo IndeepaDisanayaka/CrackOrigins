@@ -1,13 +1,25 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User as FirebaseUser, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../firebase';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { checkAdminStatus, syncUserRecord, getMyPermissions } from '../admin-actions';
 
+interface AuthUser {
+  uid: string;
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  name: string | null;
+  photoURL: string | null;
+  image: string | null;
+  metadata: {
+    creationTime: string | null;
+    lastSignInTime: string | null;
+  };
+}
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: AuthUser | null;
   isAdmin: boolean;
   affiliateId: string | null;
   xp: number;
@@ -26,7 +38,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const { data: session, status } = useSession();
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
   const [xp, setXp] = useState(0);
@@ -34,12 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [affiliateLevelDetails, setAffiliateLevelDetails] = useState<any>(null);
   const [affiliateCount, setAffiliateCount] = useState(0);
   const [country, setCountry] = useState('Unknown');
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  const [metadata, setMetadata] = useState<{creationTime: string | null, lastSignInTime: string | null}>({ creationTime: null, lastSignInTime: null });
   const [isOwner, setIsOwner] = useState(false);
 
+  const isAuthLoading = status === 'loading';
+
   const fetchCountry = async () => {
-    // Attempt 1: ipwho.is (Fast, No API key)
     try {
       const res = await fetch("https://ipwho.is/");
       if (res.ok) {
@@ -49,32 +63,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return data.country;
         }
       }
-    } catch (e) {
-      console.warn("Geolocation Tactic 1 failed, trying fallback...");
-    }
-
-    // Attempt 2: ipapi.co (Reliable backup)
-    try {
-      const res = await fetch("https://ipapi.co/json/");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.country_name) {
-          setCountry(data.country_name);
-          return data.country_name;
-        }
-      }
-    } catch (e) {
-      console.warn("Geolocation Tactic 2 failed.");
-    }
-
+    } catch (e) {}
     return 'Unknown';
   };
 
   const refreshStatus = async () => {
-    if (auth.currentUser) {
+    if (session?.user?.id) {
       const [res, permRes] = await Promise.all([
-        checkAdminStatus(auth.currentUser.uid),
-        getMyPermissions(auth.currentUser.uid)
+        checkAdminStatus(session.user.id),
+        getMyPermissions(session.user.id)
       ]);
       
       if (res.success) {
@@ -85,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAffiliateLevel(res.affiliateLevel || 'starter');
         setAffiliateLevelDetails(res.affiliateLevelDetails || null);
         setAffiliateCount(res.affiliateCount || 0);
+        setMetadata(res.metadata || { creationTime: null, lastSignInTime: null });
       }
 
       if (permRes.success) {
@@ -96,101 +94,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchCountry();
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (u && !u.isAnonymous) {
-        setUser(u);
-        const [res, permRes] = await Promise.all([
-          checkAdminStatus(u.uid),
-          getMyPermissions(u.uid)
-        ]);
-
-        if (res.success) {
-          setIsAdmin(res.isAdmin || res.isOwner || false);
-          setIsOwner(res.isOwner || false);
-          setAffiliateId(res.affiliateId);
-          setXp(res.xp || 0);
-          setAffiliateLevel(res.affiliateLevel || 'starter');
-          setAffiliateLevelDetails(res.affiliateLevelDetails || null);
-          setAffiliateCount(res.affiliateCount || 0);
-        }
-
-        if (permRes.success) {
-          // If it's a wildcard string (owner), use an empty object as isOwner handles full access
-          const perms = typeof permRes.permissions === 'string' ? {} : (permRes.permissions || {});
-          setPermissions(perms);
-        }
-
-      } else {
-        setUser(null);
-        setIsAdmin(false);
-        setIsOwner(false);
-        setPermissions({});
-        setAffiliateId(null);
-        setXp(0);
-        setAffiliateLevel('starter');
-        setAffiliateLevelDetails(null);
-        setAffiliateCount(0);
-      }
-      setIsAuthLoading(false);
-    });
-    return () => unsub();
   }, []);
 
-  const login = async (type: 'google' | 'email-login' | 'email-signup' = 'google', credentials?: { email: string, password: string }, referralId?: string | null) => {
-    try {
-      let u: FirebaseUser;
-      const { signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
-
-      if (type === 'google') {
-        const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
-        u = result.user;
-      } else if (type === 'email-login' && credentials) {
-        const result = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
-        u = result.user;
-      } else if (type === 'email-signup' && credentials) {
-        const result = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-        u = result.user;
-      } else {
-        throw new Error("Invalid login type or credentials");
-      }
-
-      const currentCountry = await fetchCountry();
-
-      const res = await syncUserRecord(u.uid, {
-        isOwner: false,
-        name: u.displayName || u.email?.split('@')[0] || "User",
-        email: u.email,
-        photoURL: u.photoURL || null,
-        created: u.metadata.creationTime,
-        last: u.metadata.lastSignInTime,
-        country: currentCountry,
-        referralId: referralId,
-        emailVerified: u.emailVerified || false
+  useEffect(() => {
+    if (session?.user) {
+      const u = session.user;
+      setUser({
+        uid: u.id || '',
+        id: u.id || '',
+        email: u.email || null,
+        displayName: u.name || null,
+        name: u.name || null,
+        photoURL: u.image || null,
+        image: u.image || null,
+        metadata: metadata
       });
-
-      await refreshStatus();
-      return res;
-    } catch (error: any) {
-      console.error("Login Error:", error);
       
-      // Auto-linking hints
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        return { success: false, error: "An account already exists with this email. Please log in using Email/Password to sync your account." };
+      // Only refresh status once when session is first established
+      if (status === 'authenticated' && !isAdmin && !user) {
+        refreshStatus();
       }
-      if (error.code === 'auth/email-already-in-use') {
-        return { success: false, error: "An account already exists with this email. Please sign in (try Google if Email fails)." };
-      }
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-        return { success: false, error: "Invalid email or password." };
-      }
-      
-      return { success: false, error: error.message || "Authentication failed" };
+    } else {
+      setUser(null);
+      setIsAdmin(false);
+      setIsOwner(false);
+      setPermissions({});
+      setAffiliateId(null);
+      setXp(0);
+      setAffiliateLevel('starter');
+      setAffiliateLevelDetails(null);
+      setAffiliateCount(0);
     }
+  }, [session]); // Removed metadata from dependencies to prevent infinite loop
+
+  const login = async (type: 'google' | 'email-login' | 'email-signup' = 'google', credentials?: { email: string, password: string }, referralId?: string | null) => {
+    if (type === 'google') {
+      // For Google, we redirect to the login page or trigger sign-in
+      // ReferralId logic is handled in the signIn callback on the server
+      await signIn('google');
+      return { success: true };
+    }
+    // Implement other types if needed, or redirect to login page
+    return { success: false, error: "Please use the login page for email authentication." };
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await signOut();
   };
 
   return (

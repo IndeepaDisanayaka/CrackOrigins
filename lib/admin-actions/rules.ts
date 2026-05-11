@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '../firebase-admin';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
@@ -58,7 +58,7 @@ export async function getAccountRules(adminUid: string) {
         }
 
         const snapshot = await adminDb.collection("account_rules").get();
-        const rules = snapshot.docs.map(doc => {
+        const rules = snapshot.docs.map((doc: any) => {
             const data = doc.data() as any;
             return { 
                 id: doc.id, 

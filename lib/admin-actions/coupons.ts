@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '../firebase-admin';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
@@ -109,7 +109,7 @@ export async function getUserCoupons(uid: string) {
         const snapshot = await adminDb.collection("coupons").where("userId", "==", uid).get();
         
         const coupons: any[] = [];
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc: any) => {
             const data = doc.data();
             coupons.push({
                 code: doc.id,

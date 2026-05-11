@@ -11,17 +11,17 @@ export interface TextStyle {
 
 export interface StructuredParagraph {
     text: string;
-    typography: TextStyle[];
+    Typography: TextStyle[];
 }
 
 export function parseHtmlToStructured(html: string): StructuredParagraph {
-    if (typeof document === 'undefined') return { text: html, typography: [] };
+    if (typeof document === 'undefined') return { text: html, Typography: [] };
 
     const container = document.createElement('div');
     container.innerHTML = html;
     
     let text = "";
-    const typography: TextStyle[] = [];
+    const Typography: TextStyle[] = [];
     
     function traverse(node: Node) {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -42,7 +42,7 @@ export function parseHtmlToStructured(html: string): StructuredParagraph {
             el.childNodes.forEach(traverse);
             
             if (styleType && text.length > start) {
-                typography.push({ 
+                Typography.push({ 
                     type: styleType, 
                     from: start, 
                     to: text.length 
@@ -52,18 +52,18 @@ export function parseHtmlToStructured(html: string): StructuredParagraph {
     }
     
     container.childNodes.forEach(traverse);
-    return { text, typography };
+    return { text, Typography };
 }
 
 /**
  * Reconstructs HTML from structured data for the editor
  */
 export function structuredToHtml(structured: StructuredParagraph): string {
-    const { text, typography } = structured;
-    if (!typography || typography.length === 0) return text;
+    const { text, Typography } = structured;
+    if (!Typography || Typography.length === 0) return text;
 
-    // Sort typography by start position, then by length (nested tags)
-    const sortedStyles = [...typography].sort((a, b) => a.from - b.from || b.to - a.to);
+    // Sort Typography by start position, then by length (nested tags)
+    const sortedStyles = [...Typography].sort((a, b) => a.from - b.from || b.to - a.to);
     
     let html = "";
     let lastIdx = 0;
@@ -78,7 +78,7 @@ export function structuredToHtml(structured: StructuredParagraph): string {
     // Better approach: use tags at specific indices
     const markers: { idx: number, type: 'open' | 'close', tag: string }[] = [];
     
-    typography.forEach(style => {
+    Typography.forEach(style => {
         let tag = 'span';
         if (style.type === 'font-weight-bold') tag = 'b';
         else if (style.type === 'font-style-italic') tag = 'i';

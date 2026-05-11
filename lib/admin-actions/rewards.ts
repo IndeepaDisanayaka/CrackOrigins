@@ -1,7 +1,7 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '../firebase-admin';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
@@ -11,7 +11,7 @@ export async function getRewardLevels() {
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection("reward_levels").orderBy("min_xp", "asc").get();
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Types.RewardLevel[];
+        return snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Types.RewardLevel[];
     } catch (err: any) {
         return [];
     }

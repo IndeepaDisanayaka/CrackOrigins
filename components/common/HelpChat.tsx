@@ -4,8 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, User, ChevronDown, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { rtdb } from '@/lib/firebase';
-import { ref, onValue, push, set, serverTimestamp, update } from 'firebase/database';
+import { getSupportMessages, sendSupportMessage } from '@/lib/admin-actions';
 
 interface HelpChatProps {
   externalOpen?: boolean;
@@ -21,7 +20,6 @@ export default function HelpChat({ externalOpen, setExternalOpen, customToggle }
   const setIsOpen = setExternalOpen !== undefined ? setExternalOpen : setLocalOpen;
 
   const [message, setMessage] = useState('');
-  const [chatData, setChatData] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -30,44 +28,20 @@ export default function HelpChat({ externalOpen, setExternalOpen, customToggle }
     setMounted(true);
   }, []);
 
+  // Polling for messages from MongoDB
   useEffect(() => {
-    if (!mounted || !user) return;
+    if (!mounted || !user || !isOpen) return;
 
-    // Listen to chat metadata
-    const chatRef = ref(rtdb, `support_chats/${user.uid}`);
-    const unsubscribeChat = onValue(chatRef, (snap) => {
-      setChatData(snap.val());
-    }, (error) => {
-      if (!error.message.includes('permission_denied')) {
-        console.warn("RTDB Metadata Access Restricted:", error);
-      }
-    });
-
-    // Listen to messages
-    const msgsRef = ref(rtdb, `support_messages/${user.uid}`);
-    const unsubscribeMsgs = onValue(msgsRef, (snap) => {
-      const data = snap.val();
-      if (data) {
-        const list = Object.entries(data).map(([id, val]: [string, any]) => ({
-          id, ...val
-        })).sort((a, b) => a.timestamp - b.timestamp);
-
-        const now = Date.now();
-        const filtered = list.filter(m => now - m.timestamp < 86400000);
-        setMessages(filtered);
-      } else {
-        setMessages([]);
-      }
-    }, (error) => {
-      if (!error.message.includes('permission_denied')) {
-        console.warn("RTDB Message Access Restricted:", error);
-      }
-    });
-
-    return () => {
-      unsubscribeChat();
-      unsubscribeMsgs();
+    const fetchMessages = async () => {
+        const res = await getSupportMessages(user.uid);
+        if (res.success && res.messages) {
+            setMessages(res.messages);
+        }
     };
+
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
   }, [mounted, user, isOpen]);
 
   useEffect(() => {
@@ -83,27 +57,20 @@ export default function HelpChat({ externalOpen, setExternalOpen, customToggle }
     const msgText = message.trim();
     setMessage('');
 
-    const chatPath = `support_chats/${user.uid}`;
-    const msgsPath = `support_messages/${user.uid}`;
-
-    // Update or create chat metadata
-    await update(ref(rtdb, chatPath), {
-      id: user.uid,
-      name: user.displayName || 'Guest',
-      lastMessage: msgText,
-      updatedAt: serverTimestamp(),
-      status: chatData?.status || 'open',
-      createdAt: chatData?.createdAt || serverTimestamp(),
+    await sendSupportMessage(user.uid, {
+        text: msgText,
+        senderId: user.uid,
+        senderName: user.displayName || 'Guest'
     });
-
-    // Push message
-    const newMsgRef = push(ref(rtdb, msgsPath));
-    await set(newMsgRef, {
-      text: msgText,
-      senderId: user.uid,
-      senderName: user.displayName || 'Guest',
-      timestamp: Date.now(),
-    });
+    
+    // Optimistic update or just wait for poll
+    setMessages(prev => [...prev, {
+        id: 'temp-' + Date.now(),
+        text: msgText,
+        senderId: user.uid,
+        senderName: user.displayName || 'Guest',
+        timestamp: Date.now()
+    }]);
   };
 
   if (!mounted) return null;

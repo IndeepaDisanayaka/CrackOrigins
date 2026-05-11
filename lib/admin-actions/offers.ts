@@ -1,11 +1,12 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '../firebase-admin';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
+import { hasPermission } from './rules';
 
 export async function createOffer(adminUid: string, offerData: {
     id: string;
@@ -59,7 +60,6 @@ export async function updateOffer(adminUid: string, offerId: string, offerData: 
         }
 
         const offerRef = adminDb.collection("offers").doc(offerId);
-        const { Timestamp } = await import('firebase-admin/firestore');
         
         const payload: any = {
             ...offerData,
@@ -105,7 +105,7 @@ export async function cleanupExpiredOffers(adminUid: string) {
         const offersSnap = await adminDb.collection("offers").get();
         const now = new Date();
         
-        const expiredOffers = offersSnap.docs.filter(doc => {
+        const expiredOffers = offersSnap.docs.filter((doc: any) => {
             const data = doc.data();
             const expireDate = data.expire?.toDate ? data.expire.toDate() : new Date(data.expire);
             return expireDate < now;
@@ -119,7 +119,7 @@ export async function cleanupExpiredOffers(adminUid: string) {
         const soldOfferIds = new Set<string>();
         const purchasesSnap = await adminDb.collectionGroup("offers").get();
         
-        purchasesSnap.forEach(doc => {
+        purchasesSnap.forEach((doc: any) => {
             // We only want documents from 'accounts/{uid}/offers' subcollections, 
             // not the root 'offers' collection itself.
             if (doc.ref.path.includes("accounts/")) {

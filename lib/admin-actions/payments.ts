@@ -1,11 +1,13 @@
 "use server";
 
 import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from '../firebase-admin';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
+import { hasPermission } from './rules';
+import { updateUserLevel } from './rewards';
 
 export async function getOwnedGames(uid: string) {
     try {
@@ -43,8 +45,8 @@ export async function getOwnedGames(uid: string) {
             }
         };
 
-        paymentsSnap.forEach(doc => processDoc(doc));
-        offersSnap.forEach(doc => processDoc(doc, true));
+        paymentsSnap.forEach((doc: any) => processDoc(doc));
+        offersSnap.forEach((doc: any) => processDoc(doc, true));
 
         return { success: true, games, details };
     } catch (error: any) {
@@ -172,7 +174,7 @@ export async function investXP(uid: string, offerId: string, xp: number) {
         if (offerData.offerScope === 'global') {
             // Global: community-wide progress
             const investmentsSnap = await offerRef.collection("investments").get();
-            investmentsSnap.forEach(d => currentProgress += Number(d.data().xp || 0));
+            investmentsSnap.forEach((d: any) => currentProgress += Number(d.data().xp || 0));
         } else {
             // Local: individual user progress
             const userOfferDoc = await userRef.collection("offers").doc(offerId).get();
@@ -251,7 +253,7 @@ export async function returnGameXP(adminUid: string, offerId: string) {
 
         // Aggregate by user to find the winner
         const userXPMap: { [uid: string]: number } = {};
-        investmentsSnap.forEach(d => {
+        investmentsSnap.forEach((d: any) => {
             const data = d.data();
             const uid = data.uid;
             if (!uid) return;
@@ -276,7 +278,7 @@ export async function returnGameXP(adminUid: string, offerId: string) {
         const targetXP = Number(offerData.targetXP || 10);
 
         let currentTotal = 0;
-        investmentsSnap.forEach(d => currentTotal += Number(d.data().xp || 0));
+        investmentsSnap.forEach((d: any) => currentTotal += Number(d.data().xp || 0));
         
         // If goal not reached, no one is a winner, return to everyone
         const goalReached = currentTotal >= targetXP;

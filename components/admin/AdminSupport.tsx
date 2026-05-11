@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { rtdb } from '@/lib/firebase';
-import { ref, onValue, push, set, serverTimestamp, update } from 'firebase/database';
+import { getSupportChats, getSupportMessages, sendSupportMessage, assignChat, getUserSupportData } from '@/lib/admin-actions';
 import { MessageSquare, Send, User, Clock, Search, Shield, ChevronLeft, AlertCircle, ShoppingCart, Globe, Calendar } from 'lucide-react';
 import { useToast } from '../Toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getUserSupportData } from '@/lib/admin-actions';
 
 interface AdminSupportProps {
     adminUid: string;
@@ -26,33 +24,27 @@ export default function AdminSupport({ adminUid, adminName }: AdminSupportProps)
     const [userDataLoading, setUserDataLoading] = useState(false);
     const [activeView, setActiveView] = useState<'chat' | 'data'>('chat');
 
+    const fetchAllChats = async () => {
+        const res = await getSupportChats(adminUid);
+        if (res.success && res.chats) {
+            setAllChats(res.chats);
+        }
+        setLoading(false);
+    };
+
     useEffect(() => {
-        const chatsRef = ref(rtdb, 'support_chats');
-        const unsubscribe = onValue(chatsRef, (snap) => {
-            const data = snap.val();
-            if (data) {
-                const list = Object.entries(data).map(([id, val]: [string, any]) => ({
-                    id, ...val
-                }))
-                    // Removed 24h filter for admins so they can see all transmissions
-                    .sort((a, b) => {
-                        const timeA = typeof a.updatedAt === 'number' ? a.updatedAt : 0;
-                        const timeB = typeof b.updatedAt === 'number' ? b.updatedAt : 0;
-                        return timeB - timeA;
-                    });
-                setAllChats(list);
-            } else {
-                setAllChats([]);
-            }
-            setLoading(false);
-        }, (error) => {
-            setLoading(false);
-            if (error.message.includes('permission_denied')) {
-                showToast("RTDB Access Denied. Check Security Rules.", "error");
-            }
-        });
-        return () => unsubscribe();
+        fetchAllChats();
+        const interval = setInterval(fetchAllChats, 10000); // Poll chats every 10s
+        return () => clearInterval(interval);
     }, []);
+
+    const fetchMessages = async () => {
+        if (!selectedChatId) return;
+        const res = await getSupportMessages(selectedChatId);
+        if (res.success && res.messages) {
+            setMessages(res.messages);
+        }
+    };
 
     useEffect(() => {
         setSelectedUserData(null);
@@ -60,37 +52,19 @@ export default function AdminSupport({ adminUid, adminName }: AdminSupportProps)
         setActiveView('chat');
 
         const fetchUserData = async () => {
+            if (!selectedChatId) return;
             setUserDataLoading(true);
-            const res = await getUserSupportData(adminUid, selectedChatId || "");
+            const res = await getUserSupportData(adminUid, selectedChatId);
             if (res.success) {
                 setSelectedUserData(res);
             }
             setUserDataLoading(false);
         };
         fetchUserData();
+        fetchMessages();
 
-        // Listen to messages for selected chat
-        const msgsRef = ref(rtdb, `support_messages/${selectedChatId}`);
-        const unsubscribe = onValue(msgsRef, (snap) => {
-            const data = snap.val();
-            if (data) {
-                const list = Object.entries(data).map(([id, val]: [string, any]) => ({
-                    id, ...val
-                })).sort((a, b) => a.timestamp - b.timestamp);
-
-                // Filter messages only for the last 24 hours
-                const now = Date.now();
-                const filtered = list.filter(m => now - m.timestamp < 86400000);
-                setMessages(filtered);
-            } else {
-                setMessages([]);
-            }
-        }, (error) => {
-            if (!error.message.includes('permission_denied')) {
-                console.warn("RTDB Selected Chat Access Restricted:", error);
-            }
-        });
-        return () => unsubscribe();
+        const interval = setInterval(fetchMessages, 5000); // Poll messages every 5s
+        return () => clearInterval(interval);
     }, [selectedChatId]);
 
     useEffect(() => {
@@ -106,34 +80,29 @@ export default function AdminSupport({ adminUid, adminName }: AdminSupportProps)
         const replyText = reply.trim();
         setReply('');
 
-        const chatRef = ref(rtdb, `support_chats/${selectedChatId}`);
         const chatData = allChats.find(c => c.id === selectedChatId);
 
         // Assignment logic: If chat has no owner, assign this admin
         if (!chatData?.ownerId) {
-            await update(chatRef, {
-                ownerId: adminUid,
-                ownerName: adminName,
-                status: 'active'
-            });
+            await assignChat(adminUid, adminName, selectedChatId);
             showToast("You have been assigned to this mission.", "success");
         }
 
         // Push reply
-        const msgsPath = `support_messages/${selectedChatId}`;
-        const newMsgRef = push(ref(rtdb, msgsPath));
-        await set(newMsgRef, {
+        await sendSupportMessage(selectedChatId, {
+            text: replyText,
+            senderId: adminUid,
+            senderName: adminName,
+        });
+
+        // Optimistic update
+        setMessages(prev => [...prev, {
+            id: 'temp-' + Date.now(),
             text: replyText,
             senderId: adminUid,
             senderName: adminName,
             timestamp: Date.now(),
-        });
-
-        // Update last message in metadata for sorting
-        await update(chatRef, {
-            lastMessage: replyText,
-            updatedAt: serverTimestamp(),
-        });
+        }]);
     };
 
     // Filter chats based on privacy rules:

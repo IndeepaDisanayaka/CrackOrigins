@@ -12,22 +12,19 @@
 .toolbar {
   position: sticky;
   top: 150px;
-  z-index: 50; /* Lower layer to go under headers */
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
-  background: rgba(254, 182, 12, 0.05);
+  background: rgba(var(--background-rgb), 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(254, 182, 12, 0.2);
+  border: 1px solid var(--outline-color);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 :global(.light-theme) .toolbar {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(0, 0, 0, 0.1);
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .toolbarGroup {
@@ -174,16 +171,11 @@
 }
 
 .sectionBlock {
-  background: rgba(254, 182, 12, 0.02);
-  border: 1px solid rgba(254, 182, 12, 0.1);
-  border-radius: 16px;
+  background: transparent;
+  border: 1px solid var(--outline-color);
+  border-radius: 12px;
   padding: 24px;
   transition: all 0.3s ease;
-}
-
-:global(.light-theme) .sectionBlock {
-  background: rgba(254, 182, 12, 0.03);
-  border-color: rgba(254, 182, 12, 0.15);
 }
 
 .activeBlock {
@@ -280,8 +272,8 @@
   padding: 12px;
   border-radius: 8px;
   transition: all 0.2s;
-  background: rgba(254, 182, 12, 0.02);
-  border: 1px dashed rgba(254, 182, 12, 0.2);
+  background: transparent;
+  border: 1px dashed var(--outline-color);
 }
 
 .editableParagraph:empty::before {
@@ -306,9 +298,10 @@
 }
 
 .editableParagraph:focus {
-  background: rgba(254, 182, 12, 0.04);
+  background: rgba(var(--primary-rgb), 0.05);
   opacity: 1;
-  border: 1px solid var(--primary);
+  border-style: solid;
+  border-color: var(--primary);
 }
 
 :global(.light-theme) .editableParagraph:focus {
@@ -467,8 +460,8 @@
   justify-content: center;
   padding: 100px 20px;
   text-align: center;
-  background: rgba(254, 182, 12, 0.02);
-  border: 2px dashed rgba(254, 182, 12, 0.1);
+  background: rgba(var(--foreground-rgb), 0.02);
+  border: 2px dashed var(--outline-color);
   border-radius: 20px;
   color: var(--text-muted);
 }
