@@ -469,7 +469,7 @@ a:hover, button:hover {
 }
 
 .blog-content strong, .blog-content b {
-  color: #000;
+  color: inherit;
   font-weight: 900;
   padding: 0;
   border-radius: 0;

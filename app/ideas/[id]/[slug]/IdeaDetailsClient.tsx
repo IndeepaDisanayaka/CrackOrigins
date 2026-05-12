@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -35,10 +36,18 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
   const [isLiked, setIsLiked] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [mode, setMode] = useState<'reader' | 'editor'>('reader');
   const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCollabSidebarOpen, setIsCollabSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const { user, isAdmin, login } = useAuth();
   const isAuthor = user && idea && user.uid === idea.authorUid;
@@ -164,37 +173,50 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   }
 
   return (
-    <>
-      <Header 
-        isMobileMenuOpen={isMobileMenuOpen} 
-        setIsMobileMenuOpen={setIsMobileMenuOpen} 
-      />
-      <MobileNav 
-        isOpen={isMobileMenuOpen} 
-        setIsOpen={setIsMobileMenuOpen} 
-      />
-
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-        onLogin={handleLogin} 
-      />
-
-      <CouponModal isOpen={isCouponModalOpen} onClose={() => setIsCouponModalOpen(false)} />
-      <AddOfferModal isOpen={isAddOfferModalOpen} onClose={() => setIsAddOfferModalOpen(false)} />
-      <ListGameModal isOpen={isListGameOpen} onClose={() => setIsListGameOpen(false)} />
-      <DispatchModal isOpen={isDispatchModalOpen} onClose={() => setIsDispatchModalOpen(false)} />
-
-      {user && isAdmin && (
-        <AdminPanel
-          userUid={user.uid}
-          isOpen={isAdminModalOpen}
-          setIsOpen={setIsAdminModalOpen}
+    <div style={{
+      display: 'flex',
+      minHeight: '100vh',
+      width: '100vw',
+      overflowX: 'hidden',
+      background: 'var(--background)',
+      position: 'relative',
+    }}>
+      {/* Main content — pushed left when sidebar opens */}
+      <motion.div
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', zIndex: 1 }}
+        animate={{ marginRight: (isCollabSidebarOpen && !isMobile) ? '25%' : '0%' }}
+        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+      >
+        <Header
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
-      )}
+        <MobileNav
+          isOpen={isMobileMenuOpen}
+          setIsOpen={setIsMobileMenuOpen}
+        />
 
-      <main className={pageStyles.main}>
-        <article className={blogPostStyles.blogPostWrapper}>
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onLogin={handleLogin}
+        />
+
+        <CouponModal isOpen={isCouponModalOpen} onClose={() => setIsCouponModalOpen(false)} />
+        <AddOfferModal isOpen={isAddOfferModalOpen} onClose={() => setIsAddOfferModalOpen(false)} />
+        <ListGameModal isOpen={isListGameOpen} onClose={() => setIsListGameOpen(false)} />
+        <DispatchModal isOpen={isDispatchModalOpen} onClose={() => setIsDispatchModalOpen(false)} />
+
+        {user && isAdmin && (
+          <AdminPanel
+            userUid={user.uid}
+            isOpen={isAdminModalOpen}
+            setIsOpen={setIsAdminModalOpen}
+          />
+        )}
+
+        <main className={pageStyles.main}>
+          <article className={blogPostStyles.blogPostWrapper}>
           <div className={blogPostStyles.topNavigation}>
             <Link href="/ideas" className="btnOutline" style={{ marginBottom: '2rem', padding: '0.6rem 1.2rem', fontSize: '0.8rem' }}>
               <ArrowLeft size={16} /> BACK TO LIBRARY
@@ -375,11 +397,14 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
             </footer>
           </div>
         </article>
-      </main>
-      <Footer />
+        </main>
+        <Footer />
+      </motion.div>
 
-      <IdeaCollaborationsSidebar 
+      {/* Collaboration Sidebar — sibling, fixed on the right */}
+      <IdeaCollaborationsSidebar
         isOpen={isCollabSidebarOpen}
+        isMobile={isMobile}
         onClose={() => setIsCollabSidebarOpen(false)}
         ideaId={id}
         currentSections={idea.sections || []}
@@ -387,6 +412,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
           router.refresh();
         }}
       />
-    </>
+    </div>
   );
 }

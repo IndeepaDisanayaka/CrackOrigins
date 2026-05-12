@@ -255,6 +255,28 @@ export const getIdeaSections = cache(
 );
 
 /**
+ * Helper to build authorMap from collaborations list
+ */
+async function buildAuthorMap(db: any, collaborations: any[]) {
+    const authorIds = [...new Set(collaborations.map((c: any) => c.authorId).filter(Boolean))];
+    if (authorIds.length === 0) return {};
+    // Try both uid and userId fields
+    const authors = await db.collection("accounts").find({
+        $or: [
+            { uid: { $in: authorIds } },
+            { userId: { $in: authorIds } },
+            { _id: { $in: authorIds } }
+        ]
+    }).toArray();
+    const map: Record<string, { name: string; photo: string }> = {};
+    for (const a of authors) {
+        const key = a.uid || a.userId || a._id?.toString();
+        if (key) map[key] = { name: a.name || a.displayName || 'Anonymous', photo: a.photoURL || a.photo || '' };
+    }
+    return map;
+}
+
+/**
  * Fetch pending collaboration requests for an idea
  */
 export async function getPendingCollaborations(ideaId: string) {
@@ -265,25 +287,55 @@ export async function getPendingCollaborations(ideaId: string) {
             .sort({ time: -1 })
             .toArray();
 
-        // Fetch author names for better UI
-        const authorIds = [...new Set(collaborations.map(c => c.authorId))];
-        const authors = await db.collection("accounts").find({ uid: { $in: authorIds } }).toArray();
-        const authorMap = Object.fromEntries(authors.map(a => [a.uid, { name: a.name, photo: a.photoURL }]));
+        const authorMap = await buildAuthorMap(db, collaborations);
 
-        const results = collaborations.map(c => ({
+        const results = collaborations.map((c: any) => ({
             id: c._id.toString(),
             authorId: c.authorId,
-            authorName: authorMap[c.authorId]?.name || 'Unknown',
-            authorPhoto: authorMap[c.authorId]?.photo || '',
+            authorName: authorMap[c.authorId]?.name || c.authorName || 'Unknown',
+            authorPhoto: authorMap[c.authorId]?.photo || c.authorPhoto || '',
             subtitle: c.subtitle,
             paragraph: c.paragraph,
             sectionId: c.sectionId,
-            time: c.time
+            time: c.time,
+            isApproved: false
         }));
 
         return { success: true, collaborations: results };
     } catch (error: any) {
         console.error("Error fetching pending collaborations:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Fetch ALL collaboration requests (pending + approved) for an idea
+ */
+export async function getAllCollaborations(ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        const collaborations = await db.collection("idea_collaborations")
+            .find({ ideaId })
+            .sort({ time: -1 })
+            .toArray();
+
+        const authorMap = await buildAuthorMap(db, collaborations);
+
+        const results = collaborations.map((c: any) => ({
+            id: c._id.toString(),
+            authorId: c.authorId,
+            authorName: authorMap[c.authorId]?.name || c.authorName || 'Unknown',
+            authorPhoto: authorMap[c.authorId]?.photo || c.authorPhoto || '',
+            subtitle: c.subtitle,
+            paragraph: c.paragraph,
+            sectionId: c.sectionId,
+            time: c.time,
+            isApproved: c.isApproved || false
+        }));
+
+        return { success: true, collaborations: results };
+    } catch (error: any) {
+        console.error("Error fetching all collaborations:", error);
         return { success: false, error: error.message };
     }
 }

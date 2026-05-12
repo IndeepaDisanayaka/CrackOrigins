@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock } from 'lucide-react';
-import { getPendingCollaborations, approveCollaboration } from '@/lib/idea-actions';
+import { X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getPendingCollaborations, getAllCollaborations, approveCollaboration } from '@/lib/idea-actions';
 import { useToast } from '../Toast';
 import styles from './idea-collaborations-sidebar.module.css';
 
@@ -15,6 +16,7 @@ interface Collaboration {
   paragraph: any[];
   sectionId: string;
   time: number;
+  isApproved?: boolean;
 }
 
 interface IdeaCollaborationsSidebarProps {
@@ -23,31 +25,36 @@ interface IdeaCollaborationsSidebarProps {
   ideaId: string;
   onApproved?: () => void;
   currentSections: any[];
+  isMobile?: boolean;
 }
 
-export default function IdeaCollaborationsSidebar({ 
-  isOpen, 
-  onClose, 
-  ideaId, 
+export default function IdeaCollaborationsSidebar({
+  isOpen,
+  onClose,
+  ideaId,
   onApproved,
-  currentSections
+  currentSections,
+  isMobile = false
 }: IdeaCollaborationsSidebarProps) {
   const [collaborations, setCollaborations] = useState<Collaboration[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCollab, setSelectedCollab] = useState<Collaboration | null>(null);
   const [isApproving, setIsApproving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
   const { showToast } = useToast();
 
-  const loadCollaborations = async () => {
+  const loadCollaborations = async (tab: 'pending' | 'all') => {
     if (!ideaId) return;
     setLoading(true);
     try {
-      const res = await getPendingCollaborations(ideaId);
+      const res = tab === 'pending'
+        ? await getPendingCollaborations(ideaId)
+        : await getAllCollaborations(ideaId);
       if (res.success && res.collaborations) {
         setCollaborations(res.collaborations);
       }
     } catch (e) {
-      console.error("Error loading collaborations:", e);
+      console.error('Error loading collaborations:', e);
     } finally {
       setLoading(false);
     }
@@ -55,9 +62,9 @@ export default function IdeaCollaborationsSidebar({
 
   useEffect(() => {
     if (isOpen && ideaId) {
-      loadCollaborations();
+      loadCollaborations(activeTab);
     }
-  }, [isOpen, ideaId]);
+  }, [isOpen, ideaId, activeTab]);
 
   const handleApprove = async (id: string) => {
     setIsApproving(true);
@@ -65,7 +72,9 @@ export default function IdeaCollaborationsSidebar({
       const res = await approveCollaboration(id);
       if (res.success) {
         showToast('Collaboration approved and published.', 'success');
-        setCollaborations(prev => prev.filter(c => c.id !== id));
+        setCollaborations((prev: Collaboration[]) =>
+          prev.filter((c: Collaboration) => c.id !== id)
+        );
         setSelectedCollab(null);
         if (onApproved) onApproved();
       } else {
@@ -78,79 +87,135 @@ export default function IdeaCollaborationsSidebar({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className={styles.overlay}>
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <X size={24} />
-          </button>
-          <div className={styles.badge}>
-            <MessageSquare size={14} /> Pending Edits
-          </div>
-          <div className={styles.headerTitle}>
-            <h3>Review <span>Collaborations</span></h3>
-          </div>
-        </div>
-
-        <div className={styles.listArea}>
-          {loading ? (
-            <div className={styles.loading}>
-              <Loader2 size={24} className="animate-spin" />
-              <p>Scanning for submissions...</p>
-            </div>
-          ) : collaborations.length > 0 ? (
-            collaborations.map((collab) => (
-              <div key={collab.id} className={styles.collabCard}>
-                <div className={styles.collabHeader}>
-                  <div className={styles.userIcon}>
-                    {collab.authorPhoto ? (
-                      <img src={collab.authorPhoto} alt={collab.authorName} />
-                    ) : (
-                      <User size={16} />
-                    )}
-                  </div>
-                  <div className={styles.collabMeta}>
-                    <span className={styles.userName}>{collab.authorName}</span>
-                    <span className={styles.timeLabel}>
-                      <Clock size={10} />
-                      {new Date(collab.time).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className={styles.collabTitle}>
-                  Proposed: {collab.subtitle}
-                </div>
-                <div className={styles.collabActions}>
-                  <button 
-                    className={styles.readBtn} 
-                    onClick={() => setSelectedCollab(collab)}
-                  >
-                    <Eye size={14} /> Read Proposed Edit
-                  </button>
-                </div>
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className={styles.container}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+            style={{ width: isMobile ? '100%' : '25%' }}
+          >
+            {/* Header */}
+            <div className={styles.header}>
+              <button className={styles.closeBtn} onClick={onClose}>
+                <X size={24} />
+              </button>
+              <div className={styles.badge}>
+                <MessageSquare size={14} /> Collaborations
               </div>
-            ))
-          ) : (
-            <div className={styles.empty}>
-              <AlertTriangle size={32} opacity={0.2} />
-              <p>No pending collaboration requests found for this idea.</p>
-            </div>
-          )}
-        </div>
+              <div className={styles.headerTitle}>
+                <h3>Review <span>Edits</span></h3>
+              </div>
 
+              {/* Tabs */}
+              <div className={styles.tabs}>
+                <button
+                  className={`${styles.tab} ${activeTab === 'pending' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('pending')}
+                >
+                  Pending
+                </button>
+                <button
+                  className={`${styles.tab} ${activeTab === 'all' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('all')}
+                >
+                  All
+                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            <div className={styles.listArea}>
+              {loading ? (
+                <div className={styles.loading}>
+                  <Loader2 size={24} className="animate-spin" />
+                  <p>Loading...</p>
+                </div>
+              ) : collaborations.length > 0 ? (
+                collaborations.map((collab: Collaboration) => (
+                  <div key={collab.id} className={styles.collabCard}>
+                    <div className={styles.collabHeader}>
+                      <div className={styles.userIcon}>
+                        {collab.authorPhoto ? (
+                          <img src={collab.authorPhoto} alt={collab.authorName} />
+                        ) : (
+                          <User size={16} />
+                        )}
+                      </div>
+                      <div className={styles.collabMeta}>
+                        <span className={styles.userName}>{collab.authorName}</span>
+                        <span className={styles.timeLabel}>
+                          <Clock size={10} />
+                          {collab.time ? new Date(collab.time).toLocaleDateString() : '—'}
+                        </span>
+                      </div>
+                      {collab.isApproved && (
+                        <CheckCircle2 size={16} style={{ color: 'var(--primary)', marginLeft: 'auto' }} />
+                      )}
+                    </div>
+                    <div className={styles.collabTitle}>
+                      {collab.subtitle || 'Untitled Section'}
+                    </div>
+                    <button
+                      className={styles.readBtn}
+                      onClick={() => setSelectedCollab(collab)}
+                    >
+                      <Eye size={14} /> Read Proposed Edit
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.empty}>
+                  <AlertTriangle size={32} opacity={0.2} />
+                  <p>
+                    {activeTab === 'pending'
+                      ? 'No pending collaboration requests.'
+                      : 'No collaborations found for this idea.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full-screen Review Modal — rendered outside the sidebar */}
+      <AnimatePresence>
         {selectedCollab && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modal}>
+          <motion.div
+            className={styles.fullModalOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => e.target === e.currentTarget && setSelectedCollab(null)}
+          >
+            <motion.div
+              className={styles.fullModal}
+              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 20 }}
+              transition={{ duration: 0.25 }}
+            >
               <div className={styles.modalHeader}>
                 <div className={styles.modalUser}>
-                  <img src={selectedCollab.authorPhoto || `https://i.pravatar.cc/150?u=${selectedCollab.authorId}`} alt="" />
+                  <img
+                    src={selectedCollab.authorPhoto || `https://i.pravatar.cc/150?u=${selectedCollab.authorId}`}
+                    alt={selectedCollab.authorName}
+                  />
                   <div>
                     <h4>{selectedCollab.authorName}</h4>
-                    <span>Wants to update a section</span>
+                    <span>Proposed edit · {selectedCollab.time ? new Date(selectedCollab.time).toLocaleDateString() : ''}</span>
                   </div>
+                  {selectedCollab.isApproved && (
+                    <div className={styles.approvedBadge}>
+                      <CheckCircle2 size={14} /> Approved
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setSelectedCollab(null)} className={styles.modalClose}>
                   <X size={20} />
@@ -160,14 +225,14 @@ export default function IdeaCollaborationsSidebar({
               <div className={styles.modalBody}>
                 <div className={styles.diffBlock}>
                   <label>Section Title</label>
-                  <p className={styles.proposedTitle}>{selectedCollab.subtitle}</p>
+                  <p className={styles.proposedTitle}>{selectedCollab.subtitle || 'Untitled'}</p>
                 </div>
 
                 <div className={styles.diffBlock}>
                   <label>Proposed Content</label>
                   <div className={styles.proposedContent}>
-                    {selectedCollab.paragraph.map((p, i) => (
-                      <p key={i}>{typeof p === 'string' ? p : p.content}</p>
+                    {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => (
+                      <p key={i}>{typeof p === 'string' ? p : (p.content || JSON.stringify(p))}</p>
                     ))}
                   </div>
                 </div>
@@ -177,10 +242,10 @@ export default function IdeaCollaborationsSidebar({
                   if (parent) {
                     return (
                       <div className={styles.diffBlock}>
-                        <label>Current Version (To be Replaced)</label>
+                        <label>Current Version</label>
                         <div className={styles.parentContent}>
                           {parent.paragraphs.map((p: any, i: number) => (
-                            <p key={i}>{typeof p === 'string' ? p : p.content}</p>
+                            <p key={i}>{typeof p === 'string' ? p : (p.content || JSON.stringify(p))}</p>
                           ))}
                         </div>
                       </div>
@@ -191,30 +256,27 @@ export default function IdeaCollaborationsSidebar({
               </div>
 
               <div className={styles.modalFooter}>
-                <button 
-                  className={styles.cancelBtn} 
-                  onClick={() => setSelectedCollab(null)}
-                >
+                <button className={styles.cancelBtn} onClick={() => setSelectedCollab(null)}>
                   Close
                 </button>
-                <button 
-                  className={styles.approveBtn}
-                  onClick={() => handleApprove(selectedCollab.id)}
-                  disabled={isApproving}
-                >
-                  {isApproving ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <>
-                      <Check size={16} /> Approve & Publish
-                    </>
-                  )}
-                </button>
+                {!selectedCollab.isApproved && (
+                  <button
+                    className={styles.approveBtn}
+                    onClick={() => handleApprove(selectedCollab.id)}
+                    disabled={isApproving}
+                  >
+                    {isApproving ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <><Check size={16} /> Approve & Publish</>
+                    )}
+                  </button>
+                )}
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+    </>
   );
 }

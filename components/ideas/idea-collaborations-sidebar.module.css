@@ -1,34 +1,18 @@
-.overlay {
+.container {
   position: fixed;
   top: 0;
   right: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2000;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-}
-
-.container {
-  width: 400px;
-  height: 100%;
+  height: 100vh;
   background: var(--background);
   border-left: 1px solid var(--outline-color);
   display: flex;
   flex-direction: column;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
-  animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
 }
 
-@keyframes slideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
+/* ─── Header ─────────────────────────────────────────────── */
 .header {
-  padding: 2rem;
+  padding: 2rem 2rem 1rem;
   border-bottom: 1px solid var(--outline-color);
   position: relative;
 }
@@ -41,78 +25,108 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.3s ease;
+  transition: color 0.2s;
 }
 
-.closeBtn:hover {
-  color: var(--primary);
-}
+.closeBtn:hover { color: var(--foreground); }
 
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(var(--primary-rgb), 0.1);
+  background: rgba(var(--primary-rgb), 0.08);
   color: var(--primary);
   padding: 4px 10px;
   border-radius: 4px;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .headerTitle h3 {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
 }
 
-.headerTitle h3 span {
-  color: var(--primary);
+.headerTitle h3 span { color: var(--primary); }
+
+/* ─── Tabs ───────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--outline-color);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
+.tab {
+  flex: 1;
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:first-child { border-right: 1px solid var(--outline-color); }
+
+.tabActive {
+  background: var(--primary);
+  color: #000;
+}
+
+/* ─── List ───────────────────────────────────────────────── */
 .listArea {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
+.listArea::-webkit-scrollbar { width: 4px; }
+.listArea::-webkit-scrollbar-thumb { background: var(--primary); }
+
+/* ─── Card — transparent, border-only ───────────────────── */
 .collabCard {
-  background: rgba(var(--foreground-rgb), 0.03);
+  background: transparent;
   border: 1px solid var(--outline-color);
-  padding: 1.25rem;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  padding: 1rem;
+  border-radius: 6px;
+  transition: border-color 0.2s;
 }
 
-.collabCard:hover {
-  border-color: var(--primary);
-  background: rgba(var(--foreground-rgb), 0.05);
-}
+.collabCard:hover { border-color: var(--primary); }
 
 .collabHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 1rem;
+  gap: 10px;
+  margin-bottom: 0.75rem;
 }
 
 .userIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: var(--outline-color);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: rgba(var(--foreground-rgb), 0.06);
+  border: 1px solid var(--outline-color);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  flex-shrink: 0;
 }
 
 .userIcon img {
@@ -124,45 +138,54 @@
 .collabMeta {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .userName {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .timeLabel {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .collabTitle {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--foreground);
-  margin-bottom: 1.25rem;
+  opacity: 0.75;
+  margin-bottom: 0.75rem;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .readBtn {
   width: 100%;
   background: none;
   border: 1px solid var(--outline-color);
-  padding: 8px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: 4px;
   color: var(--foreground);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
 }
 
 .readBtn:hover {
@@ -179,60 +202,59 @@
   height: 200px;
   text-align: center;
   gap: 1rem;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .empty p {
-  font-size: 0.85rem;
-  max-width: 250px;
+  font-size: 0.8rem;
+  max-width: 220px;
+  line-height: 1.5;
 }
 
-/* Modal Styles */
-.modalOverlay {
+/* ─── Full-Screen Modal Overlay ──────────────────────────── */
+.fullModalOverlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
-  z-index: 2100;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
 }
 
-.modal {
+.fullModal {
   background: var(--background);
   width: 100%;
-  max-width: 650px;
-  max-height: 90vh;
-  border-radius: 12px;
+  max-width: 700px;
+  max-height: 85vh;
   border: 1px solid var(--outline-color);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
-  animation: modalIn 0.3s ease-out;
+  overflow: hidden;
 }
 
-@keyframes modalIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
+/* ─── Modal Header ───────────────────────────────────────── */
 .modalHeader {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--outline-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .modalUser {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .modalUser img {
@@ -240,15 +262,18 @@
   height: 40px;
   border-radius: 8px;
   border: 2px solid var(--primary);
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .modalUser h4 {
   font-size: 1rem;
   font-weight: 800;
+  margin: 0;
 }
 
 .modalUser span {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
@@ -260,8 +285,28 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s;
 }
 
+.modalClose:hover { color: var(--foreground); }
+
+.approvedBadge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+/* ─── Modal Body ─────────────────────────────────────────── */
 .modalBody {
   flex: 1;
   overflow-y: auto;
@@ -278,7 +323,7 @@
 }
 
 .diffBlock label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -287,49 +332,61 @@
 }
 
 .proposedTitle {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: var(--foreground);
+  margin: 0;
 }
 
 .proposedContent, .parentContent {
-  padding: 1rem;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  line-height: 1.6;
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.7;
 }
 
 .proposedContent {
-  background: rgba(var(--primary-rgb), 0.05);
-  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  background: rgba(var(--primary-rgb), 0.04);
+  border: 1px solid rgba(var(--primary-rgb), 0.15);
 }
 
 .parentContent {
-  background: rgba(var(--foreground-rgb), 0.03);
+  background: transparent;
   border: 1px solid var(--outline-color);
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
+.proposedContent p, .parentContent p {
+  margin: 0 0 0.5rem;
+  color: var(--foreground);
+}
+
+.proposedContent p:last-child, .parentContent p:last-child {
+  margin: 0;
+}
+
+/* ─── Modal Footer ───────────────────────────────────────── */
 .modalFooter {
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
   border-top: 1px solid var(--outline-color);
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .cancelBtn, .approveBtn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.5rem;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cancelBtn {
@@ -338,9 +395,7 @@
   color: var(--foreground);
 }
 
-.cancelBtn:hover {
-  background: rgba(var(--foreground-rgb), 0.05);
-}
+.cancelBtn:hover { background: rgba(var(--foreground-rgb), 0.05); }
 
 .approveBtn {
   background: var(--primary);
@@ -348,7 +403,7 @@
   color: #000;
 }
 
-.approveBtn:hover {
+.approveBtn:hover:not(:disabled) {
   background: transparent;
   color: var(--foreground);
 }
@@ -356,10 +411,4 @@
 .approveBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-@media (max-width: 500px) {
-  .container {
-    width: 100%;
-  }
 }

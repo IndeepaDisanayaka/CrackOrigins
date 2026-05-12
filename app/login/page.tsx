@@ -70,33 +70,33 @@ function LoginContent() {
       <div className={styles.backgroundAnimation}></div>
 
       <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', position: 'relative', zIndex: 10 }}>
-        <button 
-            onClick={() => { if(window.history.length > 2) router.back(); else router.push('/'); }} 
-            style={{ 
-                position: 'fixed', top: '2rem', left: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem', 
-                background: 'var(--card-bg)', border: '1px solid var(--outline-color)', color: 'var(--foreground)', 
-                padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', zIndex: 20, transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-            onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--outline-color)'}
+        <button
+          onClick={() => { if (window.history.length > 2) router.back(); else router.push('/'); }}
+          style={{
+            position: 'fixed', top: '2rem', left: '2rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
+            background: 'var(--card-bg)', border: '1px solid var(--outline-color)', color: 'var(--foreground)',
+            padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', zIndex: 20, transition: 'all 0.2s'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
+          onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--outline-color)'}
         >
-            <ArrowLeft size={18} /> Back
+          <ArrowLeft size={18} /> Back
         </button>
 
-        <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            style={{ 
-                maxWidth: '430px', width: '100%', padding: '2.5rem 2rem', 
-                background: 'var(--card-bg)', 
-                border: '1px solid var(--outline-color)', borderRadius: '12px', 
-                display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center', textAlign: 'center',
-                boxShadow: 'none'
-            }}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          style={{
+            maxWidth: '430px', width: '100%', padding: '2.5rem 2rem',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--outline-color)', borderRadius: '12px',
+            display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center', textAlign: 'center',
+            boxShadow: 'none'
+          }}
         >
-          <div style={{ 
-            width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'var(--primary)', 
+          <div style={{
+            width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000',
             boxShadow: '0 0 20px var(--highlight-glow)'
           }}>
@@ -104,87 +104,87 @@ function LoginContent() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', width: '100%' }}>
-              <h2 style={{ fontSize: '1.4rem', color: 'var(--foreground)' }}>Log In</h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Welcome back to Crack Origins</p>
+            <h2 style={{ fontSize: '1.4rem', color: 'var(--foreground)' }}>Log In</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Welcome back to Crack Origins</p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '0.25rem' }}>Email Address</label>
-                  <div style={{ position: 'relative' }}>
-                      <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input 
-                          type="email" 
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="Enter your email" 
-                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
-                      />
-                  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '0.25rem' }}>Email Address</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
+                />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '0.25rem' }}>Password</label>
-                  <div style={{ position: 'relative' }}>
-                      <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input 
-                          type="password" 
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Enter your password" 
-                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
-                      />
-                  </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '0.25rem' }}>Password</label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
+                />
               </div>
+            </div>
 
-              {errorMsg && (
-                  <motion.div 
-                      initial={{ opacity: 0, height: 0 }} 
-                      animate={{ opacity: 1, height: 'auto' }} 
-                      style={{ background: 'rgba(255,50,50,0.1)', border: '1px solid rgba(255,50,50,0.3)', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ff6b6b', fontSize: '0.8rem', textAlign: 'left' }}
-                  >
-                      <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                      <span>{errorMsg}</span>
-                  </motion.div>
-              )}
-
-              <button 
-                  className="btnSolid" 
-                  disabled={isLoggingIn}
-                  onClick={() => submitAuth('email-login')}
-                  style={{ 
-                      width: '100%', padding: '1rem', gap: '0.75rem', justifyContent: 'center',
-                      opacity: isLoggingIn ? 0.5 : 1, transform: 'none',
-                      cursor: isLoggingIn ? 'not-allowed' : 'pointer'
-                  }}
+            {errorMsg && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                style={{ background: 'rgba(255,50,50,0.1)', border: '1px solid rgba(255,50,50,0.3)', padding: '0.75rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ff6b6b', fontSize: '0.8rem', textAlign: 'left' }}
               >
-                  {isLoggingIn ? <div className="glitchLoader">INITIALIZING...</div> : "Sign In"}
-              </button>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{errorMsg}</span>
+              </motion.div>
+            )}
+
+            <button
+              className="btnSolid"
+              disabled={isLoggingIn}
+              onClick={() => submitAuth('email-login')}
+              style={{
+                width: '100%', padding: '1rem', gap: '0.75rem', justifyContent: 'center',
+                opacity: isLoggingIn ? 0.5 : 1, transform: 'none',
+                cursor: isLoggingIn ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {isLoggingIn ? <div className="glitchLoader">INITIALIZING...</div> : "Sign In"}
+            </button>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '1rem' }}>
-              <div style={{ height: '1px', background: 'var(--outline-color)', flex: 1 }}></div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>OR</span>
-              <div style={{ height: '1px', background: 'var(--outline-color)', flex: 1 }}></div>
+            <div style={{ height: '1px', background: 'var(--outline-color)', flex: 1 }}></div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>OR</span>
+            <div style={{ height: '1px', background: 'var(--outline-color)', flex: 1 }}></div>
           </div>
 
-          <button 
+          <button
             disabled={isLoggingIn}
             onClick={() => submitAuth('google')}
-            style={{ 
+            style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
               width: '100%', padding: '0.85rem', background: 'transparent', color: 'var(--foreground)',
               border: '1px solid var(--outline-color)', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600,
               cursor: isLoggingIn ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: isLoggingIn ? 0.5 : 1
             }}
-            onMouseOver={(e) => { if(!isLoggingIn) e.currentTarget.style.borderColor = 'var(--primary)' }}
+            onMouseOver={(e) => { if (!isLoggingIn) e.currentTarget.style.borderColor = 'var(--primary)' }}
             onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--outline-color)'}
           >
-             <Image src="https://www.google.com/favicon.ico" alt="Google" width={16} height={16} quality={75} />
-             Continue with Google
+            <Image src="https://www.google.com/favicon.ico" alt="Google" width={16} height={16} quality={75} />
+            Continue with Google
           </button>
 
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Don't have an account? <Link href="/signup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Sign Up</Link>
+            Don't have an account? <Link href="/signup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Sign Up</Link>
           </p>
         </motion.div>
       </main>
