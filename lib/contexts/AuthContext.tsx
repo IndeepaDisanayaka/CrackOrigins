@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (type === 'google') {
       // For Google, we redirect to the login page or trigger sign-in
       // ReferralId logic is handled in the signIn callback on the server
-      await signIn('google');
+      await signIn('google', { redirect: true });
       return { success: true };
     }
     // Implement other types if needed, or redirect to login page

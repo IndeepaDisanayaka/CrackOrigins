@@ -316,53 +316,114 @@
   gap: 1.5rem;
 }
 
-.diffBlock {
+.reviewSection {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
-.diffBlock label {
-  font-size: 0.6rem;
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sectionIndicator {
+  width: 4px;
+  height: 16px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+.indicatorOriginal {
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+.sectionHeader label {
+  font-size: 0.65rem;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--primary);
+  color: var(--foreground);
   opacity: 0.8;
+}
+
+.reviewCard {
+  background: rgba(var(--foreground-rgb), 0.015);
+  border: 1px solid var(--outline-color);
+  border-radius: 12px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  transition: all 0.3s ease;
+}
+
+.reviewCard:hover {
+  border-color: rgba(var(--primary-rgb), 0.4);
+  background: rgba(var(--foreground-rgb), 0.02);
+  transform: translateY(-2px);
+}
+
+.originalCard {
+  opacity: 0.8;
+  background: transparent;
+  border-style: dashed;
+}
+
+.originalCard:hover {
+  transform: none;
+}
+
+.proposedTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
 }
 
 .proposedTitle {
   font-size: 1.2rem;
-  font-weight: 800;
+  font-weight: 900;
   color: var(--foreground);
   margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.contentBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .proposedContent, .parentContent {
-  padding: 1rem 1.25rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  line-height: 1.7;
-}
-
-.proposedContent {
-  background: rgba(var(--primary-rgb), 0.04);
-  border: 1px solid rgba(var(--primary-rgb), 0.15);
-}
-
-.parentContent {
-  background: transparent;
-  border: 1px solid var(--outline-color);
-  opacity: 0.6;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--foreground);
 }
 
 .proposedContent p, .parentContent p {
-  margin: 0 0 0.5rem;
-  color: var(--foreground);
+  margin: 0 0 0.75rem;
 }
 
 .proposedContent p:last-child, .parentContent p:last-child {
   margin: 0;
+}
+
+.proposedContent {
+  color: var(--foreground);
+}
+
+.parentContent {
+  color: var(--text-muted);
 }
 
 /* ─── Modal Footer ───────────────────────────────────────── */

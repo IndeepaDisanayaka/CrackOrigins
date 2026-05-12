@@ -54,15 +54,16 @@ function SignupContent() {
     try {
       const refId = searchParams?.get('ref');
       const res = await login(type, type === 'google' ? undefined : { email, password }, refId);
+      
       if (res && res.success === false) {
         setErrorMsg(res.error);
-      } else {
+        setIsLoggingIn(false);
+      } else if (type !== 'google') {
         const returnUrl = searchParams?.get('returnUrl') || '/';
         router.push(returnUrl);
       }
     } catch (e: any) {
       setErrorMsg(e.message || "An error occurred");
-    } finally {
       setIsLoggingIn(false);
     }
   };

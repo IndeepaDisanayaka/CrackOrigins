@@ -299,8 +299,8 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 {isAuthor && (
                   <button 
                     className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`}
-                    onClick={() => setIsCollabSidebarOpen(true)}
-                    title="Review Collaborations"
+                    onClick={() => setIsCollabSidebarOpen(!isCollabSidebarOpen)}
+                    title={isCollabSidebarOpen ? "Close Review Panel" : "Review Collaborations"}
                     style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
                   >
                     <Users size={18} strokeWidth={2} />
@@ -311,7 +311,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
           </div>
 
           {idea.image && (
-            <div className={blogPostStyles.bannerContainer} style={{ position: 'relative', width: '100%', height: '450px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--outline-color)' }}>
+            <div className={blogPostStyles.bannerContainer} style={{ position: 'relative', width: '100%', height: '450px', overflow: 'hidden', border: '1px solid var(--outline-color)' }}>
               <img
                 src={idea.image}
                 alt={idea.title}

@@ -22,12 +22,12 @@
   flex-wrap: wrap;
   gap: 16px;
 
-  padding: 1.25rem 2rem;
-  border: 1px solid var(--outline-color);
-  border-radius: 12px;
-  margin: 2rem 0 3rem;
+  padding: 1.5rem 0.5rem;
+  border-top: 1px solid var(--outline-color);
+  border-bottom: 1px solid var(--outline-color);
+  margin: 3rem 0;
 
-  background: rgba(var(--foreground-rgb), 0.03);
+  background: var(--background);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
@@ -51,7 +51,6 @@
   background: var(--outline-color);
   object-fit: cover;
   flex-shrink: 0;
-  box-shadow: 0 0 15px rgba(254, 182, 12, 0.2);
 }
 
 .authorDetails {

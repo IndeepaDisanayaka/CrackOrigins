@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getPendingCollaborations, getAllCollaborations, approveCollaboration } from '@/lib/idea-actions';
+import { structuredToHtml } from '@/lib/text-parser';
 import { useToast } from '../Toast';
 import styles from './idea-collaborations-sidebar.module.css';
 
@@ -223,36 +224,58 @@ export default function IdeaCollaborationsSidebar({
               </div>
 
               <div className={styles.modalBody}>
-                <div className={styles.diffBlock}>
-                  <label>Section Title</label>
-                  <p className={styles.proposedTitle}>{selectedCollab.subtitle || 'Untitled'}</p>
-                </div>
-
-                <div className={styles.diffBlock}>
-                  <label>Proposed Content</label>
-                  <div className={styles.proposedContent}>
-                    {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => (
-                      <p key={i}>{typeof p === 'string' ? p : (p.content || JSON.stringify(p))}</p>
-                    ))}
-                  </div>
-                </div>
 
                 {(() => {
                   const parent = currentSections.find(s => s.id === selectedCollab.sectionId);
                   if (parent) {
                     return (
-                      <div className={styles.diffBlock}>
-                        <label>Current Version</label>
-                        <div className={styles.parentContent}>
-                          {parent.paragraphs.map((p: any, i: number) => (
-                            <p key={i}>{typeof p === 'string' ? p : (p.content || JSON.stringify(p))}</p>
-                          ))}
+                      <div className={styles.reviewSection}>
+                        <div className={styles.sectionHeader}>
+                          <div className={`${styles.sectionIndicator} ${styles.indicatorOriginal}`} />
+                          <label>Current Version</label>
+                        </div>
+
+                        <div className={`${styles.reviewCard} ${styles.originalCard}`}>
+                          <div className={styles.contentBlock}>
+                            <div className={styles.parentContent}>
+                              {parent.paragraphs.map((p: any, i: number) => {
+                                const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
+                                return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+                              })}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
                   }
                   return null;
                 })()}
+
+                <div className={styles.reviewSection}>
+                  <div className={styles.sectionHeader}>
+                    <div className={styles.sectionIndicator} />
+                    <label>Proposed Changes</label>
+                  </div>
+
+                  <div className={styles.reviewCard}>
+                    <div className={styles.proposedTitleBlock}>
+                      <span className={styles.fieldLabel}>Section Title</span>
+                      <h3 className={styles.proposedTitle}>{selectedCollab.subtitle || 'Untitled'}</h3>
+                    </div>
+
+                    <div className={styles.contentBlock}>
+                      <span className={styles.fieldLabel}>Proposed Content</span>
+                      <div className={styles.proposedContent}>
+                        {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => {
+                          const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
+                          return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
               </div>
 
               <div className={styles.modalFooter}>

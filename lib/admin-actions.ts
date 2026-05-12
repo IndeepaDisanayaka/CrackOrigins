@@ -165,6 +165,38 @@ export async function getGames() {
 }
 
 /**
+ * Helper: Find user UID by email (decrypted check)
+ */
+export async function findUserByEmail(email: string) {
+    if (!email) return null;
+    const adminDb = await getAdminDb();
+    const emailLower = email.toLowerCase();
+
+    // 1. Try efficient search if 'searchEmail' field exists
+    const fastSearch = await adminDb.collection("accounts").where("searchEmail", "==", emailLower).limit(1).get();
+    if (!fastSearch.empty) return fastSearch.docs[0].id;
+
+    // 2. Fallback: Full scan for older encrypted records
+    const accounts = await adminDb.collection("accounts").get();
+    let foundUid: string | null = null;
+
+    accounts.forEach((doc: any) => {
+        const data = doc.data();
+        let decryptedEmail = data.email;
+        if (decryptedEmail && decryptedEmail.includes(':')) {
+            try {
+                decryptedEmail = decrypt(decryptedEmail);
+                if (decryptedEmail && decryptedEmail.toLowerCase() === emailLower) {
+                    foundUid = doc.id;
+                }
+            } catch (e) { }
+        }
+    });
+
+    return foundUid;
+}
+
+/**
  * Server Action: Sync user profile to Firestore securely (Admin SDK)
  */
 export async function syncUserRecord(uid: string, data: {
@@ -180,8 +212,23 @@ export async function syncUserRecord(uid: string, data: {
 }) {
     try {
         const adminDb = await getAdminDb();
-        const userRef = adminDb.collection("accounts").doc(uid);
-        const userDoc = await userRef.get();
+        
+        // --- LINKING LOGIC ---
+        // Check if UID exists. If not, check if email exists under another UID.
+        let userRef = adminDb.collection("accounts").doc(uid);
+        let userDoc = await userRef.get();
+        
+        if (!userDoc.exists && data.email) {
+            const existingUid = await findUserByEmail(data.email);
+            if (existingUid) {
+                console.log(`Linking Google login (${uid}) to existing account (${existingUid}) for email: ${data.email}`);
+                uid = existingUid;
+                userRef = adminDb.collection("accounts").doc(uid);
+                userDoc = await userRef.get();
+            }
+        }
+        // ---------------------
+
         const isNewUser = !userDoc.exists;
 
         const userData = userDoc.data();
@@ -231,7 +278,8 @@ export async function syncUserRecord(uid: string, data: {
             xp: userData?.xp ?? userData?.discount ?? 0,
 
             country: data.country || "Unknown",
-            emailVerified: data.emailVerified ?? false
+            emailVerified: data.emailVerified ?? false,
+            searchEmail: data.email ? data.email.toLowerCase() : null
         };
 
         // Only insert referredBy if it has a value (not null/undefined)
@@ -243,7 +291,7 @@ export async function syncUserRecord(uid: string, data: {
 
 
 
-        return { success: true, affiliateId };
+        return { success: true, affiliateId, uid };
     } catch (error: any) {
         console.error("Error syncing user record:", error);
         return { success: false, error: error.message };

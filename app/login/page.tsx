@@ -49,15 +49,17 @@ function LoginContent() {
     try {
       const refId = searchParams?.get('ref');
       const res = await login(type, type === 'google' ? undefined : { email, password }, refId);
+      
       if (res && res.success === false) {
         setErrorMsg(res.error);
-      } else {
+        setIsLoggingIn(false);
+      } else if (type !== 'google') {
+        // Only push route for email login; Google handles its own redirect
         const returnUrl = searchParams?.get('returnUrl') || '/';
         router.push(returnUrl);
       }
     } catch (e: any) {
       setErrorMsg(e.message || "An error occurred");
-    } finally {
       setIsLoggingIn(false);
     }
   };

@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { getBlogPosts } from '@/lib/blog';
 import { getGames } from '@/lib/admin-actions';
+import { getIdeas } from '@/lib/idea-actions';
 import { faqData } from '@/lib/faq';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +9,9 @@ export const dynamic = 'force-dynamic';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const posts = await getBlogPosts();
   const res = await getGames();
+  const resIdeas = await getIdeas();
   const games = (res.success && res.games) ? res.games : [];
+  const ideas = (resIdeas.success && resIdeas.ideas) ? resIdeas.ideas : [];
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://crackorigins.com';
 
   const blogPosts = posts.map((post) => ({
@@ -23,6 +26,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(game.time || Date.now()),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
+  }));
+
+  const ideaPages = ideas.map((idea: any) => ({
+    url: `${baseUrl}/ideas/${idea._id || idea.id}/${idea.slug}`,
+    lastModified: new Date(idea.lastUpdated || idea.time || Date.now()),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
   }));
 
   const faqPages = faqData.map((faq) => ({
@@ -46,6 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 0.8,
     },
+    ...ideaPages,
     {
       url: `${baseUrl}/terms`,
       lastModified: new Date(),

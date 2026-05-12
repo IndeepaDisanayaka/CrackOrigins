@@ -8,16 +8,36 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+  const { id, slug } = await params;
   
   try {
     const adminDb = await getAdminDb();
     const docSnap = await adminDb.collection('ideas').doc(id).get();
     if (docSnap.exists) {
       const data = docSnap.data();
+      const title = `${data?.title} | Crack Origins Ideas`;
+      const description = data?.description || 'Explore this creative idea on Crack Origins.';
+      const imageUrl = data?.image || '/og-image.png';
+
       return {
-        title: `${data?.title} | Crack Origins Ideas`,
-        description: data?.description,
+        title,
+        description,
+        openGraph: {
+          title,
+          description,
+          type: 'article',
+          url: `https://crackorigins.com/ideas/${id}/${slug}`,
+          images: [{ url: imageUrl }],
+        },
+        twitter: {
+          card: 'summary_large_image',
+          title,
+          description,
+          images: [imageUrl],
+        },
+        alternates: {
+          canonical: `https://crackorigins.com/ideas/${id}/${slug}`,
+        },
       };
     }
   } catch (e) {
