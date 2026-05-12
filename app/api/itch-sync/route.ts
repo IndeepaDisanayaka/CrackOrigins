@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getMongoDb } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 /**
  * POST /api/itch-sync
@@ -27,9 +28,9 @@ export async function POST(req: NextRequest) {
         }
 
         // 1. Verify admin
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection('accounts').doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) {
+        const db = await getMongoDb();
+        const adminDoc = await db.collection('accounts').findOne({ uid: adminUid });
+        if (!adminDoc || !adminDoc.isOwner) {
             return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
         }
 
@@ -83,8 +84,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: true, message: 'No new data to sync from itch.io.' });
         }
 
-        // 4. Update Firestore game document
-        await adminDb.collection('games').doc(gameId).update(updates);
+        // 4. Update MongoDB game document
+        let objId;
+        try { objId = new ObjectId(gameId); } catch(e) { objId = gameId as any; }
+        await db.collection('games').updateOne({ _id: objId }, { $set: updates });
 
         return NextResponse.json({ success: true, synced: updates });
     } catch (err: any) {

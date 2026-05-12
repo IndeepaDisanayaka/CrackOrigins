@@ -1,35 +1,31 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from '../firebase-admin';
+import { getMongoDb } from '../mongodb';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
-import { toIsoDate } from './helpers';
+import { toIsoDate, generateGameSlug } from './helpers';
 import * as Types from './types';
 import { hasPermission } from './rules';
+import { ObjectId } from 'mongodb';
 
 export async function listGame(adminUid: string, gameData: any) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = userDoc.data();
-        const canWrite = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'games', 'WRITE'));
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canWrite = userDoc?.isOwner || (userDoc?.ruleId && await hasPermission(adminUid, 'games', 'WRITE'));
 
-        if (!userDoc.exists || !canWrite) {
+        if (!userDoc || !canWrite) {
             return { success: false, error: "Unauthorized." };
         }
 
-        const gameRef = adminDb.collection("games").doc(); // Use auto-generated ID
-        
-        // Remove redundant keys from the data object - stop saving slug as requested
         const { gameId, image, ...cleanedData } = gameData;
         
-        await gameRef.set({
+        const res = await db.collection("games").insertOne({
             ...cleanedData,
-            time: Timestamp.now(),
+            time: new Date(),
         });
 
-        return { success: true, id: gameRef.id };
+        return { success: true, id: res.insertedId.toString() };
     } catch (error: any) {
         console.error("Error listing game:", error);
         return { success: false, error: error.message };
@@ -38,14 +34,13 @@ export async function listGame(adminUid: string, gameData: any) {
 
 export async function getGames() {
     try {
-        const adminDb = await getAdminDb();
-        const snapshot = await adminDb.collection("games").get();
-        const games = await Promise.all(snapshot.docs.map(async (doc: any) => {
-            const data = doc.data();
+        const db = await getMongoDb();
+        const docs = await db.collection("games").find().toArray();
+        const games = await Promise.all(docs.map(async (data: any) => {
             const generatedSlug = await generateGameSlug(data.title || "");
 
             return {
-                id: doc.id,
+                id: data._id.toString(),
                 slug: generatedSlug,
                 title: data.title || "Untitled Game",
                 genre: Array.isArray(data.genre) ? data.genre.join(" & ") : (data.genre || "Action"),
@@ -64,7 +59,8 @@ export async function getGames() {
                 itchUploadId: data.itchUploadId || "",
                 itchGameId: data.itchGameId || "",
                 images: data.images || [],
-                showVideo: data.showVideo ?? true
+                showVideo: data.showVideo ?? true,
+                listed: toIsoDate(data.createdAt) || toIsoDate(data.listed) || new Date().toISOString(),
             };
         }));
         return { success: true, games };
@@ -74,59 +70,47 @@ export async function getGames() {
     }
 }
 
-export async function generateGameSlug(title: string) {
-    if (!title) return "";
-    return title
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-}
 
 export async function getGameBySlug(slug: string) {
-    console.log(`[getGameBySlug] Fetching game with slug: "${slug}"`);
     try {
-        const adminDb = await getAdminDb();
-        const snapshot = await adminDb.collection("games").get();
-        console.log(`[getGameBySlug] Found ${snapshot.size} games in collection.`);
+        const db = await getMongoDb();
+        const docs = await db.collection("games").find().toArray();
         
         const decodedSlug = decodeURIComponent(slug);
         const inputSlugNormalized = await generateGameSlug(decodedSlug);
         
         let targetDoc = null;
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
+        for (const data of docs) {
             const generated = await generateGameSlug(data.title || "");
-            
             if (generated === inputSlugNormalized) {
-                targetDoc = doc;
+                targetDoc = data;
                 break;
             }
         }
 
         if (!targetDoc) return { success: false, error: "Game not found." };
         
-        const data = targetDoc.data();
         const game = {
-            id: targetDoc.id,
-            ...data,
+            id: targetDoc._id.toString(),
+            ...targetDoc,
             slug: slug,
             requirements: {
-                min: data.requirement?.min || {},
-                max: data.requirement?.max || {}
+                min: targetDoc.requirement?.min || {},
+                max: targetDoc.requirement?.max || {}
             },
-            time: toIsoDate(data.time) || new Date().toISOString(),
-            downloadCount: data.downloadCount || 0
+            time: toIsoDate(targetDoc.time) || new Date().toISOString(),
+            downloadCount: targetDoc.downloadCount || 0
         };
 
-        // Fetch updates
-        const updatesSnap = await targetDoc.ref.collection("updates").orderBy("date", "desc").get();
-        const updates = await Promise.all(updatesSnap.docs.map(async (u: any) => {
-            const uData = u.data();
+        // Fetch updates (use top-level collection due to migration)
+        const updates = await db.collection("game_updates").find({ 
+            gameId: targetDoc._id.toString() 
+        }).sort({ date: -1 }).toArray();
+        
+        const formattedUpdates = await Promise.all(updates.map(async (uData: any) => {
             const uSlug = await generateGameSlug(uData.title || "");
             return {
-                id: u.id,
+                id: uData._id.toString(),
                 ...uData,
                 slug: uSlug,
                 date: toIsoDate(uData.date) || new Date().toISOString(),
@@ -135,14 +119,17 @@ export async function getGameBySlug(slug: string) {
         }));
 
         // Fetch reviews
-        const reviewsSnap = await targetDoc.ref.collection("reviews").orderBy("time", "desc").get();
-        const reviews = reviewsSnap.docs.map((r: any) => ({ 
-            id: r.id, 
-            ...r.data(),
-            time: toIsoDate(r.data().time) || new Date().toISOString()
+        const reviews = await db.collection("game_reviews").find({ 
+            gameId: targetDoc._id.toString() 
+        }).sort({ time: -1 }).toArray();
+        
+        const formattedReviews = reviews.map((rData: any) => ({ 
+            id: rData._id.toString(), 
+            ...rData,
+            time: toIsoDate(rData.time) || new Date().toISOString()
         }));
 
-        return { success: true, game, updates, reviews };
+        return { success: true, game, updates: formattedUpdates, reviews: formattedReviews };
     } catch (error: any) {
         console.error("Error fetching game by slug:", error);
         return { success: false, error: error.message };
@@ -157,14 +144,19 @@ export async function addGameReview(gameId: string, reviewData: {
     message: string
 }) {
     try {
-        const adminDb = await getAdminDb();
-        const gameRef = adminDb.collection("games").doc(gameId);
+        const db = await getMongoDb();
         const { userId, ...rest } = reviewData;
         
-        await gameRef.collection("reviews").doc(userId).set({
-            ...rest,
-            time: Timestamp.now()
-        });
+        await db.collection("game_reviews").updateOne(
+            { gameId, userId },
+            { 
+                $set: {
+                    ...rest,
+                    time: new Date()
+                }
+            },
+            { upsert: true }
+        );
 
         return { success: true };
     } catch (error: any) {
@@ -175,43 +167,41 @@ export async function addGameReview(gameId: string, reviewData: {
 
 export async function getGameUpdate(gameSlug: string, updateId: string) {
     try {
-        const adminDb = await getAdminDb();
+        const db = await getMongoDb();
         
-        // Find game by slug
-        const gamesSnap = await adminDb.collection("games").get();
-        let targetGameDoc = null;
-        for (const doc of gamesSnap.docs) {
-            const data = doc.data();
+        const games = await db.collection("games").find().toArray();
+        let targetGame = null;
+        for (const data of games) {
             const generated = await generateGameSlug(data.title || "");
             if (generated === gameSlug) {
-                targetGameDoc = doc;
+                targetGame = data;
                 break;
             }
         }
 
-        if (!targetGameDoc) return { success: false, error: "Game not found." };
+        if (!targetGame) return { success: false, error: "Game not found." };
 
-        // Fetch specific update by checking all update slugs
-        const allUpdatesSnap = await targetGameDoc.ref.collection("updates").get();
-        let targetUpdateDoc = null;
-        for (const uDoc of allUpdatesSnap.docs) {
-            const uData = uDoc.data();
+        const updates = await db.collection("game_updates").find({ 
+            gameId: targetGame._id.toString() 
+        }).toArray();
+        
+        let targetUpdate = null;
+        for (const uData of updates) {
             const uGenerated = await generateGameSlug(uData.title || "");
-            if (uGenerated === updateId) { // updateId is now the slug
-                targetUpdateDoc = uDoc;
+            if (uGenerated === updateId) {
+                targetUpdate = uData;
                 break;
             }
         }
 
-        if (!targetUpdateDoc) return { success: false, error: "Update not found." };
+        if (!targetUpdate) return { success: false, error: "Update not found." };
 
-        const updateData = targetUpdateDoc.data();
         const update = {
-            id: targetUpdateDoc.id,
-            ...updateData,
-            date: toIsoDate(updateData?.date) || new Date().toISOString(),
-            createdAt: toIsoDate(updateData?.createdAt) || new Date().toISOString(),
-            gameTitle: targetGameDoc.data().title
+            id: targetUpdate._id.toString(),
+            ...targetUpdate,
+            date: toIsoDate(targetUpdate?.date) || new Date().toISOString(),
+            createdAt: toIsoDate(targetUpdate?.createdAt) || new Date().toISOString(),
+            gameTitle: targetGame.title
         };
 
         return { success: true, update };
@@ -223,40 +213,37 @@ export async function getGameUpdate(gameSlug: string, updateId: string) {
 
 export async function incrementDownloadCount(gameId: string, userId?: string) {
     try {
-        const adminDb = await getAdminDb();
-        const gameRef = adminDb.collection("games").doc(gameId);
+        const db = await getMongoDb();
         
-        // If we have a user ID, we can prevent duplicate counts for that user
         if (userId) {
             const downloadId = `${userId.replace(/[^a-zA-Z0-9]/g, '_')}_${gameId}`;
-            const downloadRef = adminDb.collection("downloads").doc(downloadId);
-            const downloadDoc = await downloadRef.get();
+            const existing = await db.collection("downloads").findOne({ _id: downloadId as any });
             
-            if (downloadDoc.exists) {
-                // Already counted for this user
+            if (existing) {
                 return { success: true, alreadyCounted: true };
             }
             
-            // Mark as downloaded for this user (but don't store IP)
-            await downloadRef.set({
+            await db.collection("downloads").insertOne({
+                _id: downloadId as any,
                 userId,
                 gameId,
-                timestamp: Timestamp.now()
+                timestamp: new Date()
             });
         } else {
-            // For anonymous users, we don't store IP or track duplicates to preserve privacy.
-            // We create a log entry with a random ID to record the event.
-            const anonDownloadRef = adminDb.collection("downloads").doc();
-            await anonDownloadRef.set({
+            await db.collection("downloads").insertOne({
                 userId: null,
                 gameId,
-                timestamp: Timestamp.now()
+                timestamp: new Date()
             });
         }
 
-        await gameRef.update({
-            downloadCount: FieldValue.increment(1)
-        });
+        let objId: any = gameId;
+        try { objId = new ObjectId(gameId); } catch {}
+        
+        await db.collection("games").updateOne(
+            { _id: objId },
+            { $inc: { downloadCount: 1 } }
+        );
 
         return { success: true };
     } catch (error: any) {
@@ -267,21 +254,23 @@ export async function incrementDownloadCount(gameId: string, userId?: string) {
 
 export async function updateGame(adminUid: string, gameId: string, gameData: any) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = userDoc.data();
-        const canUpdate = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'games', 'UPDATE'));
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canUpdate = userDoc?.isOwner || (userDoc?.ruleId && await hasPermission(adminUid, 'games', 'UPDATE'));
 
-        if (!userDoc.exists || !canUpdate) {
+        if (!userDoc || !canUpdate) {
             return { success: false, error: "Unauthorized." };
         }
 
-        const gameRef = adminDb.collection("games").doc(gameId);
+        let objId: any = gameId;
+        try { objId = new ObjectId(gameId); } catch {}
+
         const { gameId: _, image, slug, ...cleanedData } = gameData;
         
-        await gameRef.update({
-            ...cleanedData,
-        });
+        await db.collection("games").updateOne(
+            { _id: objId },
+            { $set: cleanedData }
+        );
 
         return { success: true };
     } catch (error: any) {

@@ -1,18 +1,17 @@
 "use server";
 
-import { getAdminDb } from './firebase-admin';
+import { getMongoDb } from './mongodb';
+import { toIsoDate } from './admin-actions/helpers';
 
 /**
  * Fetch marketplace offers from Firestore using Admin SDK (bypasses rules)
  */
 export async function getGlobalOffers() {
     try {
-        const adminDb = await getAdminDb();
-        const snap = await adminDb.collection("offers").get();
+        const db = await getMongoDb();
+        const docs = await db.collection("offers").find().toArray();
         
-        const offers = snap.docs.map((d: any) => {
-            const data = d.data();
-            
+        const offers = docs.map((data: any) => {
             let discountPercent = 0;
             if (typeof data.discount === 'string') {
               discountPercent = Number(data.discount.replace('%', '').replace('-', ''));
@@ -22,17 +21,10 @@ export async function getGlobalOffers() {
             const originalPrice = Number(data.originalPrice || 0);
             const discountPrice = isNaN(discountPercent) ? originalPrice : originalPrice - (originalPrice * discountPercent / 100);
 
-            const toDateStr = (field: any) => {
-                if (!field) return new Date().toISOString();
-                if (typeof field.toDate === 'function') return field.toDate().toISOString();
-                if (field.seconds) return new Date(field.seconds * 1000).toISOString();
-                return new Date(field).toISOString();
-            };
-
-            const steamAppId = data.gameUrl?.match(/\/app\/(\d+)/)?.[1] || d.id;
+            const steamAppId = data.gameUrl?.match(/\/app\/(\d+)/)?.[1] || data._id;
 
             return {
-              id: d.id,
+              id: data._id.toString(),
               title: data.title || 'Unknown Game',
               originalPrice: `$${originalPrice.toFixed(2)}`,
               discountPrice: `$${discountPrice.toFixed(2)}`,
@@ -40,8 +32,8 @@ export async function getGlobalOffers() {
               image: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/header.jpg`,
               platforms: data.operatingSystem ? [String(data.operatingSystem).toLowerCase()] : ['windows'],
               steamUrl: data.gameUrl || `https://store.steampowered.com/app/${steamAppId}/`,
-              endTime: toDateStr(data.expire),
-              listed: toDateStr(data.listed),
+              endTime: toIsoDate(data.expire) || new Date().toISOString(),
+              listed: toIsoDate(data.listed) || new Date().toISOString(),
               targetXP: Number(data.targetXP || data.targetAffiliates || 10),
               quantity: Number(data.quantity || 0),
               steamAppId: steamAppId,
@@ -71,18 +63,15 @@ export async function getGlobalOffers() {
  */
 export async function getGiveawayLeaderboard(target: number, listedTime: string, offerId: string) {
     try {
-        const adminDb = await getAdminDb();
-        
-        // Fetch all investments for this specific offer
-        const investmentsSnap = await adminDb.collection("offers").doc(offerId).collection("investments").get();
+        const db = await getMongoDb();
+        const investments = await db.collection("offer_investments").find({ offerId }).toArray();
 
         const userMap = new Map<string, { uid: string, displayName: string, xp: number, photoURL?: string }>();
         let totalFilled = 0;
 
-        investmentsSnap.forEach((d: any) => {
-            const data = d.data();
+        investments.forEach((data: any) => {
             const xp = Number(data.xp || data.points || 0);
-            const uid = data.uid || d.id; 
+            const uid = data.uid || data._id.toString(); 
             totalFilled += xp;
             
             if (userMap.has(uid)) {
@@ -98,10 +87,6 @@ export async function getGiveawayLeaderboard(target: number, listedTime: string,
         });
 
         const leaderboard = Array.from(userMap.values()) as { uid: string, displayName: string, xp: number, photoURL?: string }[];
-
-
-
-        // Sort by XP descending
         leaderboard.sort((a, b) => b.xp - a.xp);
 
         return { 

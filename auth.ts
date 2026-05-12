@@ -29,11 +29,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             emailVerified: true,
           });
 
-          if (syncRes.success && syncRes.uid) {
-            console.log("Setting user.id to linked/synced UID:", syncRes.uid);
-            user.id = syncRes.uid;
-          }
-
           return true;
         } catch (error) {
           console.error("Error during sign-in sync:", error);
@@ -42,12 +37,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
+    /**
+     * The jwt callback is used to persist the user ID in the JWT token.
+     */
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
       }
       return token;
     },
+    /**
+     * The session callback allows us to inject custom data into the session object.
+     * We ensure the user ID is available in the session for client/server usage.
+     */
     async session({ session, token }) {
       if (token.id && session.user) {
         session.user.id = token.id as string;

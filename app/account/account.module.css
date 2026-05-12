@@ -402,3 +402,140 @@
     grid-template-columns: 100px 1fr;
   }
 }
+
+/* --- Ideas Grid --- */
+.ideasGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.ideaCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--outline-color);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.ideaCard:hover {
+  border-color: var(--primary);
+  transform: translateY(-4px);
+  background: rgba(var(--primary-rgb), 0.03);
+}
+
+.ideaCardThumbnail {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+}
+
+.ideaCardBadge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  background: var(--primary);
+  color: white;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  z-index: 2;
+}
+
+.ideaCardBody {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.ideaCardTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--foreground);
+  line-height: 1.3;
+}
+
+.ideaCardDesc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ideaCardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--outline-color);
+}
+
+.viewIdeaBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.viewIdeaBtn:hover {
+  opacity: 0.8;
+}
+
+.deleteIdeaBtn {
+  background: rgba(255, 50, 50, 0.1);
+  border: 1px solid rgba(255, 50, 50, 0.2);
+  color: #ff6b6b;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deleteIdeaBtn:hover {
+  background: #ff6b6b;
+  color: white;
+}
+
+.createIdeaLink {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--primary);
+  font-weight: 800;
+  text-decoration: none;
+  font-size: 0.9rem;
+  border: 1px solid var(--primary);
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.createIdeaLink:hover {
+  background: var(--primary);
+  color: white;
+}
+
+

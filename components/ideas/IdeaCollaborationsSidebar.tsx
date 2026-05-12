@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPendingCollaborations, getAllCollaborations, approveCollaboration } from '@/lib/idea-actions';
+import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration } from '@/lib/idea-actions';
 import { structuredToHtml } from '@/lib/text-parser';
 import { useToast } from '../Toast';
 import styles from './idea-collaborations-sidebar.module.css';
@@ -41,6 +41,7 @@ export default function IdeaCollaborationsSidebar({
   const [loading, setLoading] = useState(false);
   const [selectedCollab, setSelectedCollab] = useState<Collaboration | null>(null);
   const [isApproving, setIsApproving] = useState(false);
+  const [isUnapproving, setIsUnapproving] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
   const { showToast } = useToast();
 
@@ -85,6 +86,26 @@ export default function IdeaCollaborationsSidebar({
       showToast('Approval failed.', 'error');
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  const handleUnapprove = async (id: string) => {
+    setIsUnapproving(true);
+    try {
+      const res = await unapproveCollaboration(id);
+      if (res.success) {
+        showToast('Collaboration unapproved.', 'success');
+        // Refresh list
+        loadCollaborations(activeTab);
+        setSelectedCollab(null);
+        if (onApproved) onApproved();
+      } else {
+        showToast(res.error || 'Failed to unapprove.', 'error');
+      }
+    } catch (e) {
+      showToast('Unapproval failed.', 'error');
+    } finally {
+      setIsUnapproving(false);
     }
   };
 
@@ -282,7 +303,7 @@ export default function IdeaCollaborationsSidebar({
                 <button className={styles.cancelBtn} onClick={() => setSelectedCollab(null)}>
                   Close
                 </button>
-                {!selectedCollab.isApproved && (
+                {!selectedCollab.isApproved ? (
                   <button
                     className={styles.approveBtn}
                     onClick={() => handleApprove(selectedCollab.id)}
@@ -292,6 +313,19 @@ export default function IdeaCollaborationsSidebar({
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
                       <><Check size={16} /> Approve & Publish</>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    className={styles.unapproveBtn}
+                    onClick={() => handleUnapprove(selectedCollab.id)}
+                    disabled={isUnapproving}
+                    style={{ background: '#ff4d4d', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {isUnapproving ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <><X size={16} /> Unapprove Content</>
                     )}
                   </button>
                 )}

@@ -1,34 +1,38 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from '../firebase-admin';
-import { encrypt, decrypt } from '../crypto';
-import { getBlogPosts } from '../blog';
+import { getMongoDb } from '../mongodb';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
+import { ObjectId } from 'mongodb';
 
 export async function upsertAccountRule(adminUid: string, ruleData: { id?: string, title: string, description: string, rules: Record<string, string[]> }) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || !userDoc.isOwner) {
             return { success: false, error: "Only the owner can manage rules." };
         }
 
         const { id, ...data } = ruleData;
-        const ruleRef = id ? adminDb.collection("account_rules").doc(id) : adminDb.collection("account_rules").doc();
-        
         const payload: any = {
             ...data,
-            last_update: Timestamp.now(),
+            last_update: new Date(),
         };
-        if (!id) {
-            payload.created = Timestamp.now();
+
+        if (id) {
+            let objId: any = id;
+            try { objId = new ObjectId(id); } catch {}
+            await db.collection("account_rules").updateOne(
+                { _id: objId },
+                { $set: payload },
+                { upsert: true }
+            );
+            return { success: true, id };
+        } else {
+            payload.created = new Date();
+            const res = await db.collection("account_rules").insertOne(payload);
+            return { success: true, id: res.insertedId.toString() };
         }
-
-        await ruleRef.set(payload, { merge: true });
-
-        return { success: true, id: ruleRef.id };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
@@ -36,13 +40,15 @@ export async function upsertAccountRule(adminUid: string, ruleData: { id?: strin
 
 export async function deleteAccountRule(adminUid: string, ruleId: string) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || !userDoc.isOwner) {
             return { success: false, error: "Unauthorized." };
         }
 
-        await adminDb.collection("account_rules").doc(ruleId).delete();
+        let objId: any = ruleId;
+        try { objId = new ObjectId(ruleId); } catch {}
+        await db.collection("account_rules").deleteOne({ _id: objId });
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -51,20 +57,19 @@ export async function deleteAccountRule(adminUid: string, ruleId: string) {
 
 export async function getAccountRules(adminUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!userDoc.exists || (!userDoc.data()?.isOwner && !userDoc.data()?.ruleId)) {
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || (!userDoc.isOwner && !userDoc.ruleId)) {
             return { success: false, error: "Unauthorized." };
         }
 
-        const snapshot = await adminDb.collection("account_rules").get();
-        const rules = snapshot.docs.map((doc: any) => {
-            const data = doc.data() as any;
+        const docs = await db.collection("account_rules").find().toArray();
+        const rules = docs.map((data: any) => {
             return { 
-                id: doc.id, 
+                id: data._id.toString(), 
                 ...data,
-                last_update: data.last_update?.toDate ? data.last_update.toDate().toISOString() : data.last_update,
-                created: data.created?.toDate ? data.created.toDate().toISOString() : data.created
+                last_update: toIsoDate(data.last_update),
+                created: toIsoDate(data.created)
             };
         });
         return { success: true, rules };
@@ -75,29 +80,25 @@ export async function getAccountRules(adminUid: string) {
 
 export async function hasPermission(adminUid: string, collection: string, action: 'READ' | 'WRITE' | 'UPDATE' | 'DELETE') {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
         
-        if (!userDoc.exists) return false;
-        const userData = userDoc.data();
+        if (!userDoc) return false;
         
-        // Owner has all permissions
-        if (userData?.isOwner) return true;
+        if (userDoc.isOwner) return true;
         
-        // Check for assigned rule
-        const ruleId = userData?.ruleId;
+        const ruleId = userDoc.ruleId;
         if (!ruleId) return false;
         
-        const ruleDoc = await adminDb.collection("account_rules").doc(ruleId).get();
-        if (!ruleDoc.exists) return false;
+        let objId: any = ruleId;
+        try { objId = new ObjectId(ruleId); } catch {}
+        const ruleDoc = await db.collection("account_rules").findOne({ _id: objId });
+        if (!ruleDoc) return false;
         
-        const ruleData = ruleDoc.data();
-        const permissions = ruleData?.rules?.[collection] || [];
-        
+        const permissions = ruleDoc.rules?.[collection] || [];
         return permissions.includes(action);
     } catch (err) {
         console.error("Permission check error:", err);
         return false;
     }
 }
-

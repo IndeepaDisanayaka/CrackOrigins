@@ -2,215 +2,333 @@
 
 import React, { useState } from 'react';
 import styles from './manual.module.css';
-import { Book, Code, Database, Lock, Settings, Layout, Share2, Globe } from 'lucide-react';
+import commonStyles from '../page.module.css';
+import { Gamepad2, ArrowLeft, BookOpen, Clock, Code, Database, Lock, Settings, Layout, Zap, Shield, FileCode, Globe } from 'lucide-react';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import ThemeToggle from '../../components/ThemeToggle';
+import Image from 'next/image';
 
-export default function ManualContent() {
+interface ManualSubsection {
+  subtitle: string;
+  text?: string;
+  items?: string[];
+  code?: string;
+  note?: string;
+}
+
+interface ManualSection {
+  id: string;
+  title: string;
+  text?: string;
+  subsections?: ManualSubsection[];
+  items?: string[];
+}
+
+interface LanguageContent {
+  hero: {
+    badge: string;
+    title: string;
+    subtitle: string;
+  };
+  sections: ManualSection[];
+}
+
+const ManualContent = () => {
   const [lang, setLang] = useState<'en' | 'si'>('en');
+  const lastUpdated = "May 2026";
 
-  const content = {
+  const content: Record<'en' | 'si', LanguageContent> = {
     en: {
-      title: 'Developer Manual',
-      introduction: {
-        title: 'Introduction',
-        text: 'Welcome to the Crack Origins Developer Manual. This guide is designed to help both beginners and experienced developers understand the inner workings of our platform. Crack Origins is built using modern web technologies to ensure high performance, security, and scalability.',
+      hero: {
+        badge: "TECHNICAL MASTER MANUAL",
+        title: "Developer Documentation & <span class='text-gradient'>System Architecture</span>",
+        subtitle: "A deep-dive guide for engineers to maintain, scale, and understand the Crack Origins ecosystem."
       },
-      architecture: {
-        title: 'Project Architecture',
-        text: 'The project follows the Next.js App Router architecture. Here is a breakdown of the key directories:',
-        items: [
-          { name: 'app/', desc: 'Contains all the pages, layouts, and API routes. Each folder inside represents a route.' },
-          { name: 'components/', desc: 'Reusable UI components (buttons, headers, cards) organized by category.' },
-          { name: 'lib/', desc: 'Core logic, including database actions, authentication helpers, and utility functions.' },
-          { name: 'public/', desc: 'Static assets like images, icons, and legal documents.' },
-        ],
-      },
-      techStack: {
-        title: 'Tech Stack',
-        items: [
-          { name: 'Next.js', desc: 'React framework for server-side rendering and static site generation.' },
-          { name: 'MongoDB', desc: 'Primary database for user accounts, blogs, and ideas.' },
-          { name: 'Firebase Admin', desc: 'Used for secure server-side operations and legacy data integration.' },
-          { name: 'NextAuth.js', desc: 'Handles secure authentication with Google.' },
-          { name: 'Framer Motion', desc: 'Used for premium animations and transitions.' },
-        ],
-      },
-      auth: {
-        title: 'Authentication & Roles',
-        text: 'Access to the administrative parts of the site is restricted based on user roles.',
-        roles: [
-          { name: 'Owner', desc: 'Full access to everything, including financial records and admin management.' },
-          { name: 'Admin', desc: 'Access to manage blogs, ideas, and games. Defined by a `ruleId` in the database.' },
-          { name: 'User', desc: 'Standard access for viewing content and participating in ideas.' },
-        ],
-        warning: 'Role-based access is enforced in `lib/admin-actions.ts` using the `checkAdminStatus` function.',
-      },
-      management: {
-        title: 'Managing Content',
-        steps: [
-          { title: 'Blogs', desc: 'Blogs are fetched from `lib/blog.ts` which interacts with MongoDB. Use the Admin Dashboard to create or delete posts.' },
-          { title: 'Ideas', desc: 'Idea collaborations are managed in `app/ideas`. Every idea has a dynamic route based on its unique ID and slug.' },
-          { title: 'Games', desc: 'Game listings are stored in the `games` collection in Firestore/MongoDB and managed via server actions.' },
-        ],
-      },
-      seo: {
-        title: 'SEO Best Practices',
-        text: 'To maintain high visibility on Google, follow these rules:',
-        rules: [
-          'Always provide a unique `title` and `description` in `generateMetadata`.',
-          'Ensure `alternates.canonical` points to the correct absolute URL.',
-          'Use JSON-LD (structured data) for all articles and products.',
-          'Verify that new pages are added to `app/sitemap.ts`.',
-        ],
-      },
+      sections: [
+        {
+          id: "step-by-step",
+          title: "1. Step-by-Step System Flow",
+          text: "To understand the system deeply, follow this lifecycle of a typical user request.",
+          subsections: [
+            {
+              subtitle: "Step A: Authentication & Security",
+              text: "When a user hits 'Login', the request reaches `auth.ts` -> Google Provider. Upon success, `callbacks: { signIn }` calls `syncUserRecord` to link or create the account in MongoDB.",
+              note: "Encrypted email logic in `lib/crypto.ts` ensures PII is never stored in plain text."
+            },
+            {
+              subtitle: "Step B: Data Hydration & RBAC",
+              text: "The `AuthContext` (lib/contexts/AuthContext.tsx) pulls the full account record. It hydrates the React state with `isAdmin`, `isOwner`, and granular `permissions` from the `account_rules` collection.",
+              code: "const { user, permissions } = useAuth();\nif (permissions['blogs']?.includes('WRITE')) { ... }"
+            },
+            {
+              subtitle: "Step C: Server Action Execution",
+              text: "When an Admin adds a game or blog, they call a Server Action (e.g., `listGame` in `lib/admin-actions/games.ts`). This uses the native MongoDB driver via `getMongoDb` to perform atomic updates and ensure data integrity."
+            }
+          ]
+        },
+        {
+          id: "architecture",
+          title: "2. Core System Architecture",
+          text: "Crack Origins is built on a high-performance architecture using Next.js App Router (v16) and a native MongoDB infrastructure for all persistent data storage.",
+          subsections: [
+            {
+              subtitle: "Native MongoDB Strategy",
+              text: "We use the official `mongodb` driver for all database operations. This ensures maximum performance, atomic operations (like `$inc` for XP), and complex aggregation pipelines.",
+              code: "// Example: Reading a user directly from MongoDB\nconst db = await getMongoDb();\nconst user = await db.collection('accounts').findOne({ uid: targetUid });"
+            }
+          ]
+        },
+        {
+          id: "investments",
+          title: "3. Offers & Invest Points",
+          text: "A unique system where users spend XP (Invest Points) to unlock software giveaways or discounts.",
+          subsections: [
+            {
+              subtitle: "How Investing Works",
+              text: "Users call `investXP(uid, offerId, points)`. This uses MongoDB's `$inc` to subtract XP from the user and adds a record to the `offer_investments` collection.",
+              code: "// Logic: lib/admin-actions/payments.ts\nawait db.collection('accounts').updateOne({ uid }, { $inc: { xp: -points } });\nawait db.collection('offer_investments').insertOne({ uid, offerId, xp: points });"
+            },
+            {
+              subtitle: "Global vs Local Scope",
+              items: [
+                "Global Scope: Community-wide progress goal. Once reached, a winner is chosen from all contributors.",
+                "Local Scope: Individual goal. Once reached, the user unlocks the item personally."
+              ]
+            }
+          ]
+        },
+        {
+            id: "code-structure",
+            title: "4. Lib & API Deep Explane",
+            text: "Deep explanation of the reusable guts of the system.",
+            subsections: [
+              {
+                subtitle: "/lib Folder: The Logic Brain",
+                items: [
+                  "admin-actions/: Modularized CRUD for users, games, rules, and rewards.",
+                  "crypto.ts: AES-256 security module for encrypting emails and keys.",
+                  "mongodb.ts: Handles high-performance connection pooling and direct driver access."
+                ]
+              },
+              {
+                subtitle: "/api Folder: System Utilities",
+                items: [
+                  "/api/presence: Real-time user tracking using heartbeats.",
+                  "/api/itch-sync: Logic to pull latest game builds from Itch.io.",
+                  "/api/bug-report: Direct link to the ticket management system."
+                ]
+              }
+            ]
+        }
+      ]
     },
     si: {
-      title: 'සංවර්ධක අත්පොත (Developer Manual)',
-      introduction: {
-        title: 'හැඳින්වීම',
-        text: 'Crack Origins සංවර්ධක අත්පොත වෙත ඔබව සාදරයෙන් පිළිගනිමු. මෙම මාර්ගෝපදේශය ආරම්භකයින් සහ පළපුරුදු සංවර්ධකයින්ට අපගේ වෙබ් අඩවියේ ක්‍රියාකාරීත්වය තේරුම් ගැනීමට උපකාරී වේ. Crack Origins නිර්මාණය කර ඇත්තේ ඉහළ කාර්යසාධනයක්, ආරක්ෂාවක් සහ වර්ධනය වීමේ හැකියාවක් සහතික කිරීම සඳහා නවීන වෙබ් තාක්ෂණයන් භාවිතා කරමිනි.',
+      hero: {
+        badge: "ප්‍රධාන තාක්ෂණික අත්පොත",
+        title: "Developer Documentation & <span class='text-gradient'>පද්ධති ව්‍යුහය</span>",
+        subtitle: "Crack Origins පද්ධතිය නඩත්තු කිරීමට සහ තේරුම් ගැනීමට ඉංජිනේරුවන් සඳහා වන ගැඹුරු මාර්ගෝපදේශයකි."
       },
-      architecture: {
-        title: 'ව්‍යාපෘති ව්‍යුහය (Project Architecture)',
-        text: 'මෙම ව්‍යාපෘතිය Next.js App Router ව්‍යුහය අනුගමනය කරයි. ප්‍රධාන ෆෝල්ඩර මෙන්න:',
-        items: [
-          { name: 'app/', desc: 'සියලුම පිටු (pages), පිරිසැලසුම් (layouts) සහ API මාර්ග මෙහි ඇත.' },
-          { name: 'components/', desc: 'නැවත භාවිතා කළ හැකි UI උපාංග (බොත්තම්, මෙනු, කාඩ්) මෙහි ඇත.' },
-          { name: 'lib/', desc: 'දත්ත සමුදාය, ආරක්ෂාව සහ අනෙකුත් ප්‍රධාන තාර්කික කේත මෙහි ඇත.' },
-          { name: 'public/', desc: 'පින්තූර, අයිකන වැනි ස්ථිතික ලිපිගොනු මෙහි ඇත.' },
-        ],
-      },
-      techStack: {
-        title: 'භාවිතා කර ඇති තාක්ෂණයන්',
-        items: [
-          { name: 'Next.js', desc: 'වෙබ් අඩවියේ වේගය සහ ක්‍රියාකාරීත්වය වැඩි කිරීමට භාවිතා කරන ප්‍රධාන Framework එක.' },
-          { name: 'MongoDB', desc: 'පරිශීලක තොරතුරු, බ්ලොග් සහ අදහස් ගබඩා කරන ප්‍රධාන දත්ත සමුදාය.' },
-          { name: 'Firebase Admin', desc: 'ආරක්ෂිත මෙහෙයුම් සහ දත්ත කළමනාකරණය සඳහා භාවිතා වේ.' },
-          { name: 'NextAuth.js', desc: 'Google හරහා ආරක්ෂිතව වෙබ් අඩවියට ඇතුළු වීමට භාවිතා වේ.' },
-          { name: 'Framer Motion', desc: 'වෙබ් අඩවියේ චලන (animations) සහ වෙනස්කම් සඳහා භාවිතා වේ.' },
-        ],
-      },
-      auth: {
-        title: 'ආරක්ෂාව සහ භූමිකාවන් (Authentication & Roles)',
-        text: 'වෙබ් අඩවියේ පරිපාලනමය කොටස් වලට ප්‍රවේශය පරිශීලක මට්ටම අනුව සීමා කර ඇත.',
-        roles: [
-          { name: 'Owner', desc: 'මුළු පද්ධතියටම පූර්ණ ප්‍රවේශය ඇත.' },
-          { name: 'Admin', desc: 'බ්ලොග්, ක්‍රීඩා සහ අදහස් කළමනාකරණය කිරීමට ප්‍රවේශය ඇත.' },
-          { name: 'User', desc: 'සාමාන්‍ය පරිශීලකයින්ට ලැබෙන සාමාන්‍ය ප්‍රවේශය.' },
-        ],
-        warning: 'භූමිකාවන් පරීක්ෂා කිරීම `lib/admin-actions.ts` හි `checkAdminStatus` හරහා සිදු වේ.',
-      },
-      management: {
-        title: 'අන්තර්ගතය කළමනාකරණය (Managing Content)',
-        steps: [
-          { title: 'බ්ලොග් (Blogs)', desc: 'Admin Dashboard එක හරහා බ්ලොග් ලිපි ඇතුළත් කිරීමට හෝ ඉවත් කිරීමට හැකිය.' },
-          { title: 'අදහස් (Ideas)', desc: 'පරිශීලකයින් ඉදිරිපත් කරන අදහස් `app/ideas` හරහා පාලනය වේ.' },
-          { title: 'ක්‍රීඩා (Games)', desc: 'අලුත් ක්‍රීඩා පිළිබඳ තොරතුරු Firestore/MongoDB හි ගබඩා වේ.' },
-        ],
-      },
-      seo: {
-        title: 'SEO උපදෙස්',
-        text: 'Google සෙවුම් ප්‍රතිඵල වල ඉහළින්ම සිටීමට මෙම නීති අනුගමනය කරන්න:',
-        rules: [
-          'සෑම පිටුවකටම අනන්‍ය වූ `title` සහ `description` එකක් ලබා දෙන්න.',
-          'සාර්ථක වෙබ් ලින්ක් (Canonical URLs) භාවිතා කරන්න.',
-          'සෑම ලිපියකටම JSON-LD දත්ත ඇතුළත් කරන්න.',
-          'නව පිටු `app/sitemap.ts` වෙත ඇතුළත් කර ඇති බව සහතික කරගන්න.',
-        ],
-      },
+      sections: [
+        {
+          id: "step-by-step",
+          title: "1. පියවරෙන් පියවර ක්‍රියාවලිය (System Flow)",
+          text: "සංවර්ධකයෙකුට පද්ධතිය ගැඹුරින් තේරුම් ගැනීමට මෙම පියවර අනුගමනය කරන්න.",
+          subsections: [
+            {
+              subtitle: "පියවර A: පරිශීලක ප්‍රවේශය සහ ආරක්ෂාව",
+              text: "පරිශීලකයා Login වූ විට `auth.ts` හරහා Google ගිණුම තහවුරු වේ. ඉන්පසු `syncUserRecord` මගින් ඔවුන්ගේ දත්ත MongoDB වෙත සමමුහුර්ත කෙරේ.",
+              note: "`lib/crypto.ts` මගින් සියලුම ඊමේල් ලිපිනයන් සංකේතනය (Encrypt) කර ආරක්ෂා කරනු ලබයි."
+            },
+            {
+              subtitle: "පියවර B: අවසර ලබා දීම (RBAC)",
+              text: "`AuthContext` මගින් පරිශීලකයාගේ තනතුර (Admin/Owner) සහ ඔවුන්ට හිමි අවසර (Permissions) පරීක්ෂා කර React state එක පවත්වා ගනී.",
+              code: "const { isAdmin, permissions } = useAuth();"
+            },
+            {
+              subtitle: "පියවර C: දත්ත වෙනස් කිරීම් (Server Actions)",
+              text: "ඕනෑම Admin ක්‍රියාවක් (Game/Blog එකක් ඇතුළත් කිරීම) `lib/admin-actions/` හි ඇති Server Action එකක් හරහා සිදුවේ. මෙහිදී සෘජුවම MongoDB Driver එක භාවිතා කරයි."
+            }
+          ]
+        },
+        {
+          id: "architecture",
+          title: "2. පද්ධති ව්‍යුහය (Architecture)",
+          text: "Next.js App Router සහ Native MongoDB ව්‍යුහයක් මත පදනම් වී ඇත.",
+          subsections: [
+            {
+              subtitle: "දත්ත ගබඩා සැලැස්ම",
+              text: "සෑම දත්ත සමුදා ක්‍රියාවක් සඳහාම වේගවත් MongoDB Native Driver එක භාවිතා කරයි.",
+              code: "const db = await getMongoDb();"
+            }
+          ]
+        },
+        {
+          id: "investments",
+          title: "3. Offers සහ Invest Points පද්ධතිය",
+          text: "XP වැය කර මෘදුකාංග ලබා ගැනීමට (Invest) හැකි විශේෂ පද්ධතියකි.",
+          subsections: [
+            {
+              subtitle: "ආයෝජනය වැඩ කරන්නේ මෙහෙමයි",
+              text: "`investXP` ශ්‍රිතය මගින් MongoDB `$inc` භාවිතා කර XP අඩු කර අදාළ offer එකට එක් කරයි.",
+              code: "// logic: lib/admin-actions/payments.ts\nawait db.collection('accounts').updateOne({ uid }, { $inc: { xp: -points } });"
+            }
+          ]
+        },
+        {
+            id: "lib-api",
+            title: "4. Lib සහ API ගැඹුරු පැහැදිලි කිරීම",
+            text: "පද්ධතියේ මොළය සහ සේවා මාර්ග (Routes) මෙහි ඇත.",
+            subsections: [
+              {
+                subtitle: "Lib ෆෝල්ඩරය: Logic ව්‍යුහය",
+                items: [
+                  "admin-actions/: පාලක පද්ධතියේ ප්‍රධාන ක්‍රියාකාරකම්.",
+                  "crypto.ts: දත්ත රහසිගතව තැබීම (Encryption).",
+                  "mongodb.ts: දත්ත සමුදා සම්බන්ධතා වේගවත් කිරීම."
+                ]
+              },
+              {
+                subtitle: "API ෆෝල්ඩරය: සේවා මාර්ග (Routes)",
+                items: [
+                  "/api/presence: සජීවීව සිටින පරිශීලකයින් පරීක්ෂා කිරීම.",
+                  "/api/itch-sync: Itch.io අඩවිය සමඟ දත්ත සමමුහුර්ත කිරීම.",
+                  "/api/support: සහාය සේවා පණිවිඩ හුවමාරුව."
+                ]
+              }
+            ]
+        }
+      ]
     }
   };
 
   const t = content[lang];
 
   return (
-    <div className={styles.manualWrapper}>
+    <div className={styles.container}>
+      <div className={commonStyles.backgroundAnimation}></div>
+      
       <header className={styles.header}>
-        <h1 className={styles.title}>{t.title}</h1>
-        <button 
-          className={styles.langToggle} 
-          onClick={() => setLang(lang === 'en' ? 'si' : 'en')}
-        >
-          {lang === 'en' ? 'Switch to Sinhala (සිංහල)' : 'Switch to English'}
-        </button>
+        <Link href="/" className={styles.backLink}>
+          <ArrowLeft size={18} />
+          <span>{lang === 'en' ? 'Back to Home' : 'මුල් පිටුවට'}</span>
+        </Link>
+        <div className={styles.logo}>
+          <div className={styles.logoIcon}>
+            <Image draggable={false} src="/favicon-icon-black.png" alt="Crack Origins" width={32} height={32} className="logo-dark" />
+            <Image draggable={false} src="/favicon-icon-white.png" alt="Crack Origins" width={32} height={32} className="logo-light" />
+          </div>
+          <span>CO's</span>
+        </div>
+        <div className={styles.headerActions} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+           <button 
+             className={styles.langToggle} 
+             onClick={() => setLang(lang === 'en' ? 'si' : 'en')}
+           >
+             {lang === 'en' ? 'සිංහල' : 'English'}
+           </button>
+           <ThemeToggle />
+        </div>
       </header>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Book size={28} /> {t.introduction.title}</h2>
-        <p className={styles.content}>{t.introduction.text}</p>
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Layout size={28} /> {t.architecture.title}</h2>
-        <p className={styles.content}>{t.architecture.text}</p>
-        <div className={styles.cardGrid}>
-          {t.architecture.items.map((item, i) => (
-            <div key={i} className={styles.card}>
-              <h3>{item.name}</h3>
-              <p>{item.desc}</p>
+      <main className={styles.main}>
+        <motion.div 
+          className={styles.hero}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className={styles.badge}>
+            <FileCode size={14} />
+            {t.hero.badge}
+          </div>
+          <h1 className={styles.title} dangerouslySetInnerHTML={{ __html: t.hero.title }} />
+          <p className={styles.text} style={{ textAlign: 'center', marginTop: '-1rem', fontSize: '1.2rem' }}>{t.hero.subtitle}</p>
+          <div className={styles.meta} style={{ marginTop: '2rem' }}>
+            <div className={styles.metaItem}>
+               <Clock size={16} />
+               <span>Last Updated: {lastUpdated}</span>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Code size={28} /> {t.techStack.title}</h2>
-        <div className={styles.cardGrid}>
-          {t.techStack.items.map((item, i) => (
-            <div key={i} className={styles.card}>
-              <h3>{item.name}</h3>
-              <p>{item.desc}</p>
+            <div className={styles.metaItem}>
+               <Shield size={16} color="var(--primary)" />
+               <span>Admin Access Only</span>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </motion.div>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Lock size={28} /> {t.auth.title}</h2>
-        <p className={styles.content}>{t.auth.text}</p>
-        <div className={styles.cardGrid}>
-          {t.auth.roles.map((role, i) => (
-            <div key={i} className={styles.card}>
-              <h3>{role.name}</h3>
-              <p>{role.desc}</p>
-            </div>
-          ))}
-        </div>
-        <div className={`${styles.alert} ${styles.alertWarning}`}>
-          <Settings size={20} />
-          <span>{t.auth.warning}</span>
-        </div>
-      </section>
+        <div className={styles.contentGrid}>
+          <aside className={styles.sidebar}>
+            <nav className={styles.toc}>
+              <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', color: 'var(--foreground)' }}>Table of Contents</h3>
+              <ul>
+                {t.sections.map((section: ManualSection) => (
+                  <li key={section.id}>
+                    <a href={`#${section.id}`}>{section.title}</a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Database size={28} /> {t.management.title}</h2>
-        <div className={styles.cardGrid}>
-          {t.management.steps.map((step, i) => (
-            <div key={i} className={styles.card}>
-              <h3>{step.title}</h3>
-              <p>{step.desc}</p>
-            </div>
-          ))}
+          <div className={styles.content}>
+            {t.sections.map((section, idx) => (
+              <motion.section 
+                key={section.id} 
+                id={section.id} 
+                className={styles.section}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: idx * 0.05 }}
+              >
+                <h2 className={styles.sectionTitle}>{section.title}</h2>
+                <div className={styles.sectionBody}>
+                  {section.text && <p className={styles.text}>{section.text}</p>}
+                  
+                  {section.subsections && section.subsections.map((sub, sIdx) => (
+                    <div key={sIdx} className={styles.subsection}>
+                      <h3 className={styles.subsectionTitle}>{sub.subtitle}</h3>
+                      {sub.text && <p className={styles.text}>{sub.text}</p>}
+                      {sub.items && (
+                        <ul className={styles.list}>
+                          {sub.items.map((item, iIdx) => <li key={iIdx}>{item}</li>)}
+                        </ul>
+                      )}
+                      {sub.code && (
+                        <div className={styles.codeBlock}>
+                          <div className={styles.codeLabel}>Snippet</div>
+                          <pre><code>{sub.code}</code></pre>
+                        </div>
+                      )}
+                      {sub.note && <div className={styles.note}>{sub.note}</div>}
+                    </div>
+                  ))}
+
+                  {section.items && (
+                    <ul className={styles.list}>
+                      {section.items.map((item, iIdx) => <li key={iIdx}>{item}</li>)}
+                    </ul>
+                  )}
+                </div>
+              </motion.section>
+            ))}
+          </div>
         </div>
-      </section>
+      </main>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Globe size={28} /> {t.seo.title}</h2>
-        <p className={styles.content}>{t.seo.text}</p>
-        <ul className={styles.content} style={{ marginTop: '1rem' }}>
-          {t.seo.rules.map((rule, i) => (
-            <li key={i} style={{ marginBottom: '0.8rem' }}>{rule}</li>
-          ))}
-        </ul>
-      </section>
-
-      <div className={`${styles.alert} ${styles.alertInfo}`}>
-        <Share2 size={20} />
-        <span>
-          {lang === 'en' 
-            ? 'For any further questions, please contact the lead developer.' 
-            : 'වැඩිදුර ප්‍රශ්න සඳහා කරුණාකර ප්‍රධාන සංවර්ධකයා අමතන්න.'}
-        </span>
-      </div>
+      <footer className={styles.footer}>
+        <div className={styles.footerContent}>
+          <p>© 2026 Crack Origins Technical Operations. Built with Precision.</p>
+          <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+             <BookOpen size={18} />
+             <Database size={18} />
+             <Lock size={18} />
+             <Zap size={18} color="var(--primary)" />
+          </div>
+        </div>
+      </footer>
     </div>
   );
-}
+};
+
+export default ManualContent;

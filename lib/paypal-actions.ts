@@ -4,8 +4,9 @@
  * PayPal Payment Processing Actions
  */
 
-import { getAdminDb } from './firebase-admin';
-import { addAffiliateReward } from './admin-actions';
+import { getMongoDb } from './mongodb';
+import { addAffiliateReward } from './admin-actions/payments';
+import { encrypt } from './crypto';
 
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID?.trim();
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET?.trim();
@@ -128,40 +129,33 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
         }
 
         if (details.status === "COMPLETED") {
-            const adminDb = await getAdminDb();
-            const { Timestamp, FieldValue } = await import('./firebase-admin');
+            const db = await getMongoDb();
 
             // If it's a limited offer purchase, decrement its quantity
             if (offerId) {
-                const offerRef = adminDb.collection("offers").doc(offerId);
-                const offerDoc = await offerRef.get();
-                if (offerDoc.exists) {
-                    await offerRef.update({
-                        quantity: FieldValue.increment(-1)
-                    });
-                }
+                await db.collection("offers").updateOne(
+                    { _id: offerId as any },
+                    { $inc: { quantity: -1 } }
+                );
             }
 
             // If coupon was used, decrement its quantity
             let couponUsed = couponCode || "null";
             if (couponCode && couponCode !== "null") {
-                const couponRef = adminDb.collection("coupons").doc(couponCode);
-                const couponDoc = await couponRef.get();
-                if (couponDoc.exists) {
-                    await couponRef.update({
-                        quantity: FieldValue.increment(-1)
-                    });
-                } else {
+                const res = await db.collection("coupons").updateOne(
+                    { _id: couponCode as any },
+                    { $inc: { quantity: -1 } }
+                );
+                if (res.matchedCount === 0) {
                     couponUsed = "invalid-or-not-found";
                 }
             }
 
-            const { encrypt } = await import('./crypto');
-
             const paymentData: any = {
+                userId: uid,
                 game: game,
                 gameId: gameId || "",
-                purchaseDate: Timestamp.now(),
+                purchaseDate: new Date(),
                 coupon: couponUsed,
                 amount: amount,
                 activationKey: orderID,
@@ -176,29 +170,31 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 ),
             };
 
-            const userRef = adminDb.collection("accounts").doc(uid);
-
             if (offerId) {
-                // Limited Offer: Store in 'offers' subcollection with offerId as doc ID
-                await userRef.collection("offers").doc(offerId).set(paymentData);
+                paymentData.offerId = offerId;
+                await db.collection("user_offers").updateOne(
+                    { _id: orderID as any, userId: uid },
+                    { $set: paymentData },
+                    { upsert: true }
+                );
             } else {
-            // Standard Payment: Store in 'payments' subcollection with orderID as doc ID
-                await userRef.collection("payments").doc(orderID).set(paymentData);
+                await db.collection("payments").updateOne(
+                    { _id: orderID as any, userId: uid },
+                    { $set: paymentData },
+                    { upsert: true }
+                );
             }
 
             // Affiliate Commission Logic
-            const userDoc = await userRef.get();
-            const userData = userDoc.data();
-            if (userData?.referredBy) {
-                const inviterQuery = await adminDb.collection("accounts").where("affiliateId", "==", userData.referredBy).limit(1).get();
-                if (!inviterQuery.empty) {
-                    const inviterUid = inviterQuery.docs[0].id;
-                    console.log(`[PayPal] Triggering affiliate reward for ${inviterUid} from user ${uid}`);
-                    await addAffiliateReward(inviterUid, parseFloat(amount), 'commission');
+            const userDoc = await db.collection("accounts").findOne({ uid });
+            if (userDoc?.referredBy) {
+                const inviterDoc = await db.collection("accounts").findOne({ affiliateId: userDoc.referredBy });
+                if (inviterDoc) {
+                    console.log(`[PayPal] Triggering affiliate reward for ${inviterDoc.uid} from user ${uid}`);
+                    await addAffiliateReward(inviterDoc.uid, parseFloat(amount), 'commission');
                 }
             }
 
-            // Payment recorded successfully
             return { success: true };
         }
 
@@ -214,34 +210,28 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
  */
 export async function getPayPalBalance(adminUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) {
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!adminDoc || !adminDoc.isOwner) {
             return { success: false, error: "Unauthorized." };
         }
 
         let totalAmount = 0;
 
-        // Double checking the system: Aggregate all purchases to calculate real balance
-        const accountsSnap = await adminDb.collection("accounts").get();
-        const promises = accountsSnap.docs.map(async (accountDoc: any) => {
-            const userRef = adminDb.collection("accounts").doc(accountDoc.id);
-            const [paymentsSnap, offersSnap] = await Promise.all([
-                userRef.collection("payments").where("status", "==", "COMPLETED").get(),
-                userRef.collection("offers").where("status", "==", "COMPLETED").get()
-            ]);
+        const [payments, offers] = await Promise.all([
+            db.collection("payments").find({ status: "COMPLETED" }).toArray(),
+            db.collection("user_offers").find({ status: "COMPLETED" }).toArray()
+        ]);
 
-            paymentsSnap.forEach((doc: any) => {
-                const val = parseFloat(doc.data().amount);
-                if (!isNaN(val)) totalAmount += val;
-            });
-            offersSnap.forEach((doc: any) => {
-                const val = parseFloat(doc.data().amount);
-                if (!isNaN(val)) totalAmount += val;
-            });
+        payments.forEach(doc => {
+            const val = parseFloat(doc.amount);
+            if (!isNaN(val)) totalAmount += val;
         });
-
-        await Promise.all(promises);
+        
+        offers.forEach(doc => {
+            const val = parseFloat(doc.amount);
+            if (!isNaN(val)) totalAmount += val;
+        });
 
         return { success: true, amount: totalAmount.toFixed(2), currency: "USD" };
     } catch (error: any) {

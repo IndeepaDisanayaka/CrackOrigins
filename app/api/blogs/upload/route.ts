@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb, Timestamp } from '@/lib/firebase-admin';
+import { getMongoDb } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 import readingTime from 'reading-time';
 
 export async function POST(req: NextRequest) {
@@ -11,22 +12,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Title, Content, and User ID are required' }, { status: 400 });
     }
 
-    const db = await getAdminDb();
+    const db = await getMongoDb();
     
     if (type === 'game-update') {
       if (!gameId) return NextResponse.json({ error: 'Game ID is required for game updates' }, { status: 400 });
       
-      // Validation for game update: version and image urls
       const hasVersion = content.toLowerCase().includes('version') || content.toLowerCase().includes('v1.') || content.toLowerCase().includes('v0.');
       if (!hasVersion) {
         return NextResponse.json({ error: 'Game updates must include version info (e.g. v1.0.4).' }, { status: 400 });
       }
 
-      // Save to game updates subcollection
-      const gameRef = db.collection('games').doc(gameId);
-      const updateRef = gameRef.collection('updates').doc();
-      
-      await updateRef.set({
+      const res = await db.collection('game_updates').insertOne({
+        gameId,
         title,
         description,
         body: content,
@@ -35,10 +32,10 @@ export async function POST(req: NextRequest) {
         tags: tags || [],
         date: date || new Date().toISOString(),
         authorId: userId,
-        createdAt: Timestamp.now()
+        createdAt: new Date()
       });
 
-      return NextResponse.json({ success: true, type: 'game-update', id: updateRef.id });
+      return NextResponse.json({ success: true, type: 'game-update', id: res.insertedId.toString() });
     }
 
     // Normal Blog Logic
@@ -47,9 +44,6 @@ export async function POST(req: NextRequest) {
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '');
-
-    const blogRef = db.collection('blogs').doc();
-    const blogId = blogRef.id;
 
     const metatags = {
       title,
@@ -65,16 +59,18 @@ export async function POST(req: NextRequest) {
       authorId: userId,
       metatags,
       status: { views: 0, likes: 0 },
-      createdAt: Timestamp.now(),
-      lastUpdated: Timestamp.now(),
+      createdAt: new Date(),
+      lastUpdated: new Date(),
     };
 
-    await blogRef.set(mainDocData);
+    const blogResult = await db.collection('blogs').insertOne(mainDocData);
+    const blogId = blogResult.insertedId.toString();
 
-    await blogRef.collection('contents').doc(userId).set({
+    await db.collection('contents').insertOne({
+      blogId,
       body: content,
       isApproved: true,
-      editedTime: Timestamp.now(),
+      editedTime: new Date(),
     });
 
     try {

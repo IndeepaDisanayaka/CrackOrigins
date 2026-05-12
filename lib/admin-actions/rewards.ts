@@ -1,17 +1,14 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from '../firebase-admin';
-import { encrypt, decrypt } from '../crypto';
-import { getBlogPosts } from '../blog';
-import { toIsoDate } from './helpers';
+import { getMongoDb } from '../mongodb';
 import * as Types from './types';
+import { ObjectId } from 'mongodb';
 
 export async function getRewardLevels() {
     try {
-        const adminDb = await getAdminDb();
-        const snapshot = await adminDb.collection("reward_levels").orderBy("min_xp", "asc").get();
-        return snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Types.RewardLevel[];
+        const db = await getMongoDb();
+        const docs = await db.collection("reward_levels").find().sort({ min_xp: 1 }).toArray();
+        return docs.map((d: any) => ({ id: d._id.toString(), ...d })) as Types.RewardLevel[];
     } catch (err: any) {
         return [];
     }
@@ -19,13 +16,18 @@ export async function getRewardLevels() {
 
 export async function saveRewardLevel(adminUid: string, levelData: any) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || !userDoc.isOwner) return { success: false, error: "Unauthorized." };
 
         const { id, ...data } = levelData;
-        const levelRef = id ? adminDb.collection("reward_levels").doc(id) : adminDb.collection("reward_levels").doc();
-        await levelRef.set(data, { merge: true });
+        if (id) {
+            let objId: any = id;
+            try { objId = new ObjectId(id); } catch {}
+            await db.collection("reward_levels").updateOne({ _id: objId }, { $set: data }, { upsert: true });
+        } else {
+            await db.collection("reward_levels").insertOne(data);
+        }
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
@@ -34,11 +36,13 @@ export async function saveRewardLevel(adminUid: string, levelData: any) {
 
 export async function deleteRewardLevel(adminUid: string, levelId: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || !userDoc.isOwner) return { success: false, error: "Unauthorized." };
 
-        await adminDb.collection("reward_levels").doc(levelId).delete();
+        let objId: any = levelId;
+        try { objId = new ObjectId(levelId); } catch {}
+        await db.collection("reward_levels").deleteOne({ _id: objId });
         return { success: true };
     } catch (err: any) {
         return { success: false, error: err.message };
@@ -47,27 +51,23 @@ export async function deleteRewardLevel(adminUid: string, levelId: string) {
 
 export async function updateUserLevel(uid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const userRef = adminDb.collection("accounts").doc(uid);
-        const userDoc = await userRef.get();
-        if (!userDoc.exists) return;
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid });
+        if (!userDoc) return;
 
-        const userData = userDoc.data()!;
-        const currentXP = userData.xp ?? userData.discount ?? 0; // Support both fields during transition
+        const currentXP = userDoc.xp ?? userDoc.discount ?? 0;
 
-        const levelsSnap = await adminDb.collection("reward_levels").orderBy("min_xp", "desc").get();
+        const docs = await db.collection("reward_levels").find().sort({ min_xp: -1 }).toArray();
         let newLevel = "starter";
         
-        for (const d of levelsSnap.docs) {
-            const level = d.data();
+        for (const level of docs) {
             if (currentXP >= (level.min_xp || 0)) {
                 newLevel = level.title;
-                break; // Found the highest level
+                break;
             }
         }
 
-
-        await userRef.update({ affiliateLevel: newLevel });
+        await db.collection("accounts").updateOne({ uid }, { $set: { affiliateLevel: newLevel } });
     } catch (err) {}
 }
 

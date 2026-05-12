@@ -1,13 +1,13 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized, Timestamp, FieldValue, getAuth } from '../firebase-admin';
-import { getCollection, getMongoDb } from '../mongodb';
+import { getMongoDb } from '../mongodb';
 import { encrypt, decrypt } from '../crypto';
 import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
 import { hasPermission } from './rules';
 import { addAffiliateReward } from './payments';
+import { ObjectId } from 'mongodb';
 
 export async function syncUserRecord(uid: string, data: {
     isOwner: boolean,
@@ -138,24 +138,26 @@ export async function checkAdminStatus(uid: string) {
 
 export async function getAdminDashboardData(adminUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = userDoc.data();
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
         
-        if (!userDoc.exists) return { success: false, error: "User not found." };
+        if (!userDoc) return { success: false, error: "User not found." };
         
-        const isOwner = userData?.isOwner === true;
+        const isOwner = userDoc.isOwner === true;
         let permissions: Record<string, string[]> = {};
         
         if (!isOwner) {
-            const ruleId = userData?.ruleId;
+            const ruleId = userDoc.ruleId;
             if (!ruleId) return { success: false, error: "Unauthorized." };
-            const ruleDoc = await adminDb.collection("account_rules").doc(ruleId).get();
-            if (!ruleDoc.exists) return { success: false, error: "Rule not found." };
-            permissions = ruleDoc.data()?.rules || {};
+            
+            let ruleObjId: any = ruleId;
+            try { ruleObjId = new ObjectId(ruleId); } catch {}
+            const ruleDoc = await db.collection("account_rules").findOne({ _id: ruleObjId });
+            if (!ruleDoc) return { success: false, error: "Rule not found." };
+            permissions = ruleDoc.rules || {};
         }
 
-        const canReadAny = isOwner || Object.values(permissions).some(p => p.includes('READ'));
+        const canReadAny = isOwner || Object.values(permissions).some((p: any) => p.includes('READ'));
         if (!canReadAny) return { success: false, error: "No administrative access." };
 
         const hasAccess = (col: string) => isOwner || (permissions[col] || []).includes('READ');
@@ -164,17 +166,17 @@ export async function getAdminDashboardData(adminUid: string) {
 
         // 1. Fetch Users (if authorized)
         if (hasAccess('account')) {
-            const accountsSnap = await adminDb.collection("accounts").get();
+            const accountsSnap = await db.collection("accounts").find().toArray();
             const firestoreUsersMap = new Map<string, Types.UserRecord>();
             
-            accountsSnap.forEach((d: any) => {
-                const data = d.data() || {};
+            accountsSnap.forEach((data: any) => {
                 let decryptedEmail = data.email || null;
                 if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
                     try { decryptedEmail = decrypt(decryptedEmail); } catch { }
                 }
-                firestoreUsersMap.set(d.id, {
-                    uid: d.id,
+                const id = data.uid || data._id?.toString();
+                firestoreUsersMap.set(id, {
+                    uid: id,
                     name: data.name || null,
                     email: decryptedEmail,
                     photoURL: data.photoURL || null,
@@ -184,55 +186,26 @@ export async function getAdminDashboardData(adminUid: string) {
                     xp: data.xp || data.discount || 0,
                     affiliateLevel: data.affiliateLevel || "starter",
                 });
-
             });
 
-            await ensureFirebaseAdminInitialized();
-            let authUsersResult: any = { users: [] };
-            try {
-                const auth = await getAuth();
-                authUsersResult = await auth.listUsers(1000);
-            } catch (e) {
-                console.warn("Auth listing failed.");
-            }
-            
+            // Firebase Auth is removed, so we only use MongoDB accounts
             const seenUids = new Set();
-            authUsersResult.users.forEach((authUser: any) => {
-                const fsUser = firestoreUsersMap.get(authUser.uid);
-                results.users.push({
-                    uid: authUser.uid,
-                    name: fsUser?.name || authUser.displayName || null,
-                    email: fsUser?.email || authUser.email || (authUser.providerData.length === 0 ? "anonymous" : null),
-                    photoURL: fsUser?.photoURL || authUser.photoURL || null,
-                    isOwner: fsUser?.isOwner === true,
-                    country: fsUser?.country || "Unknown",
-                    lastLoginAt: authUser.metadata.lastSignInTime,
-                    createdAt: authUser.metadata.creationTime,
-                    isAnonymous: authUser.providerData.length === 0,
-                    ruleId: fsUser?.ruleId || null,
-                    xp: fsUser?.xp || 0,
-                    affiliateLevel: fsUser?.affiliateLevel || "starter",
-                });
-
-                seenUids.add(authUser.uid);
-            });
-
             firestoreUsersMap.forEach((user, uid) => {
-                if (!seenUids.has(uid)) results.users.push(user);
+                results.users.push(user);
+                seenUids.add(uid);
             });
         }
 
         // 2. Fetch Offers/Games
         if (hasAccess('games') || hasAccess('offers')) {
             const [offersSnap, gamesSnap] = await Promise.all([
-                adminDb.collection("offers").get(),
-                adminDb.collection("games").get()
+                db.collection("offers").find().toArray(),
+                db.collection("games").find().toArray()
             ]);
 
-            results.offers = offersSnap.docs.map((d: any) => {
-                const data = d.data() || {};
+            results.offers = offersSnap.map((data: any) => {
                 return {
-                    id: d.id,
+                    id: data._id?.toString(),
                     title: data.title || "",
                     originalPrice: data.originalPrice ?? 0,
                     discount: data.discount || "",
@@ -248,10 +221,9 @@ export async function getAdminDashboardData(adminUid: string) {
                 };
             });
 
-            results.games = gamesSnap.docs.map((d: any) => {
-                const data = d.data() || {};
+            results.games = gamesSnap.map((data: any) => {
                 return {
-                    id: d.id,
+                    id: data._id?.toString(),
                     title: data.title || "",
                     price: data.price || 0,
                     genre: Array.isArray(data.genre) ? data.genre.join(', ') : (data.genre || ""),
@@ -275,11 +247,10 @@ export async function getAdminDashboardData(adminUid: string) {
 
         // 3. Fetch Coupons
         if (hasAccess('coupons')) {
-            const couponsSnap = await adminDb.collection("coupons").get();
-            results.coupons = couponsSnap.docs.map((d: any) => {
-                const data = d.data() || {};
+            const couponsSnap = await db.collection("coupons").find().toArray();
+            results.coupons = couponsSnap.map((data: any) => {
                 return {
-                    id: d.id,
+                    id: data._id?.toString(),
                     name: data.name || "",
                     discount: data.discount || "",
                     quantity: data.quantity ?? 0,
@@ -293,20 +264,16 @@ export async function getAdminDashboardData(adminUid: string) {
 
         // 4. Fetch Payments
         if (hasAccess('payments')) {
-            const [paymentsGroupSnap, offersGroupSnap] = await Promise.all([
-                adminDb.collectionGroup("payments").get(),
-                adminDb.collectionGroup("offers").get()
+            // Note: MongoDB structure stores subcollections as top-level collections 
+            // e.g. 'payments' and 'user_offers' with 'userId' or 'uid' field
+            const [paymentsSnap, offersPurchSnap] = await Promise.all([
+                db.collection("payments").find().toArray(),
+                db.collection("user_offers").find().toArray()
             ]);
 
-            const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
-                const pathParts = doc.ref.path.split('/');
-                if (pathParts.length < 4 || pathParts[0] !== 'accounts') return;
-                
-                const userId = pathParts[1];
-                const data = doc.data() || {};
-                
-                // For offers, only process purchase records
-                if (source === "offerPayment" && !data.amount) return;
+            const pushRecord = (data: any, source: "payment" | "offerPayment") => {
+                const userId = data.userId || data.uid;
+                if (!userId) return;
 
                 let decryptedEmail = data.payerEmail || "unknown";
                 if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
@@ -314,7 +281,7 @@ export async function getAdminDashboardData(adminUid: string) {
                 }
                 
                 results.payments.push({
-                    id: doc.id,
+                    id: data._id?.toString(),
                     userId,
                     game: data.game || "",
                     payerEmail: decryptedEmail,
@@ -328,8 +295,8 @@ export async function getAdminDashboardData(adminUid: string) {
                 });
             };
 
-            paymentsGroupSnap.forEach((doc: any) => pushPayment(doc, "payment"));
-            offersGroupSnap.forEach((doc: any) => pushPayment(doc, "offerPayment"));
+            paymentsSnap.forEach(d => pushRecord(d, "payment"));
+            offersPurchSnap.forEach(d => pushRecord(d, "offerPayment"));
 
             results.payments.sort((a: any, b: any) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
         }
@@ -343,12 +310,14 @@ export async function getAdminDashboardData(adminUid: string) {
 
 export async function updateUserOwnerStatus(adminUid: string, targetUid: string, isOwner: boolean) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || !adminDoc.data()?.isOwner) return { success: false, error: "Unauthorized." };
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!adminDoc || !adminDoc.isOwner) return { success: false, error: "Unauthorized." };
 
-        await adminDb.collection("accounts").doc(targetUid).set({ isOwner: isOwner === true }, { merge: true });
-        
+        await db.collection("accounts").updateOne(
+            { uid: targetUid },
+            { $set: { isOwner: isOwner === true } }
+        );
 
         return { success: true };
     } catch (error: any) {
@@ -359,38 +328,20 @@ export async function updateUserOwnerStatus(adminUid: string, targetUid: string,
 
 export async function deleteUserAccount(adminUid: string, targetUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const adminData = adminDoc.data();
-        const canDelete = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
         
-        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
+        if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };
 
-        const userRef = adminDb.collection("accounts").doc(targetUid);
-        
-        // Delete from Firebase Auth
-        await ensureFirebaseAdminInitialized();
-        try {
-            const auth = await getAuth();
-            await auth.deleteUser(targetUid);
-        } catch (authError) {
-            console.warn("User deletion from Auth failed:", authError);
-        }
-
-        // Delete subcollections
-        const [payments, offers, affiliates] = await Promise.all([
-            userRef.collection("payments").get(),
-            userRef.collection("offers").get(),
-            userRef.collection("affiliates").get()
+        // Delete from MongoDB collections
+        await Promise.all([
+            db.collection("accounts").deleteOne({ uid: targetUid }),
+            db.collection("payments").deleteMany({ userId: targetUid }),
+            db.collection("user_offers").deleteMany({ userId: targetUid }),
+            db.collection("affiliates").deleteMany({ referredBy: targetUid })
         ]);
 
-        const batch = adminDb.batch();
-        payments.forEach((d: any) => batch.delete(d.ref));
-        offers.forEach((d: any) => batch.delete(d.ref));
-        affiliates.forEach((d: any) => batch.delete(d.ref));
-        batch.delete(userRef);
-        
-        await batch.commit();
         return { success: true };
     } catch (error: any) {
         console.error("Error deleting user account:", error);
@@ -400,67 +351,29 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
 
 export async function deleteAnonymousUsers(adminUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = adminDoc.data();
-        const canDelete = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
-        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
+        if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };
 
-        const accountsSnap = await adminDb.collection("accounts").get();
+        const accounts = await db.collection("accounts").find().toArray();
         const anonymousUids: string[] = [];
 
-        // 1. Collect from Firestore
-        for (const doc of accountsSnap.docs) {
-            const data = doc.data();
+        for (const data of accounts) {
             let email = data.email || "";
             if (email.includes(':')) {
                 try { email = decrypt(email); } catch { }
             }
             if (!email || email === "unknown" || email === "anonymous") {
-                anonymousUids.push(doc.id);
+                anonymousUids.push(data.uid);
             }
-        }
-
-        // 2. Collect from Auth (to catch those not in Firestore)
-        await ensureFirebaseAdminInitialized();
-        try {
-            const auth = await getAuth();
-            const authUsers = await auth.listUsers(1000);
-            authUsers.users.forEach((u: any) => {
-                if (u.providerData.length === 0 && !anonymousUids.includes(u.uid)) {
-                    anonymousUids.push(u.uid);
-                }
-            });
-        } catch (e) {
-            console.warn("Bulk anonymous cleanup from Auth skipped.");
         }
 
         if (anonymousUids.length === 0) return { success: true, count: 0 };
 
-        // Delete in chunks of 50
-        let totalDeleted = 0;
-        for (let i = 0; i < anonymousUids.length; i += 50) {
-            const batch = adminDb.batch();
-            const chunk = anonymousUids.slice(i, i + 50);
-            
-            // Delete from Auth in parallel for this chunk
-            await Promise.all(chunk.map(async (uid) => {
-                try { 
-                    const auth = await getAuth();
-                    await auth.deleteUser(uid); 
-                } catch(e) {
-                    console.error(`Auth deletion failed for ${uid}:`, e);
-                }
-            }));
+        const res = await db.collection("accounts").deleteMany({ uid: { $in: anonymousUids } });
 
-            for (const uid of chunk) {
-                batch.delete(adminDb.collection("accounts").doc(uid));
-            }
-            await batch.commit();
-            totalDeleted += chunk.length;
-        }
-
-        return { success: true, count: totalDeleted };
+        return { success: true, count: res.deletedCount };
     } catch (error: any) {
         console.error("Error bulk deleting anonymous users:", error);
         return { success: false, error: error.message };
@@ -469,36 +382,26 @@ export async function deleteAnonymousUsers(adminUid: string) {
 
 export async function cleanupDeactivatedUsers(adminUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = adminDoc.data();
-        const canDelete = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
 
-        if (!adminDoc.exists || !canDelete) return { success: false, error: "Unauthorized." };
+        if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };
 
-        const accountsSnap = await adminDb.collection("accounts").get();
+        const accounts = await db.collection("accounts").find().toArray();
         const uidsToDelete: string[] = [];
-        const seenUids = new Set<string>();
 
-        // 1. Check all Firestore users for activity
-        for (const doc of accountsSnap.docs) {
-            const data = doc.data();
-            const isOwner = data.isOwner === true;
-            if (isOwner) {
-                seenUids.add(doc.id);
-                continue;
-            }
+        for (const data of accounts) {
+            if (data.isOwner) continue;
 
-            const userRef = adminDb.collection("accounts").doc(doc.id);
-            const [payments, offers] = await Promise.all([
-                userRef.collection("payments").limit(1).get(),
-                userRef.collection("offers").limit(1).get()
+            const [paymentCount, offerCount] = await Promise.all([
+                db.collection("payments").countDocuments({ userId: data.uid }),
+                db.collection("user_offers").countDocuments({ userId: data.uid })
             ]);
 
-            const hasActivity = !payments.empty || !offers.empty;
+            const hasActivity = paymentCount > 0 || offerCount > 0;
             
-            // Safety: Don't delete accounts created in the last 24 hours
-            const created = data.created ? (data.created.toDate ? data.created.toDate() : new Date(data.created)) : new Date(0);
+            const created = data.created ? new Date(data.created) : new Date(0);
             const isStale = (Date.now() - created.getTime()) > (24 * 60 * 60 * 1000);
 
             if (!hasActivity && isStale) {
@@ -506,50 +409,16 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
                 if (email.includes(':')) {
                     try { email = decrypt(email); } catch { }
                 }
-                // If anonymous AND no activity
                 if (!email || email === "unknown" || email === "anonymous") {
-                    uidsToDelete.push(doc.id);
+                    uidsToDelete.push(data.uid);
                 }
             }
-            seenUids.add(doc.id);
-        }
-
-        // 2. Check Auth for users that DON'T have a Firestore record (Ghost anonymous users)
-        await ensureFirebaseAdminInitialized();
-        try {
-            const auth = await getAuth();
-            const authUsersResult = await auth.listUsers(1000);
-            
-            for (const authUser of authUsersResult.users) {
-                if (seenUids.has(authUser.uid)) continue;
-                
-                // If it's an anonymous account in Auth with NO Firestore record, delete it
-                if (authUser.providerData.length === 0) {
-                    uidsToDelete.push(authUser.uid);
-                }
-            }
-        } catch (e) {
-            console.warn("Auth check for deactivated users skipped.");
         }
 
         if (uidsToDelete.length === 0) return { success: true, count: 0 };
 
-        let totalDeleted = 0;
-        for (let i = 0; i < uidsToDelete.length; i += 400) {
-            const batch = adminDb.batch();
-            const chunk = uidsToDelete.slice(i, i + 400);
-            for (const uid of chunk) {
-                batch.delete(adminDb.collection("accounts").doc(uid));
-                try { 
-                    const auth = await getAuth();
-                    await auth.deleteUser(uid); 
-                } catch(e) {}
-            }
-            await batch.commit();
-            totalDeleted += chunk.length;
-        }
-
-        return { success: true, count: totalDeleted };
+        const res = await db.collection("accounts").deleteMany({ uid: { $in: uidsToDelete } });
+        return { success: true, count: res.deletedCount };
     } catch (error: any) {
         console.error("Error cleaning up deactivated users:", error);
     }
@@ -557,33 +426,29 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
 
 export async function getUserSupportData(adminUid: string, targetUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const adminData = adminDoc.data();
-        const canRead = adminData?.isOwner || (adminData?.ruleId && await hasPermission(adminUid, 'account', 'READ'));
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canRead = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'READ'));
         
-        if (!adminDoc.exists || !canRead) return { success: false, error: "Unauthorized." };
+        if (!adminDoc || !canRead) return { success: false, error: "Unauthorized." };
 
-        const userRef = adminDb.collection("accounts").doc(targetUid);
         const [userDoc, paymentsSnap, offersPurchSnap] = await Promise.all([
-            userRef.get(),
-            userRef.collection("payments").get(),
-            userRef.collection("offers").get()
+            db.collection("accounts").findOne({ uid: targetUid }),
+            db.collection("payments").find({ userId: targetUid }).toArray(),
+            db.collection("user_offers").find({ userId: targetUid }).toArray()
         ]);
 
-        if (!userDoc.exists) return { success: false, error: "User not found." };
-        const userData = userDoc.data()!;
+        if (!userDoc) return { success: false, error: "User not found." };
         
-        let decryptedEmail = userData.email || "unknown";
+        let decryptedEmail = userDoc.email || "unknown";
         if (typeof decryptedEmail === 'string' && decryptedEmail.includes(':')) {
             try { decryptedEmail = decrypt(decryptedEmail); } catch { }
         }
 
         const payments: any[] = [];
-        const pushPayment = (doc: any, source: "payment" | "offerPayment") => {
-            const data = doc.data() || {};
+        const pushRecord = (data: any, source: "payment" | "offerPayment") => {
             payments.push({
-                id: doc.id,
+                id: data._id?.toString(),
                 game: data.game || "",
                 amount: data.amount || "0",
                 status: data.status || "UNKNOWN",
@@ -592,23 +457,20 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
             });
         };
 
-        paymentsSnap.forEach((doc: any) => pushPayment(doc, "payment"));
-        offersPurchSnap.forEach((doc: any) => pushPayment(doc, "offerPayment"));
-        payments.sort((a: any, b: any) => {
-            const dateA = a.purchaseDate || "";
-            const dateB = b.purchaseDate || "";
-            return dateB.localeCompare(dateA);
-        });
+        paymentsSnap.forEach(d => pushRecord(d, "payment"));
+        offersPurchSnap.forEach(d => pushRecord(d, "offerPayment"));
+        
+        payments.sort((a: any, b: any) => (b.purchaseDate || "").localeCompare(a.purchaseDate || ""));
 
         return {
             success: true,
             profile: {
                 uid: targetUid,
-                name: userData.name || "Unknown Operative",
+                name: userDoc.name || "Unknown Operative",
                 email: decryptedEmail,
-                photoURL: userData.photoURL || null,
-                country: userData.country || "Unknown",
-                joined: toIsoDate(userData.created) || null,
+                photoURL: userDoc.photoURL || null,
+                country: userDoc.country || "Unknown",
+                joined: toIsoDate(userDoc.created) || null,
             },
             payments
         };
@@ -693,22 +555,16 @@ export async function getUserActivity(uid: string) {
 
 export async function assignRuleToUser(adminUid: string, targetUserId: string, ruleId: string | null) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!userDoc.exists || !userDoc.data()?.isOwner) {
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || !userDoc.isOwner) {
             return { success: false, error: "Unauthorized." };
         }
 
-        await adminDb.collection("accounts").doc(targetUserId).update({
-            ruleId: ruleId || null
-        });
-
-        // Also track in the rule document subcollection as per the user's diagram
-        if (ruleId) {
-            await adminDb.collection("account_rules").doc(ruleId).collection("accounts").doc(targetUserId).set({
-                assigned_at: Timestamp.now()
-            });
-        }
+        await db.collection("accounts").updateOne(
+            { uid: targetUserId },
+            { $set: { ruleId: ruleId || null } }
+        );
 
         return { success: true };
     } catch (error: any) {
@@ -716,3 +572,91 @@ export async function assignRuleToUser(adminUid: string, targetUserId: string, r
     }
 }
 
+
+export async function getSupportChats(adminUid: string) {
+    try {
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canRead = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'READ'));
+        if (!adminDoc || !canRead) return { success: false, error: "Unauthorized." };
+
+        const chats = await db.collection("support_chats")
+            .find({})
+            .sort({ updatedAt: -1 })
+            .toArray();
+
+        return {
+            success: true,
+            chats: chats.map((c: any) => ({
+                id: c._id.toString(),
+                name: c.name || "Unknown Operative",
+                lastMessage: c.lastMessage || "",
+                updatedAt: c.updatedAt ? new Date(c.updatedAt).getTime() : Date.now(),
+                ownerId: c.ownerId || null,
+                ownerName: c.ownerName || null,
+            }))
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getSupportMessages(chatId: string) {
+    try {
+        const db = await getMongoDb();
+        const messages = await db.collection("support_messages")
+            .find({ chatId })
+            .sort({ timestamp: 1 })
+            .toArray();
+
+        return {
+            success: true,
+            messages: messages.map((m: any) => ({
+                id: m._id.toString(),
+                text: m.text || "",
+                senderId: m.senderId || "",
+                senderName: m.senderName || "Unknown",
+                timestamp: m.timestamp ? new Date(m.timestamp).getTime() : Date.now(),
+            }))
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function sendSupportMessage(chatId: string, message: { text: string; senderId: string; senderName: string }) {
+    try {
+        const db = await getMongoDb();
+        const now = new Date();
+
+        await db.collection("support_messages").insertOne({
+            chatId,
+            text: message.text,
+            senderId: message.senderId,
+            senderName: message.senderName,
+            timestamp: now,
+        });
+
+        await db.collection("support_chats").updateOne(
+            { _id: chatId as any },
+            { $set: { lastMessage: message.text, updatedAt: now } }
+        );
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function assignChat(adminUid: string, adminName: string, chatId: string) {
+    try {
+        const db = await getMongoDb();
+        await db.collection("support_chats").updateOne(
+            { _id: chatId as any },
+            { $set: { ownerId: adminUid, ownerName: adminName, assignedAt: new Date() } }
+        );
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}

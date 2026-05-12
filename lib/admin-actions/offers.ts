@@ -1,12 +1,10 @@
 "use server";
 
-import { getAdminDb, getAdminRtdb, ensureFirebaseAdminInitialized } from '../firebase-admin';
-import { Timestamp, FieldValue } from '../firebase-admin';
-import { encrypt, decrypt } from '../crypto';
-import { getBlogPosts } from '../blog';
+import { getMongoDb } from '../mongodb';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
 import { hasPermission } from './rules';
+import { ObjectId } from 'mongodb';
 
 export async function createOffer(adminUid: string, offerData: {
     id: string;
@@ -23,24 +21,30 @@ export async function createOffer(adminUid: string, offerData: {
     targetAffiliates?: number;
 }) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = userDoc.data();
-        const canWrite = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'offers', 'WRITE'));
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canWrite = userDoc?.isOwner || (userDoc?.ruleId && await hasPermission(adminUid, 'offers', 'WRITE'));
 
-        if (!userDoc.exists || !canWrite) {
+        if (!userDoc || !canWrite) {
             return { success: false, error: "Unauthorized." };
         }
 
-
-        await adminDb.collection("offers").doc(offerData.id).set({
-            ...offerData,
-            originalPrice: Number(offerData.originalPrice),
-            quantity: Number(offerData.quantity),
-            expire: Timestamp.fromDate(new Date(offerData.expire)),
-            listed: Timestamp.now(),
-            targetXP: Number(offerData.targetXP || offerData.targetAffiliates || 10),
-        });
+        const { id, ...data } = offerData;
+        
+        await db.collection("offers").updateOne(
+            { _id: id as any },
+            { 
+                $set: {
+                    ...data,
+                    originalPrice: Number(data.originalPrice),
+                    quantity: Number(data.quantity),
+                    expire: new Date(data.expire),
+                    listed: new Date(),
+                    targetXP: Number(data.targetXP || data.targetAffiliates || 10),
+                }
+            },
+            { upsert: true }
+        );
 
         return { success: true };
     } catch (error: any) {
@@ -50,17 +54,14 @@ export async function createOffer(adminUid: string, offerData: {
 
 export async function updateOffer(adminUid: string, offerId: string, offerData: any) {
     try {
-        const adminDb = await getAdminDb();
-        const userDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        const userData = userDoc.data();
-        const canUpdate = userData?.isOwner || (userData?.ruleId && await hasPermission(adminUid, 'offers', 'UPDATE'));
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const canUpdate = userDoc?.isOwner || (userDoc?.ruleId && await hasPermission(adminUid, 'offers', 'UPDATE'));
 
-        if (!userDoc.exists || !canUpdate) {
+        if (!userDoc || !canUpdate) {
             return { success: false, error: "Unauthorized." };
         }
 
-        const offerRef = adminDb.collection("offers").doc(offerId);
-        
         const payload: any = {
             ...offerData,
         };
@@ -78,13 +79,15 @@ export async function updateOffer(adminUid: string, offerId: string, offerData: 
         }
 
         if (offerData.expire) {
-            payload.expire = Timestamp.fromDate(new Date(offerData.expire));
+            payload.expire = new Date(offerData.expire);
         }
         
-        // Remove listed to avoid overwriting it
         delete payload.listed;
 
-        await offerRef.update(payload);
+        await db.collection("offers").updateOne(
+            { _id: offerId as any },
+            { $set: payload }
+        );
 
         return { success: true };
     } catch (error: any) {
@@ -95,51 +98,30 @@ export async function updateOffer(adminUid: string, offerId: string, offerData: 
 
 export async function cleanupExpiredOffers(adminUid: string) {
     try {
-        const adminDb = await getAdminDb();
-        const adminDoc = await adminDb.collection("accounts").doc(adminUid).get();
-        if (!adminDoc.exists || (!adminDoc.data()?.isOwner && !adminDoc.data()?.ruleId)) {
+        const db = await getMongoDb();
+        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        if (!userDoc || (!userDoc.isOwner && !userDoc.ruleId)) {
             return { success: false, error: "Unauthorized." };
         }
 
-        // 1. Get all offers
-        const offersSnap = await adminDb.collection("offers").get();
         const now = new Date();
-        
-        const expiredOffers = offersSnap.docs.filter((doc: any) => {
-            const data = doc.data();
-            const expireDate = data.expire?.toDate ? data.expire.toDate() : new Date(data.expire);
-            return expireDate < now;
-        });
+        const expiredOffers = await db.collection("offers").find({ expire: { $lt: now } }).toArray();
 
         if (expiredOffers.length === 0) {
             return { success: true, count: 0, message: "No expired offers found." };
         }
 
-        // 2. Identify which expired offers have sales
-        const soldOfferIds = new Set<string>();
-        const purchasesSnap = await adminDb.collectionGroup("offers").get();
-        
-        purchasesSnap.forEach((doc: any) => {
-            // We only want documents from 'accounts/{uid}/offers' subcollections, 
-            // not the root 'offers' collection itself.
-            if (doc.ref.path.includes("accounts/")) {
-                soldOfferIds.add(doc.id);
-            }
-        });
+        // Identify which expired offers have sales
+        const expiredIds = expiredOffers.map(o => o._id);
+        const userOffers = await db.collection("user_offers").find({ offerId: { $in: expiredIds } }).toArray();
+        const soldOfferIds = new Set(userOffers.map(u => u.offerId));
 
-        // 3. Delete those that are expired AND have no sales
         let deletedCount = 0;
-        const batch = adminDb.batch();
-
-        for (const offerDoc of expiredOffers) {
-            if (!soldOfferIds.has(offerDoc.id)) {
-                batch.delete(offerDoc.ref);
+        for (const offer of expiredOffers) {
+            if (!soldOfferIds.has(offer._id)) {
+                await db.collection("offers").deleteOne({ _id: offer._id });
                 deletedCount++;
             }
-        }
-
-        if (deletedCount > 0) {
-            await batch.commit();
         }
 
         return { success: true, count: deletedCount, message: `Cleaned up ${deletedCount} expired and unsold offers.` };
@@ -169,7 +151,7 @@ export async function getUserPurchasedOffers(userId: string) {
             const key = o.offerId || o._id;
             offers[key] = { ...(offers[key] || {}), ...o };
         }
-        return { success: true, offers };
+        return { success: true, purchasedOffers: offers, offers };
     } catch (error: any) {
         console.error('Error fetching user purchased offers:', error);
         return { success: false, error: error.message, offers: {} };

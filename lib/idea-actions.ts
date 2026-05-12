@@ -368,3 +368,161 @@ export async function approveCollaboration(collaborationId: string) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Unapprove a collaboration request
+ */
+export async function unapproveCollaboration(collaborationId: string) {
+    try {
+        const db = await getMongoDb();
+        const { ObjectId } = await import('mongodb');
+        
+        const result = await db.collection("idea_collaborations").updateOne(
+            { _id: new ObjectId(collaborationId) },
+            { 
+                $set: { 
+                    isApproved: false, 
+                    updated_time: Date.now() 
+                } 
+            }
+        );
+
+        if (result.modifiedCount === 0) {
+            return { success: false, error: 'Collaboration not found or already unapproved' };
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error unapproving collaboration:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Idea Comments Actions
+ */
+export async function getIdeaComments(ideaId: string, page = 1, limit = 10) {
+    try {
+        const commentsCol = await getCollection('idea_comments');
+        const skip = (page - 1) * limit;
+        
+        const comments = await commentsCol.find({ ideaId })
+            .sort({ commenteddatetime: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+            
+        return { 
+            success: true, 
+            comments: comments.map(c => ({
+                id: c._id.toString(),
+                userId: c.userId,
+                ideaId: c.ideaId,
+                comment: c.comment,
+                userName: c.userName || 'Operative',
+                userAvatar: c.userAvatar || null,
+                role: c.role || 'user',
+                likes: c.likes || 0,
+                commenteddatetime: c.commenteddatetime ? new Date(c.commenteddatetime).toISOString() : null
+            }))
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function upsertIdeaComment(ideaId: string, userId: string, data: any) {
+    try {
+        const commentsCol = await getCollection('idea_comments');
+        const payload = {
+            ...data,
+            ideaId,
+            userId,
+            commenteddatetime: data.commenteddatetime || new Date(),
+            lastUpdated: new Date()
+        };
+        
+        await commentsCol.updateOne(
+            { ideaId, userId },
+            { $set: payload },
+            { upsert: true }
+        );
+        
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteIdeaComment(ideaId: string, userId: string) {
+    try {
+        const commentsCol = await getCollection('idea_comments');
+        await commentsCol.deleteOne({ ideaId, userId });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function toggleIdeaCommentLike(ideaId: string, commentUserId: string, increment: boolean) {
+    try {
+        const commentsCol = await getCollection('idea_comments');
+        await commentsCol.updateOne(
+            { ideaId, userId: commentUserId },
+            { $inc: { likes: increment ? 1 : -1 } }
+        );
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getUserIdeas(uid: string) {
+    try {
+        const db = await getMongoDb();
+        const ideas = await db.collection("ideas").find({ authorUid: uid }).sort({ time: -1 }).toArray();
+        return { success: true, ideas: JSON.parse(JSON.stringify(ideas)) };
+    } catch (error: any) {
+        console.error("Error fetching user ideas:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteIdea(ideaId: string, uid: string) {
+    try {
+        const db = await getMongoDb();
+        
+        // 1. Verify ownership
+        const idea = await db.collection<any>("ideas").findOne({ _id: ideaId });
+        if (!idea) {
+            return { success: false, error: "Idea not found." };
+        }
+        if (idea.authorUid !== uid) {
+            return { success: false, error: "Unauthorized. You are not the author of this idea." };
+        }
+
+        // 2. Delete related data
+        await Promise.all([
+            db.collection<any>("ideas").deleteOne({ _id: ideaId }),
+            db.collection<any>("creator").deleteMany({ ideaId }),
+            db.collection<any>("idea_collaborations").deleteMany({ ideaId }),
+            db.collection<any>("idea_comments").deleteMany({ ideaId })
+        ]);
+
+        // 3. Revalidate paths
+        try {
+            const { revalidatePath } = await import('next/cache');
+            revalidatePath('/ideas');
+            revalidatePath('/account');
+            revalidatePath(`/ideas/${ideaId}`);
+        } catch (e) {
+            console.error("Revalidation error:", e);
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error deleting idea:", error);
+        return { success: false, error: error.message };
+    }
+}
+

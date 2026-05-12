@@ -20,6 +20,7 @@ import { useToast } from '@/components/Toast';
 import { getIdeaSections, saveCollaborationContent, getIdeaById } from '@/lib/idea-actions';
 import { parseHtmlToStructured, structuredToHtml } from '@/lib/text-parser';
 import IdeaCollaborationsSidebar from '@/components/ideas/IdeaCollaborationsSidebar';
+import IdeaChatSidebar from '@/components/ideas/IdeaChatSidebar';
 
 const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
 const CouponModal = dynamic(() => import('@/components/admin/CouponModal'), { ssr: false });
@@ -41,6 +42,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCollabSidebarOpen, setIsCollabSidebarOpen] = useState(false);
+  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -183,13 +185,27 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     }}>
       {/* Main content — pushed left when sidebar opens */}
       <motion.div
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', zIndex: 1 }}
-        animate={{ marginRight: (isCollabSidebarOpen && !isMobile) ? '25%' : '0%' }}
+        style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          minWidth: 0, 
+          position: 'relative', 
+          zIndex: 1,
+          width: '100%' 
+        }}
+        animate={{ 
+          width: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '75%' : '100%',
+          marginRight: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '0%' : '0%'
+        }}
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       >
         <Header
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
+          style={{ 
+            width: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '75%' : '100%',
+            transition: 'width 0.4s ease'
+          }}
         />
         <MobileNav
           isOpen={isMobileMenuOpen}
@@ -291,7 +307,14 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 <button className={styles.actionBtn} title="Share">
                   <Share2 size={18} strokeWidth={1.5} />
                 </button>
-                <button className={styles.actionBtn} title="Comments">
+                <button 
+                  className={`${styles.actionBtn} ${isChatSidebarOpen ? styles.actionBtnActive : ''}`} 
+                  title="Comments"
+                  onClick={() => {
+                    setIsChatSidebarOpen(!isChatSidebarOpen);
+                    if (!isChatSidebarOpen) setIsCollabSidebarOpen(false);
+                  }}
+                >
                   <MessageSquare size={18} strokeWidth={1.5} />
                 </button>
                 
@@ -299,7 +322,10 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 {isAuthor && (
                   <button 
                     className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`}
-                    onClick={() => setIsCollabSidebarOpen(!isCollabSidebarOpen)}
+                    onClick={() => {
+                      setIsCollabSidebarOpen(!isCollabSidebarOpen);
+                      if (!isCollabSidebarOpen) setIsChatSidebarOpen(false);
+                    }}
                     title={isCollabSidebarOpen ? "Close Review Panel" : "Review Collaborations"}
                     style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
                   >
@@ -411,6 +437,15 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         onApproved={() => {
           router.refresh();
         }}
+      />
+
+      {/* Chat Sidebar */}
+      <IdeaChatSidebar
+        isOpen={isChatSidebarOpen}
+        onClose={() => setIsChatSidebarOpen(false)}
+        ideaTitle={idea.title}
+        ideaId={id}
+        isMobile={isMobile}
       />
     </div>
   );

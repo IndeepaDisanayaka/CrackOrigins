@@ -12,7 +12,15 @@ import dynamic from 'next/dynamic';
 
 const CreateIdeaModal = dynamic(() => import('../ideas/CreateIdeaModal'), { ssr: false });
 
-export default function Header({ isMobileMenuOpen: propIsMobileMenuOpen, setIsMobileMenuOpen: propSetIsMobileMenuOpen }: { isMobileMenuOpen?: boolean, setIsMobileMenuOpen?: (v: boolean) => void }) {
+export default function Header({ 
+  isMobileMenuOpen: propIsMobileMenuOpen, 
+  setIsMobileMenuOpen: propSetIsMobileMenuOpen,
+  style 
+}: { 
+  isMobileMenuOpen?: boolean, 
+  setIsMobileMenuOpen?: (v: boolean) => void,
+  style?: React.CSSProperties
+}) {
   const { user, isAdmin, isOwner, permissions, isAuthLoading, xp, logout } = useAuth();
   const [internalIsMobileMenuOpen, setInternalIsMobileMenuOpen] = useState(false);
   
@@ -30,7 +38,7 @@ export default function Header({ isMobileMenuOpen: propIsMobileMenuOpen, setIsMo
 
   return (
     <>
-    <header className={styles.header}>
+    <header className={styles.header} style={style}>
       <div className={styles.navLinks}>
         <Link href="/" className={styles.link}>Home</Link>
         <div className={styles.dropdownContainer}>

@@ -14,3 +14,13 @@ export function toIsoDate(value: any): string | null {
         return null;
     }
 }
+
+export function generateGameSlug(title: string) {
+    if (!title) return "";
+    return title
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}

@@ -1,7 +1,8 @@
 import React from 'react';
 import IdeaDetailsClient from './IdeaDetailsClient';
 import { Metadata } from 'next';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getMongoDb } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 interface Props {
   params: Promise<{ id: string; slug: string }>;
@@ -11,10 +12,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id, slug } = await params;
   
   try {
-    const adminDb = await getAdminDb();
-    const docSnap = await adminDb.collection('ideas').doc(id).get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
+    const db = await getMongoDb();
+    let objId;
+    try { objId = new ObjectId(id); } catch(e) { objId = id as any; }
+    const data = await db.collection('ideas').findOne({ _id: objId });
+    if (data) {
       const title = `${data?.title} | Crack Origins Ideas`;
       const description = data?.description || 'Explore this creative idea on Crack Origins.';
       const imageUrl = data?.image || '/og-image.png';
