@@ -25,8 +25,7 @@ export default function GamesCarousel() {
   const [purchasedDetails, setPurchasedDetails] = useState<Record<string, any>>({});
   const [isCheckingPurchases, setIsCheckingPurchases] = useState(false);
 
-  const constraintsRef = useRef<HTMLDivElement>(null);
-  const [dragWidth, setDragWidth] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [games, setGames] = useState<any[]>([]);
   const [isLoadingGames, setIsLoadingGames] = useState(true);
@@ -34,11 +33,8 @@ export default function GamesCarousel() {
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [bugTitle, setBugTitle] = useState('');
   const [bugDesc, setBugDesc] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [modalState, setModalState] = useState<'closed' | 'idle' | 'loading' | 'success' | 'details'>('closed');
   const [selectedGame, setSelectedGame] = useState<any | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
   const [isSendingBug, setIsSendingBug] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
 
@@ -53,23 +49,7 @@ export default function GamesCarousel() {
     </svg>
   );
 
-  const updateDragWidth = () => {
-    if (constraintsRef.current) {
-      setDragWidth(constraintsRef.current.scrollWidth - constraintsRef.current.offsetWidth);
-    }
-  };
 
-  useEffect(() => {
-    updateDragWidth();
-    window.addEventListener('resize', updateDragWidth);
-    return () => window.removeEventListener('resize', updateDragWidth);
-  }, []);
-
-  useEffect(() => {
-    // Also update when internal components might have finished rendering
-    const timer = setTimeout(updateDragWidth, 500);
-    return () => clearTimeout(timer);
-  }, [activeIndex]);
 
   useEffect(() => {
     const loadGames = async () => {
@@ -132,33 +112,7 @@ export default function GamesCarousel() {
     }
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (modalState !== 'closed' || isBugReportOpen || isLocked || games.length === 0) return;
-      setActiveIndex((current) => (current + 1) % games.length);
-    }, 20000);
-    return () => clearInterval(timer);
-  }, [modalState, isBugReportOpen, isLocked, games.length]);
 
-  useEffect(() => {
-    setActiveImageIndex(0);
-  }, [activeIndex]);
-
-  useEffect(() => {
-    if (games.length === 0) return;
-    const activeGame = games[activeIndex];
-    const showVidVal = activeGame.showVideo;
-    const isVideoHidden = showVidVal === false || showVidVal === 'false';
-    const hasVideo = activeGame.video && !isVideoHidden;
-
-    if (!hasVideo && activeGame.images && activeGame.images.length > 0) {
-      const imgTimer = setInterval(() => {
-        if (modalState !== 'closed' || isBugReportOpen || isLocked) return;
-        setActiveImageIndex((current) => (current + 1) % activeGame.images.length);
-      }, 4000);
-      return () => clearInterval(imgTimer);
-    }
-  }, [activeIndex, games, modalState, isBugReportOpen, isLocked]);
 
   const triggerDirectDownload = (game: any) => {
     if (!game.itchUploadId && !game.downloadUrl) {
@@ -201,7 +155,7 @@ export default function GamesCarousel() {
     return <div style={{ display: 'flex', gap: '8px', color: 'var(--primary)', marginTop: '4px' }}>{icons}</div>;
   };
 
-  const activeGame = games[activeIndex];
+
 
   if (isLoadingGames) {
     return (
@@ -213,208 +167,99 @@ export default function GamesCarousel() {
 
   if (games.length === 0) return null;
 
+  const scrollLeft = () => {
+    if (scrollRef.current) {
+      const cardWidth = window.innerWidth <= 768 ? window.innerWidth : 320;
+      scrollRef.current.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollRef.current) {
+      const cardWidth = window.innerWidth <= 768 ? window.innerWidth : 320;
+      scrollRef.current.scrollBy({ left: cardWidth, behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className={`${styles.carouselContainer} ${modalState !== 'closed' ? styles.modalOpenContext : ''}`} id="games">
-      <div className={styles.headerRow}>
-        <span className="sectionLabel">Our Creations</span>
-        <h2 className={styles.mainTitle}>Featured Game Studio Works</h2>
+      <div className={styles.headerContainer}>
+        <div className={styles.headerLeft}>
+          <span className="sectionLabel">Our Creations</span>
+          <h2 className={styles.mainTitle}>Featured Game Studio Works</h2>
+        </div>
+        <div className={styles.navButtons}>
+          <button className={styles.navBtn} onClick={scrollLeft}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button className={styles.navBtn} onClick={scrollRight}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
       </div>
 
-      <div className={styles.carouselWrapper}>
-        <div className={styles.mainStage}>
-          <div className={styles.stageBackground}>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`bg-${activeIndex}-${activeImageIndex}`}
-                initial={{ opacity: 0, scale: 1.1 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1 }}
-                className={styles.bgImageContainer}
-                style={{ position: 'absolute', inset: 0 }}
-              >
-                <Image
-                  src={(activeGame.images && activeGame.images.length > 0) ? activeGame.images[activeImageIndex] : (activeGame.image || `https://img.youtube.com/vi/${activeGame.video}/maxresdefault.jpg`)}
-                  alt={activeGame.title || 'Game Backdrop'}
-                  fill
-                  style={{ objectFit: 'cover' }}
-                  priority
-                />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <div className={styles.activeMedia}>
-            <div className={styles.mediaWrapper}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? `video-${activeIndex}` : `img-${activeIndex}-${activeImageIndex}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.6 }}
-                  style={{ width: '100%', height: '100%' }}
-                >
-                  {activeGame.video && activeGame.showVideo !== false && activeGame.showVideo !== 'false' ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${activeGame.video}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&showinfo=0&disablekb=1&playlist=${activeGame.video}&loop=1`}
-                      className={styles.activeIframe}
-                      title={activeGame.title}
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  ) : (
-                    <Image
-                      src={(activeGame.images && activeGame.images.length > 0) ? activeGame.images[activeImageIndex] : (activeGame.image || '/placeholder-game.png')}
-                      alt={activeGame.title}
-                      fill
-                      style={{ objectFit: 'cover' }}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            <div className={styles.navRibbonContainer} ref={constraintsRef}>
-              <motion.div
-                className={styles.navRibbon}
-                drag="x"
-                dragConstraints={{ right: 0, left: -Math.max(0, dragWidth) }}
-                dragElastic={0.4}
-                whileTap={{ cursor: "grabbing" }}
-              >
-                {games.map((game, idx) => {
-                  const isActive = idx === activeIndex;
-                  return (
-                    <button
-                      key={game.id}
-                      className={`${styles.navItem} ${isActive ? styles.activeNavItem : ''}`}
-                      onClick={() => setActiveIndex(idx)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <Image width={60} height={40} quality={75} src={game.logo || `https://img.youtube.com/vi/${game.video}/mqdefault.jpg`} alt={game.title} className={styles.navThumb} />
-                      <div className={styles.navInfo}>
-                        <div className={styles.navTitleRow}>
-                          <span className={styles.navTitle}>{game.title}</span>
-                          <WindowsIcon size={10} className={styles.osIcon} />
-                        </div>
-                        <div className={styles.navLabels}>
-                          <span className={isActive ? styles.activeLabel : ''}>
-                            {purchasedTitles.includes(game.title) ? 'Owned' : game.price}
-                          </span>
-                          <span>•</span>
-                          <span>{game.genre.split('&')[0]}</span>
-                        </div>
-                      </div>
-                      {isActive && !isLocked && (
-                        <motion.div
-                          className={styles.navProgressBar}
-                          initial={{ width: 0 }}
-                          animate={{ width: "100%" }}
-                          transition={{ duration: 20, ease: "linear" }}
-                        />
+      <div className={styles.cardsWrapper} ref={scrollRef}>
+        {games.map((game, idx) => {
+          const isOwned = purchasedTitles.includes(game.title);
+          const isFree = game.price === 'Free';
+          
+          return (
+            <div key={game.id || idx} className={styles.card} onClick={() => {
+              if (isOwned || isFree) {
+                // Do nothing on card click if owned
+              } else {
+                setSelectedGame(game);
+                setModalState('idle');
+              }
+            }}>
+              <Image
+                src={(game.images && game.images.length > 0) ? game.images[0] : (game.image || '/placeholder-game.png')}
+                alt={game.title}
+                fill
+                className={styles.cardImage}
+              />
+              <div className={styles.cardOverlay}></div>
+              
+              <Link href={`/games/${game.slug}`} className={styles.topRightIcon}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+              </Link>
+              
+              <div className={styles.cardContent}>
+                <div className={styles.stars}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </div>
+                <h3 className={styles.cardTitle}>{game.title}</h3>
+                <p className={styles.cardSubtitle}>{game.genre.split(',')[0]} • {game.price}</p>
+                
+                <div className={styles.cardActions}>
+                  {(isOwned || isFree) ? (
+                    <>
+                      <button className={`${styles.actionBtn} ${styles.primary}`} onClick={(e) => { e.stopPropagation(); triggerDirectDownload(game); }}>
+                        <Download size={14} /> Download
+                      </button>
+                      {isOwned && (
+                        <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); setSelectedGame(game); setModalState('details'); }}>
+                          <Shield size={14} /> Key
+                        </button>
                       )}
+                    </>
+                  ) : (
+                    <button className={`${styles.actionBtn} ${styles.primary}`} onClick={(e) => { e.stopPropagation(); setSelectedGame(game); setModalState('idle'); }}>
+                      <ShoppingCart size={14} /> Buy Now
                     </button>
-                  );
-                })}
-              </motion.div>
-            </div>
-          </div>
-
-          <div className={styles.contentOverlay}>
-            <motion.div
-              key={`content-${activeIndex}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <span className={styles.statusBadge}>Featured Release</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                {activeGame.genre.split(',').map((genre: string) => (
-                  <span key={genre} style={{
-                    fontSize: '0.65rem',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    background: 'rgba(255,255,255,0.05)',
-                    padding: '0.3rem 0.6rem',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'var(--text-muted)'
-                  }}>
-                    {genre.trim()}
-                  </span>
-                ))}
-              </div>
-              <h2 className={styles.title}>{activeGame.title}</h2>
-              {renderOSIcons(activeGame.os)}
-              <p className={styles.description}>
-                {activeGame.description && activeGame.description.length > 200
-                  ? activeGame.description.substring(0, 200)
-                  : activeGame.description}
-                {activeGame.description && activeGame.description.length > 200 && (
-                  <Link href={`/games/${activeGame.slug}`} style={{ color: 'var(--primary)', textDecoration: 'none', marginLeft: '5px', fontWeight: 'bold' }}>
-                    See more...
-                  </Link>
-                )}
-              </p>
-
-              <div className={styles.actions}>
-                {/* 1. Primary Action (Download or Unlock) */}
-                {(purchasedTitles.includes(activeGame.title) || activeGame.price === 'Free') ? (
-                  <button
-                    className="btnSolid"
-                    style={{ minWidth: '150px' }}
-                    onClick={() => triggerDirectDownload(activeGame)}
-                  >
-                    <Download size={14} fill="currentColor" /> Download
-                  </button>
-                ) : (
-                  <button className="btnSolid" disabled style={{ minWidth: '150px', opacity: 0.5 }}>
-                    <Play size={14} fill="currentColor" /> Unlock to Play
-                  </button>
-                )}
-
-                {/* 2. Secondary Actions: Buy Now or View Key */}
-                {purchasedTitles.includes(activeGame.title) ? (
-                  <button
-                    className="btnOutline"
-                    onClick={() => { setSelectedGame(activeGame); setModalState('details'); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.7rem 1.2rem' }}
-                  >
-                    <Shield size={16} /> View Key
-                  </button>
-                ) : activeGame.price !== 'Free' && (
-                  <button
-                    className="btnBuyNow"
-                    onClick={() => { setSelectedGame(activeGame); setModalState('idle'); }}
-                    disabled={isCheckingPurchases}
-                  >
-                    <ShoppingCart size={16} /> Buy Now - {activeGame.price}
-                  </button>
-                )}
-
-                {/* 3. Global Action: Details (Always Visible) */}
-                <Link
-                  className="btnOutline"
-                  href={`/games/${activeGame.slug}`}
-                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.7rem 1.2rem' }}
-                >
-                  <Eye size={16} /> Details
-                </Link>
-
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="btnOutline" style={{ padding: '0.7rem' }} onClick={() => setIsLocked(!isLocked)} title={isLocked ? "Unlock Auto-Play" : "Lock Auto-Play"}>
-                    {isLocked ? <Play size={16} /> : <span style={{ fontSize: '14px', fontWeight: 'bold' }}>||</span>}
-                  </button>
-                  <button className="btnOutline" style={{ padding: '0.7rem' }} onClick={() => { setSelectedGame(activeGame); setIsBugReportOpen(true); }} title="Report Bug">
-                    <Bug size={16} />
+                  )}
+                  <button className={styles.actionBtn} onClick={(e) => { e.stopPropagation(); setSelectedGame(game); setIsBugReportOpen(true); }}>
+                    <Bug size={14} />
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
 
       <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">

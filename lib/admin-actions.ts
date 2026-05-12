@@ -279,7 +279,7 @@ export async function getOwnedGames(uid: string) {
                 }
 
                 details[data.game] = {
-                    activationKey: doc.id,
+                    activationKey: data.activationKey || data.paypalOrderId || doc.id,
                     purchaseDate: data.purchaseDate?.toDate?.()?.toISOString() || new Date().toISOString(),
                     amount: data.amount,
                     status: data.status,
@@ -418,6 +418,7 @@ export async function checkAdminStatus(uid: string) {
                 nextLevelGoal: nextLevel ? nextLevel.min_xp : null
             },
             affiliateCount: affiliatesSnapshot.size,
+            country: data?.country || "Unknown",
             metadata: {
                 creationTime: toIsoDate(data?.created) || null,
                 lastSignInTime: toIsoDate(data?.last) || null

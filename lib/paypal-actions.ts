@@ -164,6 +164,7 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 purchaseDate: Timestamp.now(),
                 coupon: couponUsed,
                 amount: amount,
+                activationKey: orderID,
                 activation: "permanent",
                 status: "COMPLETED",
                 paypalOrderId: orderID,

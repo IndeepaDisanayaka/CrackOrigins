@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft } from 'lucide-react';
+import { Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft, Users } from 'lucide-react';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -18,6 +18,7 @@ import IdeaEditor from '@/components/ideas/IdeaEditor';
 import { useToast } from '@/components/Toast';
 import { getIdeaSections, saveCollaborationContent, getIdeaById } from '@/lib/idea-actions';
 import { parseHtmlToStructured, structuredToHtml } from '@/lib/text-parser';
+import IdeaCollaborationsSidebar from '@/components/ideas/IdeaCollaborationsSidebar';
 
 const AdminPanel = dynamic(() => import('@/components/AdminPanel'), { ssr: false });
 const CouponModal = dynamic(() => import('@/components/admin/CouponModal'), { ssr: false });
@@ -37,6 +38,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [mode, setMode] = useState<'reader' | 'editor'>('reader');
   const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCollabSidebarOpen, setIsCollabSidebarOpen] = useState(false);
 
   const { user, isAdmin, login } = useAuth();
   const isAuthor = user && idea && user.uid === idea.authorUid;
@@ -270,6 +272,18 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 <button className={styles.actionBtn} title="Comments">
                   <MessageSquare size={18} strokeWidth={1.5} />
                 </button>
+                
+                {/* Author-only Review Panel */}
+                {isAuthor && (
+                  <button 
+                    className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`}
+                    onClick={() => setIsCollabSidebarOpen(true)}
+                    title="Review Collaborations"
+                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                  >
+                    <Users size={18} strokeWidth={2} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -308,6 +322,17 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                       const htmlContent = typeof para === 'string' ? para : structuredToHtml(para);
                       return <p key={pIndex} dangerouslySetInnerHTML={{ __html: htmlContent }} />;
                     })}
+
+                    {/* Section Contributor Info */}
+                    {section.authorName && section.authorName !== idea.author && (
+                      <div className={styles.sectionContributor}>
+                        <img src={section.authorPhoto || `https://i.pravatar.cc/150?u=${section.authorName}`} alt={section.authorName} className={styles.miniAvatar} />
+                        <div className={styles.contributorDetails}>
+                          <span className={styles.contributorLabel}>Contributed by</span>
+                          <span className={styles.contributorName}>{section.authorName}</span>
+                        </div>
+                      </div>
+                    )}
                   </section>
                 ))}
                 {!idea.sections && (
@@ -352,6 +377,16 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         </article>
       </main>
       <Footer />
+
+      <IdeaCollaborationsSidebar 
+        isOpen={isCollabSidebarOpen}
+        onClose={() => setIsCollabSidebarOpen(false)}
+        ideaId={id}
+        currentSections={idea.sections || []}
+        onApproved={() => {
+          router.refresh();
+        }}
+      />
     </>
   );
 }

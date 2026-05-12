@@ -202,13 +202,12 @@ export const getIdeaSections = cache(
                     $unionWith: { 
                         coll: "idea_collaborations", 
                         pipeline: [
-                            // Include ALL approved ones OR the specific user's own edits
                             { 
                                 $match: { 
                                     ideaId, 
                                     $or: [
                                         { isApproved: true },
-                                        { authorId: userId } // Show my own drafts to me
+                                        { authorId: userId }
                                     ]
                                 } 
                             }
@@ -222,7 +221,17 @@ export const getIdeaSections = cache(
                         title: { $first: "$subtitle" },
                         paragraph: { $first: "$paragraph" },
                         orderid: { $first: "$orderid" },
-                        dbId: { $first: "$_id" }
+                        dbId: { $first: "$_id" },
+                        authorId: { $first: "$authorId" },
+                        updated_time: { $first: "$updated_time" }
+                    }
+                },
+                { 
+                    $lookup: {
+                        from: "accounts",
+                        localField: "authorId",
+                        foreignField: "uid",
+                        as: "authorDetails"
                     }
                 },
                 { $sort: { orderid: 1 } }
@@ -231,7 +240,10 @@ export const getIdeaSections = cache(
             const mappedSections = sections.map(doc => ({
                 id: doc._id,
                 title: doc.title || '',
-                paragraphs: doc.paragraph || []
+                paragraphs: doc.paragraph || [],
+                authorName: doc.authorDetails?.[0]?.name || 'Unknown',
+                authorPhoto: doc.authorDetails?.[0]?.photoURL || '',
+                updated_time: doc.updated_time
             }));
             
             return { success: true, sections: mappedSections };
@@ -241,3 +253,66 @@ export const getIdeaSections = cache(
         }
     }
 );
+
+/**
+ * Fetch pending collaboration requests for an idea
+ */
+export async function getPendingCollaborations(ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        const collaborations = await db.collection("idea_collaborations")
+            .find({ ideaId, isApproved: false })
+            .sort({ time: -1 })
+            .toArray();
+
+        // Fetch author names for better UI
+        const authorIds = [...new Set(collaborations.map(c => c.authorId))];
+        const authors = await db.collection("accounts").find({ uid: { $in: authorIds } }).toArray();
+        const authorMap = Object.fromEntries(authors.map(a => [a.uid, { name: a.name, photo: a.photoURL }]));
+
+        const results = collaborations.map(c => ({
+            id: c._id.toString(),
+            authorId: c.authorId,
+            authorName: authorMap[c.authorId]?.name || 'Unknown',
+            authorPhoto: authorMap[c.authorId]?.photo || '',
+            subtitle: c.subtitle,
+            paragraph: c.paragraph,
+            sectionId: c.sectionId,
+            time: c.time
+        }));
+
+        return { success: true, collaborations: results };
+    } catch (error: any) {
+        console.error("Error fetching pending collaborations:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Approve a collaboration request
+ */
+export async function approveCollaboration(collaborationId: string) {
+    try {
+        const db = await getMongoDb();
+        const { ObjectId } = await import('mongodb');
+        
+        const result = await db.collection("idea_collaborations").updateOne(
+            { _id: new ObjectId(collaborationId) },
+            { 
+                $set: { 
+                    isApproved: true, 
+                    updated_time: Date.now() 
+                } 
+            }
+        );
+
+        if (result.modifiedCount === 0) {
+            return { success: false, error: 'Collaboration not found or already approved' };
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error approving collaboration:", error);
+        return { success: false, error: error.message };
+    }
+}

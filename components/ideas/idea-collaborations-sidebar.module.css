@@ -1,0 +1,365 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.container {
+  width: 400px;
+  height: 100%;
+  background: var(--background);
+  border-left: 1px solid var(--outline-color);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.header {
+  padding: 2rem;
+  border-bottom: 1px solid var(--outline-color);
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.closeBtn:hover {
+  color: var(--primary);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+
+.headerTitle h3 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.headerTitle h3 span {
+  color: var(--primary);
+}
+
+.listArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.collabCard {
+  background: rgba(var(--foreground-rgb), 0.03);
+  border: 1px solid var(--outline-color);
+  padding: 1.25rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.collabCard:hover {
+  border-color: var(--primary);
+  background: rgba(var(--foreground-rgb), 0.05);
+}
+
+.collabHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.userIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--outline-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.userIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.collabMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.userName {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.timeLabel {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.collabTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.readBtn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--outline-color);
+  padding: 8px;
+  border-radius: 6px;
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.readBtn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #000;
+}
+
+.loading, .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  text-align: center;
+  gap: 1rem;
+  opacity: 0.6;
+}
+
+.empty p {
+  font-size: 0.85rem;
+  max-width: 250px;
+}
+
+/* Modal Styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.modal {
+  background: var(--background);
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  border-radius: 12px;
+  border: 1px solid var(--outline-color);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+  animation: modalIn 0.3s ease-out;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modalHeader {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--outline-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalUser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modalUser img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid var(--primary);
+}
+
+.modalUser h4 {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.modalUser span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.modalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.diffBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.diffBlock label {
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  opacity: 0.8;
+}
+
+.proposedTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.proposedContent, .parentContent {
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.proposedContent {
+  background: rgba(var(--primary-rgb), 0.05);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.parentContent {
+  background: rgba(var(--foreground-rgb), 0.03);
+  border: 1px solid var(--outline-color);
+  opacity: 0.7;
+}
+
+.modalFooter {
+  padding: 1.5rem;
+  border-top: 1px solid var(--outline-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.cancelBtn, .approveBtn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cancelBtn {
+  background: none;
+  border: 1px solid var(--outline-color);
+  color: var(--foreground);
+}
+
+.cancelBtn:hover {
+  background: rgba(var(--foreground-rgb), 0.05);
+}
+
+.approveBtn {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #000;
+}
+
+.approveBtn:hover {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.approveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 500px) {
+  .container {
+    width: 100%;
+  }
+}

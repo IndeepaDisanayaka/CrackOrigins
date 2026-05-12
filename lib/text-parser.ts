@@ -38,6 +38,7 @@ export function parseHtmlToStructured(html: string): StructuredParagraph {
             else if (tag === 'i' || tag === 'em') styleType = 'font-style-italic';
             else if (tag === 'u') styleType = 'text-decoration-underline';
             else if (tag === 'strike') styleType = 'text-decoration-strike';
+            else if (tag === 'mark') styleType = 'font-background-yellow';
             
             el.childNodes.forEach(traverse);
             
@@ -84,6 +85,7 @@ export function structuredToHtml(structured: StructuredParagraph): string {
         else if (style.type === 'font-style-italic') tag = 'i';
         else if (style.type === 'text-decoration-underline') tag = 'u';
         else if (style.type === 'text-decoration-strike') tag = 'strike';
+        else if (style.type === 'font-background-yellow') tag = 'mark';
 
         markers.push({ idx: style.from, type: 'open', tag });
         markers.push({ idx: style.to, type: 'close', tag });

@@ -1,77 +1,72 @@
 .container {
     min-height: 100vh;
-    background: #0a0a0f;
-    color: #fff;
+    background: var(--background);
+    color: var(--foreground);
     display: flex;
     flex-direction: column;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Background Animation */
+.backgroundAnimation {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.backgroundAnimation::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(to right, rgba(var(--primary-rgb), 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(var(--primary-rgb), 0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+}
+
+.backgroundAnimation::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, transparent 0%, var(--background) 80%);
 }
 
 .main {
     flex: 1;
-    padding-top: 80px; /* Header height */
-}
-
-.hero {
-    background: linear-gradient(180deg, rgba(20, 20, 30, 0.8) 0%, rgba(10, 10, 15, 1) 100%),
-                url('https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070&auto=format&fit=crop');
-    background-size: cover;
-    background-position: center;
-    padding: 100px 2rem;
-    text-align: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.heroContent {
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted, #888);
-    margin-bottom: 1.5rem;
-}
-
-.breadcrumb a {
-    color: inherit;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.breadcrumb a:hover {
-    color: var(--primary, #feb60c);
-}
-
-.title {
-    font-size: clamp(2.5rem, 8vw, 4.5rem);
-    font-weight: 950;
-    text-transform: uppercase;
-    letter-spacing: -0.02em;
-    margin-bottom: 1.5rem;
-    background: linear-gradient(to bottom, #fff 0%, #aaa 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.subtitle {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    color: var(--text-muted, #888);
-    max-width: 600px;
-    margin: 0 auto;
+    padding-top: 100px;
+    position: relative;
+    z-index: 1;
 }
 
 .contentWrapper {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 3rem 2rem;
+    padding: 2rem 5% 5rem;
+    width: 100%;
+}
+
+.pageHeader {
+    margin-bottom: 3rem;
+}
+
+.pageTitle {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    color: var(--foreground);
+}
+
+.pageSubtitle {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    max-width: 700px;
+    line-height: 1.6;
+    font-weight: 500;
 }
 
 .toolbar {
@@ -80,11 +75,10 @@
     justify-content: space-between;
     gap: 2rem;
     margin-bottom: 3rem;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    padding: 1rem 2rem;
+    background: var(--background);
+    border: 1px solid var(--outline-color);
+    padding: 1.25rem 2rem;
     border-radius: 12px;
-    backdrop-filter: blur(10px);
 }
 
 .stats {
@@ -93,22 +87,25 @@
 }
 
 .statValue {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 900;
-    color: var(--primary, #feb60c);
+    color: var(--foreground);
+    line-height: 1;
 }
 
 .statLabel {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
+    font-weight: 800;
+    margin-top: 0.3rem;
 }
 
 .searchBox {
     flex: 1;
     position: relative;
-    max-width: 500px;
+    max-width: 400px;
 }
 
 .searchIcon {
@@ -116,93 +113,69 @@
     left: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: #555;
+    color: var(--primary);
+    opacity: 0.6;
 }
 
 .searchInput {
     width: 100%;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--background);
+    border: 1px solid var(--outline-color);
     padding: 0.8rem 1rem 0.8rem 3rem;
     border-radius: 8px;
-    color: #fff;
+    color: var(--foreground);
     font-size: 0.9rem;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
 }
 
 .searchInput:focus {
     outline: none;
-    border-color: var(--primary, #feb60c);
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.viewControls {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.viewBtn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #888;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.viewBtn[data-active="true"] {
-    background: var(--primary, #feb60c);
-    color: #000;
-    border-color: var(--primary, #feb60c);
+    border-color: var(--primary);
 }
 
 .gamesGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 2rem;
 }
 
 .gameCard {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--background);
+    border: 1px solid var(--outline-color);
     border-radius: 12px;
     overflow: hidden;
     text-decoration: none;
     color: inherit;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .gameCard:hover {
-    transform: translateY(-10px);
-    border-color: rgba(254, 182, 12, 0.3);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border-color: var(--primary);
+    transform: translateY(-8px) scale(1.02);
 }
 
 .imageWrapper {
     position: relative;
     aspect-ratio: 16/9;
     overflow: hidden;
+    border-bottom: 1px solid var(--outline-color);
 }
 
 .gameImage {
-    transition: transform 0.5s ease;
+    transition: transform 0.4s ease;
 }
 
 .gameCard:hover .gameImage {
-    transform: scale(1.1);
+    transform: scale(1.03);
 }
 
 .cardOverlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -215,33 +188,34 @@
 }
 
 .playIcon {
-    background: var(--primary, #feb60c);
+    background: var(--primary);
     color: #000;
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-left: 5px;
+    padding-left: 3px;
 }
 
 .priceBadge {
     position: absolute;
     top: 1rem;
     right: 1rem;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(4px);
+    background: var(--primary);
+    color: #000;
     padding: 0.4rem 0.8rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--primary, #feb60c);
+    border-radius: 50px;
+    font-size: 0.65rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    z-index: 3;
 }
 
 .cardBody {
-    padding: 1.5rem;
+    padding: 2rem;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -251,18 +225,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
 }
 
 .genre {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--primary, #feb60c);
-    background: rgba(254, 182, 12, 0.1);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
+    color: var(--text-muted);
 }
 
 .rating {
@@ -271,21 +242,23 @@
     gap: 0.3rem;
     font-size: 0.8rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--foreground);
 }
 
 .gameTitle {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 800;
-    margin-bottom: 0.8rem;
-    color: #fff;
+    margin-bottom: 1rem;
+    color: var(--foreground);
+    line-height: 1.1;
+    text-transform: uppercase;
 }
 
 .gameDesc {
     font-size: 0.9rem;
-    line-height: 1.5;
-    color: #888;
-    margin-bottom: 1.5rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
     flex: 1;
 }
 
@@ -293,25 +266,26 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--outline-color);
 }
 
 .osText {
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #555;
+    color: var(--text-muted);
     font-weight: 700;
 }
 
 .actionLink {
     font-size: 0.8rem;
     font-weight: 800;
-    color: var(--primary, #feb60c);
+    color: var(--primary);
     display: flex;
     align-items: center;
-    gap: 0.3rem;
-    transition: gap 0.2s;
+    gap: 0.4rem;
+    transition: all 0.3s;
+    text-transform: uppercase;
 }
 
 .gameCard:hover .actionLink {
@@ -321,30 +295,28 @@
 .emptyState {
     grid-column: 1 / -1;
     text-align: center;
-    padding: 5rem 2rem;
-    background: rgba(255, 255, 255, 0.01);
-    border: 2px dashed rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    color: #555;
-}
-
-.emptyState h3 {
-    margin: 1.5rem 0 0.5rem;
-    color: #aaa;
+    padding: 8rem 2rem;
+    background: var(--background);
+    border: 1px dashed var(--outline-color);
+    border-radius: 12px;
 }
 
 @media (max-width: 768px) {
     .toolbar {
         flex-direction: column;
         align-items: stretch;
-        gap: 1rem;
+        gap: 1.5rem;
+        padding: 1.5rem;
     }
     
     .searchBox {
         max-width: none;
     }
     
-    .hero {
-        padding: 60px 1rem;
+    .pageTitle {
+        font-size: 2.25rem;
     }
 }
+
+
+

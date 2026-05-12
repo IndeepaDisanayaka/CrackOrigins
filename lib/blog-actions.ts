@@ -59,8 +59,14 @@ export async function getBlogComments(blogId: string, page = 1, limit = 10) {
         return { 
             success: true, 
             comments: comments.map(c => ({
-                ...c,
                 id: c._id.toString(),
+                userId: c.userId,
+                blogId: c.blogId,
+                comment: c.comment,
+                userName: c.userName || 'Operative',
+                userAvatar: c.userAvatar || null,
+                role: c.role || 'user',
+                likes: c.likes || 0,
                 commenteddatetime: c.commenteddatetime ? new Date(c.commenteddatetime).toISOString() : null
             }))
         };

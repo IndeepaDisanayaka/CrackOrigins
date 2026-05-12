@@ -5,7 +5,7 @@ import Footer from '@/components/layout/Footer';
 import { getGames } from '@/lib/admin-actions';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronRight, Play, Download, Star, Filter, Search, LayoutGrid, List } from 'lucide-react';
+import { ChevronRight, Play, Download, Star, Filter, Search } from 'lucide-react';
 import styles from './GamesPage.module.css';
 
 export const metadata: Metadata = {
@@ -15,29 +15,27 @@ export const metadata: Metadata = {
 
 export default async function GamesPage() {
     const res = await getGames();
-    const games = (res.success && res.games) ? res.games : [];
+    let games = (res.success && res.games) ? res.games : [];
+
+    // Sort games by last released (listed date)
+    games.sort((a, b) => {
+        const dateA = new Date(a.listed || 0).getTime();
+        const dateB = new Date(b.listed || 0).getTime();
+        return dateB - dateA;
+    });
 
     return (
         <div className={styles.container}>
             <Header />
+            <div className={styles.backgroundAnimation}></div>
             
             <main className={styles.main}>
-                <section className={styles.hero}>
-                    <div className={styles.heroContent}>
-                        <div className={styles.breadcrumb}>
-                            <Link href="/">Home</Link>
-                            <ChevronRight size={14} />
-                            <span>Creations</span>
-                        </div>
-                        <h1 className={styles.title}>The Arsenal</h1>
-                        <p className={styles.subtitle}>
-                            Every world we've built, every story we've told. 
-                            From psychological horror to fast-paced multiplayer challenges.
-                        </p>
-                    </div>
-                </section>
-
                 <div className={styles.contentWrapper}>
+                    <div className={styles.pageHeader}>
+                        <h1 className={styles.pageTitle}>Creations</h1>
+                        <p className={styles.pageSubtitle}>Explore our latest deployments and digital worlds.</p>
+                    </div>
+
                     <div className={styles.toolbar}>
                         <div className={styles.stats}>
                             <span className={styles.statValue}>{games.length}</span>
@@ -47,11 +45,6 @@ export default async function GamesPage() {
                         <div className={styles.searchBox}>
                             <Search size={18} className={styles.searchIcon} />
                             <input type="text" placeholder="Search creations..." className={styles.searchInput} />
-                        </div>
-
-                        <div className={styles.viewControls}>
-                            <button className={styles.viewBtn} data-active="true"><LayoutGrid size={18} /></button>
-                            <button className={styles.viewBtn}><List size={18} /></button>
                         </div>
                     </div>
 

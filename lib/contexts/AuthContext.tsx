@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchCountry = async () => {
     try {
+      // Primary: ipwho.is
       const res = await fetch("https://ipwho.is/");
       if (res.ok) {
         const data = await res.json();
@@ -63,7 +64,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return data.country;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("ipwho.is failed, trying fallback...");
+    }
+
+    try {
+      // Fallback: ipapi.co
+      const res = await fetch("https://ipapi.co/json/");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.country_name) {
+          setCountry(data.country_name);
+          return data.country_name;
+        }
+      }
+    } catch (e) {
+       console.error("All country fetch attempts failed.");
+    }
+    
     return 'Unknown';
   };
 
@@ -83,6 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAffiliateLevelDetails(res.affiliateLevelDetails || null);
         setAffiliateCount(res.affiliateCount || 0);
         setMetadata(res.metadata || { creationTime: null, lastSignInTime: null });
+        if (res.country && res.country !== 'Unknown') {
+          setCountry(res.country);
+        }
       }
 
       if (permRes.success) {

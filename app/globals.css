@@ -469,11 +469,20 @@ a:hover, button:hover {
 }
 
 .blog-content strong, .blog-content b {
-  color: var(--foreground);
+  color: #000;
   font-weight: 900;
-  background: linear-gradient(120deg, rgba(var(--primary-rgb, 254, 182, 12), 0.2) 0%, transparent 100%);
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+
+mark {
+  background-color: rgba(254, 182, 12, 0.1);
+  color: var(--primary);
+  font-weight: 800;
   padding: 0 0.2rem;
   border-radius: 2px;
+  border: none;
 }
 
 .blog-content pre {

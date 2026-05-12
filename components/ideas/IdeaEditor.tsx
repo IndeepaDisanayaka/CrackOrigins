@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Bold, Italic, Underline, Strikethrough,
-  Type, Plus, Trash2, GripVertical,
+  Type, Plus, Trash2, GripVertical, Highlighter,
   ChevronDown, ChevronUp, Save,
   Layout, Sparkles, Check, RotateCw, AlertTriangle, History, X
 } from 'lucide-react';
@@ -219,7 +219,8 @@ export default function IdeaEditor({
     bold: false,
     italic: false,
     underline: false,
-    strikeThrough: false
+    strikeThrough: false,
+    highlight: false
   });
 
   // Track selection to update toolbar state
@@ -229,7 +230,8 @@ export default function IdeaEditor({
         bold: document.queryCommandState('bold'),
         italic: document.queryCommandState('italic'),
         underline: document.queryCommandState('underline'),
-        strikeThrough: document.queryCommandState('strikeThrough')
+        strikeThrough: document.queryCommandState('strikeThrough'),
+        highlight: document.queryCommandState('hiliteColor') || document.queryCommandState('backColor')
       });
     };
 
@@ -429,6 +431,25 @@ export default function IdeaEditor({
             disabled={focusType === 'title'}
           >
             <Strikethrough size={18} />
+          </button>
+          <button
+            onClick={() => {
+              const selection = window.getSelection();
+              if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                const mark = document.createElement('mark');
+                mark.appendChild(range.extractContents());
+                range.insertNode(mark);
+                // Trigger change
+                const activeEl = document.activeElement as HTMLElement;
+                if (activeEl) activeEl.blur(); 
+              }
+            }}
+            title="Highlight"
+            className={`${styles.toolBtn} ${activeStyles.highlight ? styles.toolBtnActive : ''}`}
+            disabled={focusType === 'title'}
+          >
+            <Highlighter size={18} />
           </button>
         </div>
 
