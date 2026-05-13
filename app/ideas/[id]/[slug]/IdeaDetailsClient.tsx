@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft, Users, BadgeCheck, ShieldAlert } from 'lucide-react';
+import { ArrowBigUp, ArrowBigDown, Bookmark, Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft, Users, BadgeCheck, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
@@ -17,7 +17,10 @@ import { useModals } from '@/lib/contexts/ModalContext';
 import AuthModal from '@/components/AuthModal';
 import IdeaEditor from '@/components/ideas/IdeaEditor';
 import { useToast } from '@/components/Toast';
-import { getIdeaSections, saveCollaborationContent, getIdeaById } from '@/lib/idea-actions';
+import { 
+  getIdeaSections, saveCollaborationContent, getIdeaById, 
+  incrementIdeaViews, toggleLibrarySave, voteIdea, getIdeaUserStatus 
+} from '@/lib/idea-actions';
 import { getLicenseByCode } from '@/lib/admin-actions';
 import Modal from '@/components/Modal';
 import { parseHtmlToStructured, structuredToHtml } from '@/lib/text-parser';
@@ -42,6 +45,8 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isMobile, setIsMobile] = useState(false);
   const [mode, setMode] = useState<'reader' | 'editor'>('reader');
   const [targetSectionId, setTargetSectionId] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCollabSidebarOpen, setIsCollabSidebarOpen] = useState(false);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
@@ -79,6 +84,16 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         if (ideaRes.success && ideaRes.idea) {
           const data = ideaRes.idea;
 
+          // Device-based view counting validation
+          const viewedKey = `chronicle_viewed_${id}`;
+          const hasViewed = localStorage.getItem(viewedKey);
+          if (!hasViewed) {
+             const vRes = await incrementIdeaViews(id);
+             if (vRes.success) {
+                localStorage.setItem(viewedKey, 'true');
+             }
+          }
+
           // Fetch sections using Server Action to bypass client permission issues
           const sectionsRes = await getIdeaSections(id);
           const sectionsData = sectionsRes.success ? sectionsRes.sections : [];
@@ -110,6 +125,27 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
     fetchIdea();
   }, [id, slug, router]);
+
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      if (!user || !id) {
+          setIsSaved(false);
+          setUserVote(null);
+          return;
+      }
+      try {
+        const statusRes = await getIdeaUserStatus(user.uid, id);
+        if (statusRes.success) {
+            setIsSaved(!!statusRes.isSaved);
+            setUserVote(statusRes.userVote as any);
+        }
+      } catch (err) {
+        console.error("Error fetching user status:", err);
+      }
+    };
+
+    fetchUserStatus();
+  }, [user, id]);
 
   const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
     const res = await login(type, credentials);
@@ -225,6 +261,87 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     setTargetSectionId(collab.sectionId);
     setMode('editor');
     showToast("Content Loaded", "success", { subtitle: "Collaboration draft has been loaded into your editor." });
+  };
+
+  const handleToggleSave = async () => {
+    if (!user) {
+        showToast("Authentication Required", "warning", { subtitle: "Login to save this chronicle to your library." });
+        setIsAuthModalOpen(true);
+        return;
+    }
+    
+    // Optimistic Update
+    const prevSaved = isSaved;
+    setIsSaved(!prevSaved);
+    
+    try {
+        const res = await toggleLibrarySave(user.uid, id);
+        if (res.success) {
+            setIsSaved(!!res.saved);
+            showToast(
+                res.saved ? "Saved to Library" : "Removed from Library",
+                "success",
+                { subtitle: res.saved ? "This chronicle is now in your vault." : "Chronicle removed from your collection." }
+            );
+        } else {
+            setIsSaved(prevSaved);
+            showToast("Failed to update library status.", "error");
+        }
+    } catch (e) {
+        setIsSaved(prevSaved);
+        showToast("Operation Failed", "error");
+    }
+  };
+
+  const handleVote = async (type: 'up' | 'down') => {
+    if (!user) {
+        showToast("Authentication Required", "warning", { subtitle: "Login to rate this chronicle's uniqueness." });
+        setIsAuthModalOpen(true);
+        return;
+    }
+
+    // Optimistic Update
+    const prevVote = userVote;
+    const prevIdeaState = { ...idea };
+    
+    const newVote = prevVote === type ? null : type;
+    setUserVote(newVote);
+
+    // Locally update counts
+    setIdea((prev: any) => {
+        const newStatus = { ...prev.status };
+        // Remove old vote effect
+        if (prevVote === 'up') newStatus.upvotes = Math.max(0, (newStatus.upvotes || 0) - 1);
+        if (prevVote === 'down') newStatus.downvotes = Math.max(0, (newStatus.downvotes || 0) - 1);
+        
+        // Add new vote effect
+        if (newVote === 'up') newStatus.upvotes = (newStatus.upvotes || 0) + 1;
+        if (newVote === 'down') newStatus.downvotes = (newStatus.downvotes || 0) + 1;
+        
+        return { ...prev, status: newStatus };
+    });
+
+    try {
+        const res = await voteIdea(user.uid, user.displayName || 'Operative', id, type);
+        if (res.success) {
+            setUserVote(res.vote as any);
+            if (res.vote) {
+                const msg = type === 'up' ? "Upvoted!" : "Downvoted";
+                const sub = type === 'up' ? "You found this entry unique and insightful." : "You marked this as less relevant or redundant.";
+                showToast(msg, "success", { subtitle: sub });
+            }
+        } else {
+            // Revert on failure
+            setUserVote(prevVote);
+            setIdea(prevIdeaState);
+            showToast("Failed to register vote.", "error");
+        }
+    } catch (e) {
+        // Revert on failure
+        setUserVote(prevVote);
+        setIdea(prevIdeaState);
+        showToast("Voting Failed", "error");
+    }
   };
 
   if (error || !idea) {
@@ -362,24 +479,51 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 </div>
 
                 <div className={styles.statsGroup}>
-                  <div className={styles.statBtn} title="Views">
+                  <div className={styles.statBtn} title="Total interactions and views">
                     <Eye size={20} strokeWidth={1.5} />
-                    <span>{idea.views || '1.2K'}</span>
+                    <span>{idea.status?.views || idea.views || '0'}</span>
                   </div>
-                  <button
-                    className={`${styles.statBtn} ${isLiked ? styles.statBtnActive : ''}`}
-                    onClick={() => setIsLiked(!isLiked)}
-                    title="Like"
-                  >
-                    <Heart size={20} strokeWidth={1.5} fill={isLiked ? "currentColor" : "none"} />
-                    <span>{(idea.likes || 0) + (isLiked ? 1 : 0)}</span>
-                  </button>
+                  
+                  <div className={styles.votingCluster}>
+                    <button
+                      className={`${styles.statBtn} ${userVote === 'up' ? styles.statBtnActiveUp : ''}`}
+                      onClick={() => handleVote('up')}
+                      title="Mark as Unique & Insightful (Upvote)"
+                    >
+                      <ArrowBigUp 
+                        size={22} 
+                        strokeWidth={userVote === 'up' ? 0 : 1.5} 
+                        fill={userVote === 'up' ? "var(--primary)" : "none"} 
+                      />
+                      <span>{idea.status?.upvotes || 0}</span>
+                    </button>
+
+                    <button
+                      className={`${styles.statBtn} ${userVote === 'down' ? styles.statBtnActiveDown : ''}`}
+                      onClick={() => handleVote('down')}
+                      title="Redundant or Less Relevant (Downvote)"
+                    >
+                      <ArrowBigDown 
+                        size={22} 
+                        strokeWidth={userVote === 'down' ? 0 : 1.5} 
+                        fill={userVote === 'down' ? "#ff4d4d" : "none"} 
+                      />
+                      <span>{idea.status?.downvotes || 0}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className={styles.actionsGroup}>
                   <button 
+                    className={`${styles.actionBtn} ${isSaved ? styles.actionBtnSaved : ''}`} 
+                    title="Save to My Chronicles Vault"
+                    onClick={handleToggleSave}
+                  >
+                    <Bookmark size={18} fill={isSaved ? "currentColor" : "none"} />
+                  </button>
+                  <button 
                     className={styles.actionBtn} 
-                    title="Share"
+                    title="Share Chronicle Link"
                     onClick={() => {
                       const url = typeof window !== 'undefined' ? window.location.href : '';
                       navigator.clipboard.writeText(url).then(() => {
@@ -423,6 +567,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 <img
                   src={idea.image}
                   alt={idea.title}
+                  loading="lazy"
                   style={{ width: '100%', height: '100%', objectFit: 'cover'}}
                 />
               </div>

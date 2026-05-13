@@ -124,6 +124,9 @@ export default function AdminPanel({
   const [refundConfirm, setRefundConfirm] = useState<{ open: boolean; offerId: string; title: string }>({
     open: false, offerId: "", title: ""
   });
+  const [licenseRevokeConfirm, setLicenseRevokeConfirm] = useState<{ open: boolean; id: string; name: string }>({
+    open: false, id: "", name: ""
+  });
 
   
   // Creation Modals
@@ -342,11 +345,16 @@ export default function AdminPanel({
     }
   };
 
-  const handleDeleteLicense = async (id: string) => {
-    if (!confirm("Are you sure you want to revoke this license?")) return;
-    const res = await deleteLicense(userUid, id);
+  const handleDeleteLicense = (license: any) => {
+    setLicenseRevokeConfirm({ open: true, id: license.id, name: license.name });
+  };
+
+  const confirmLicenseRevoke = async () => {
+    if (!licenseRevokeConfirm.id) return;
+    const res = await deleteLicense(userUid, licenseRevokeConfirm.id);
     if (res.success) {
       showToast("License revoked successfully.", "success");
+      setLicenseRevokeConfirm({ open: false, id: "", name: "" });
       fetchData();
     } else {
       showToast(res.error || "Failed to revoke.", "error");
@@ -1419,7 +1427,7 @@ export default function AdminPanel({
                                  <td style={{ padding: '1rem' }}>
                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
                                      <button 
-                                       onClick={() => handleDeleteLicense(lic._id)} 
+                                       onClick={() => handleDeleteLicense({ id: lic._id, name: lic.name })} 
                                        className="btnOutline" 
                                        style={{ padding: '0.4rem 0.60rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
                                      >
@@ -1646,6 +1654,28 @@ export default function AdminPanel({
                     disabled={isProcessingRefund}
                 >
                     {isProcessingRefund ? 'PROCESSING...' : 'CONFIRM REFUND'}
+                </button>
+            </div>
+        </div>
+    </Modal>
+    {/* License Revoke Confirmation */}
+    <Modal isOpen={licenseRevokeConfirm.open} onClose={() => setLicenseRevokeConfirm({ ...licenseRevokeConfirm, open: false })} maxWidth="400px">
+        <div style={{ padding: '2rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 77, 77, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                <Key size={30} color="#ff4d4d" />
+            </div>
+            <h3 style={{ fontWeight: 800, marginBottom: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Revoke License?</h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem', lineHeight: 1.6 }}>
+                Are you sure you want to revoke <strong>{licenseRevokeConfirm.name}</strong>? Users will no longer be able to use this license code.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.8rem' }} onClick={() => setLicenseRevokeConfirm({ ...licenseRevokeConfirm, open: false })}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ width: '100%', padding: '0.8rem', background: '#ff4d4d', color: '#fff', border: 'none', fontWeight: 900 }} 
+                    onClick={confirmLicenseRevoke}
+                >
+                    REVOKE LICENSE
                 </button>
             </div>
         </div>

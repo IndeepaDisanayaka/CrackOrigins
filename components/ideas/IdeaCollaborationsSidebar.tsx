@@ -5,6 +5,7 @@ import {
   Underline, Strikethrough, Maximize2, Minimize2, Highlighter, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Modal from '../Modal';
 import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration, deleteCollaboration, updateCollaboration } from '@/lib/idea-actions';
 import { structuredToHtml, parseHtmlToStructured } from '@/lib/text-parser';
 import { useToast } from '../Toast';
@@ -92,6 +93,8 @@ export default function IdeaCollaborationsSidebar({
   const [isFullScreen, setIsFullScreen] = useState(false);
   const originalSubtitle = useRef("");
   const originalParagraphs = useRef<string[]>([]);
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
   const [activeStyles, setActiveStyles] = useState<{ [key: string]: boolean }>({
     bold: false,
@@ -218,25 +221,28 @@ export default function IdeaCollaborationsSidebar({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!user) return;
-    if (window.confirm("Are you sure you want to delete this publication?")) {
-        setIsDeleting(true);
-        try {
-            const res = await deleteCollaboration(id, user.uid);
-            if (res.success) {
-                showToast("Collaboration deleted successfully.", "success");
-                setCollaborations(prev => prev.filter(c => c.id !== id));
-                setSelectedCollab(null);
-                if (onApproved) onApproved();
-            } else {
-                showToast(res.error || "Failed to delete.", "error");
-            }
-        } catch (e) {
-            showToast("Deletion failed.", "error");
-        } finally {
-            setIsDeleting(false);
+  const handleDelete = (id: string) => {
+    setDeleteConfirm({ open: true, id });
+  };
+
+  const confirmDelete = async () => {
+    if (!user || !deleteConfirm.id) return;
+    setIsDeleting(true);
+    try {
+        const res = await deleteCollaboration(deleteConfirm.id, user.uid);
+        if (res.success) {
+            showToast("Collaboration deleted successfully.", "success");
+            setCollaborations(prev => prev.filter(c => c.id !== deleteConfirm.id));
+            setSelectedCollab(null);
+            setDeleteConfirm({ open: false, id: "" });
+            if (onApproved) onApproved();
+        } else {
+            showToast(res.error || "Failed to delete.", "error");
         }
+    } catch (e) {
+        showToast("Deletion failed.", "error");
+    } finally {
+        setIsDeleting(false);
     }
   };
 
@@ -365,7 +371,7 @@ export default function IdeaCollaborationsSidebar({
                     <div className={styles.collabHeader}>
                       <div className={styles.userIcon}>
                         {collab.authorPhoto ? (
-                          <img src={collab.authorPhoto} alt={collab.authorName} />
+                          <img src={collab.authorPhoto} alt={collab.authorName} loading="lazy" />
                         ) : (
                           <User size={16} />
                         )}
@@ -432,6 +438,7 @@ export default function IdeaCollaborationsSidebar({
                   <img
                     src={selectedCollab.authorPhoto || `https://i.pravatar.cc/150?u=${selectedCollab.authorId}`}
                     alt={selectedCollab.authorName}
+                    loading="lazy"
                   />
                   <div>
                     <h4>{selectedCollab.authorName}</h4>
@@ -628,6 +635,28 @@ export default function IdeaCollaborationsSidebar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Modal isOpen={deleteConfirm.open} onClose={() => setDeleteConfirm({ ...deleteConfirm, open: false })} maxWidth="400px">
+          <div style={{ padding: '2rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255, 77, 77, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                  <Trash2 size={30} color="#ff4d4d" />
+              </div>
+              <h3 style={{ fontWeight: 800, marginBottom: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Delete Draft?</h3>
+              <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem', lineHeight: 1.6 }}>
+                  Are you sure you want to permanently delete this publication draft? This action cannot be undone.
+              </p>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button className="btnOutline" style={{ width: '100%', padding: '0.8rem' }} onClick={() => setDeleteConfirm({ ...deleteConfirm, open: false })}>Cancel</button>
+                  <button 
+                      className="btnSolid" 
+                      style={{ width: '100%', padding: '0.8rem', background: '#ff4d4d', color: '#fff', border: 'none', fontWeight: 900 }} 
+                      onClick={confirmDelete}
+                  >
+                      DELETE DRAFT
+                  </button>
+              </div>
+          </div>
+      </Modal>
     </>
   );
 }

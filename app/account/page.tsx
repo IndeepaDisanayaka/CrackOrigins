@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { 
     User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, 
     Percent, ShoppingBag, MapPin, CheckCircle, Activity, TrendingUp,
-    Lightbulb, Trash2, ExternalLink, AlertCircle 
+    Lightbulb, Trash2, ExternalLink, AlertCircle, Bookmark 
 } from 'lucide-react';
 import LiveCursors from '@/components/LiveCursors';
 import pageStyles from '@/app/page.module.css';
@@ -15,7 +15,7 @@ import acct from './account.module.css';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getOwnedGames, getUserActivity } from '@/lib/admin-actions';
-import { getUserIdeas, deleteIdea } from '@/lib/idea-actions';
+import { getUserIdeas, deleteIdea, getSavedIdeas } from '@/lib/idea-actions';
 
 import { useModals } from '@/lib/contexts/ModalContext';
 import Header from '@/components/layout/Header';
@@ -44,9 +44,11 @@ export default function AccountPage() {
     const router = useRouter();
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [userIdeas, setUserIdeas] = useState<any[]>([]);
+    const [savedIdeas, setSavedIdeas] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'activity' | 'library' | 'rewards' | 'ideas'>('activity');
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
+    const [isLoadingSaved, setIsLoadingSaved] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [ideaToDelete, setIdeaToDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -136,8 +138,23 @@ export default function AccountPage() {
                 }
             };
 
+            const fetchSaved = async () => {
+                setIsLoadingSaved(true);
+                try {
+                    const res = await getSavedIdeas(user.uid);
+                    if (res.success) {
+                        setSavedIdeas(res.ideas || []);
+                    }
+                } catch (err) {
+                    console.error("Failed to load saved ideas", err);
+                } finally {
+                    setIsLoadingSaved(false);
+                }
+            };
+
             fetchActivities();
             fetchIdeas();
+            fetchSaved();
         }
     }, [user, affiliateCount, xp]);
 
@@ -363,7 +380,7 @@ export default function AccountPage() {
                         >
                             <div className={acct.activityTabs}>
                                 <div onClick={() => setActiveTab('activity')} className={`${acct.activityTab} ${activeTab === 'activity' ? acct.active : ''}`}>Activity</div>
-                                <div onClick={() => setActiveTab('library')} className={`${acct.activityTab} ${activeTab === 'library' ? acct.active : ''}`} style={activeTab !== 'library' ? { opacity: 0.5 } : {}}>Library</div>
+                                <div onClick={() => setActiveTab('library')} className={`${acct.activityTab} ${activeTab === 'library' ? acct.active : ''}`}>Library</div>
                                 <div onClick={() => setActiveTab('rewards')} className={`${acct.activityTab} ${activeTab === 'rewards' ? acct.active : ''}`} style={activeTab !== 'rewards' ? { opacity: 0.5 } : {}}>Rewards</div>
                                 <div onClick={() => setActiveTab('ideas')} className={`${acct.activityTab} ${activeTab === 'ideas' ? acct.active : ''}`}>Ideas</div>
                             </div>
@@ -437,7 +454,41 @@ export default function AccountPage() {
                                     </div>
                                 )}
 
-                                {(activeTab === 'library' || activeTab === 'rewards') && (
+                                {activeTab === 'library' && (
+                                    <div className={acct.ideasGrid}>
+                                        {isLoadingSaved ? (
+                                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Retrieving your vault...</div>
+                                        ) : savedIdeas.length > 0 ? (
+                                            savedIdeas.map(idea => (
+                                                <div key={idea._id} className={acct.ideaCard}>
+                                                    <div className={acct.ideaCardThumbnail}>
+                                                        <Image src={idea.image} alt={idea.title} fill style={{ objectFit: 'cover' }} unoptimized />
+                                                        <div className={acct.ideaCardBadge} style={{ background: 'var(--primary)', color: 'black' }}>
+                                                            <Bookmark size={12} fill="black" /> Saved
+                                                        </div>
+                                                    </div>
+                                                    <div className={acct.ideaCardBody}>
+                                                        <h4 className={acct.ideaCardTitle}>{idea.title}</h4>
+                                                        <p className={acct.ideaCardDesc}>{idea.description.substring(0, 80)}...</p>
+                                                        <div className={acct.ideaCardFooter}>
+                                                            <Link href={`/ideas/${idea._id}/${idea.slug}`} className={acct.viewIdeaBtn}>
+                                                                <ExternalLink size={14} /> Read More
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', gridColumn: 'span 2', padding: '3rem' }}>
+                                                <Bookmark size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                                                <p>Your vault is empty. Start saving chronicles to build your library!</p>
+                                                <Link href="/ideas" className={acct.createIdeaLink}>Discover Chronicles</Link>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {activeTab === 'rewards' && (
                                     <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>
                                         <Activity size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
                                         <p>This module is currently under maintenance. Estimated completion: Q3 2026.</p>

@@ -52,7 +52,7 @@ export async function publishIdea(uid: string, ideaData: {
             authorPhoto: ideaData.authorPhoto || '',
             licenseCode: ideaData.licenseCode || '',
             time: new Date(),
-            status: { views: 0, likes: 0 },
+            status: { views: 0, likes: 0, upvotes: 0, downvotes: 0 },
             lastUpdated: new Date()
         });
 
@@ -627,3 +627,102 @@ export async function deleteIdea(ideaId: string, uid: string) {
     }
 }
 
+export async function incrementIdeaViews(ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        await db.collection("ideas").updateOne(
+            { _id: ideaId as any },
+            { $inc: { "status.views": 1 } }
+        );
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error incrementing views:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function toggleLibrarySave(userId: string, ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        const collection = db.collection("account_library");
+        const existing = await collection.findOne({ userId, contentId: ideaId });
+        
+        if (existing) {
+            await collection.deleteOne({ userId, contentId: ideaId });
+            return { success: true, saved: false };
+        } else {
+            await collection.insertOne({
+                _id: new ObjectId().toHexString() as any,
+                type: "idea",
+                datetime: new Date(),
+                userId,
+                contentId: ideaId
+            });
+            return { success: true, saved: true };
+        }
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function voteIdea(userId: string, userName: string, ideaId: string, voteType: 'up' | 'down') {
+    try {
+        const db = await getMongoDb();
+        const votesCol = db.collection("idea_votes");
+        const existingVote: any = await votesCol.findOne({ userId, ideaId });
+        
+        if (existingVote && existingVote.voteType === voteType) {
+            await votesCol.deleteOne({ userId, ideaId });
+            const field = voteType === 'up' ? "status.upvotes" : "status.downvotes";
+            await db.collection("ideas").updateOne({ _id: ideaId as any }, { $inc: { [field]: -1 } });
+            return { success: true, vote: null };
+        } else {
+            if (existingVote) {
+                const oldField = existingVote.voteType === 'up' ? "status.upvotes" : "status.downvotes";
+                await db.collection("ideas").updateOne({ _id: ideaId as any }, { $inc: { [oldField]: -1 } });
+            }
+            await votesCol.updateOne(
+                { userId, ideaId },
+                { $set: { userName, time: new Date(), voteType, ideaId } },
+                { upsert: true }
+            );
+            const newField = voteType === 'up' ? "status.upvotes" : "status.downvotes";
+            await db.collection("ideas").updateOne({ _id: ideaId as any }, { $inc: { [newField]: 1 } });
+            return { success: true, vote: voteType };
+        }
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getIdeaUserStatus(userId: string, ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        const [saved, vote] = await Promise.all([
+            db.collection("account_library").findOne({ userId, contentId: ideaId }),
+            db.collection("idea_votes").findOne({ userId, ideaId })
+        ]);
+        return { 
+            success: true, 
+            isSaved: !!saved, 
+            userVote: vote ? (vote as any).voteType : null 
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+export async function getSavedIdeas(userId: string) {
+    try {
+        const db = await getMongoDb();
+        const saves = await db.collection("account_library").find({ userId, type: "idea" }).toArray();
+        if (saves.length === 0) return { success: true, ideas: [] };
+        
+        const ideaIds = saves.map(s => s.contentId);
+        const ideas = await db.collection("ideas").find({ _id: { $in: ideaIds as any } }).toArray();
+        
+        return { success: true, ideas };
+    } catch (error: any) {
+        console.error("Error fetching saved ideas:", error);
+        return { success: false, error: error.message };
+    }
+}

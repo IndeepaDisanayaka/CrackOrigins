@@ -4,7 +4,7 @@
   line-height: 1.75;
   color: var(--text-muted);
   font-weight: 400;
-  max-width: 680px;
+  max-width: 900px; /* Increased from 680px */
   text-wrap: balance;
   text-align: center;
   margin: 0 auto;
@@ -23,9 +23,9 @@
   flex-wrap: wrap;
   gap: 16px;
 
-  padding: 1.5rem;
+  padding: 1rem 1.5rem; /* Reduced vertical padding */
   border: 1px solid var(--outline-color);
-  margin: 3rem 0;
+  margin: 2rem 0 1.5rem; /* Reduced margins to fix the gap */
 
   background: var(--background);
   backdrop-filter: blur(20px) saturate(180%);
@@ -259,6 +259,83 @@
   opacity: 1;
 }
 
+.votingCluster {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--outline-color);
+}
+
+.statBtnActiveUp {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.statBtnActiveDown {
+  color: #ff4d4d;
+  opacity: 1;
+}
+
+.actionBtnSaved {
+  background: rgba(var(--primary-rgb), 0.1) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+@media (max-width: 768px) {
+  .authorRow {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 2rem !important;
+    padding: 2rem 1.5rem !important;
+    position: relative !important;
+    top: 0 !important;
+  }
+  
+  .authors {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+  }
+
+  .authorBlock {
+    flex-direction: column !important;
+  }
+  
+  .licenseBadgeRow {
+    border-left: none !important;
+    border-top: 1px solid var(--outline-color);
+    padding: 1rem 0 0 !important;
+    width: 100%;
+    align-items: center !important;
+  }
+  
+  .statsGroup {
+    width: 100%;
+    justify-content: center !important;
+    gap: 2rem !important;
+    border-top: 1px solid var(--outline-color);
+    padding-top: 1rem;
+  }
+
+  .votingCluster {
+    border-left: none !important;
+    padding-left: 0 !important;
+    gap: 1.5rem !important;
+  }
+  
+  .actionsGroup {
+    width: 100%;
+    justify-content: center !important;
+    border-top: 1px solid var(--outline-color);
+    padding-top: 1.5rem;
+  }
+}
+
 /* ─── Action Buttons — matches .actionBtn from blog-interactions.module.css */
 .actionsGroup {
   display: flex;
@@ -312,6 +389,7 @@
   text-transform: uppercase;
   letter-spacing: -0.01em;
   text-align: left;
+  max-width: 1000px;
 }
 
 .readerContent p {

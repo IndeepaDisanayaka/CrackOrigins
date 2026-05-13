@@ -49,6 +49,11 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
       return;
     }
 
+    if (!selectedLicense) {
+      showToast("License selection required.", "error", { subtitle: "Please select an official studio license to publish." });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const result = await publishIdea(user.uid, {
@@ -158,8 +163,9 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
               value={selectedLicense}
               onChange={e => setSelectedLicense(e.target.value)}
               style={{ background: 'var(--background)', color: 'var(--foreground)' }}
+              required
             >
-              <option value="">No License (Open Source / Free Use)</option>
+              <option value="">Select an Official License...</option>
               {licenses.map(lic => (
                 <option key={lic._id} value={lic.code}>
                   {lic.code} - {lic.name}

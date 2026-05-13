@@ -347,7 +347,7 @@ export default function IdeasClient() {
                     onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
                   >
                     <div className={styles.articleImageWrapper}>
-                      <img src={idea.image || `https://picsum.photos/seed/${idea.id || i}/800/450`} alt={idea.title} />
+                      <img src={idea.image || `https://picsum.photos/seed/${idea.id || i}/800/450`} alt={idea.title} loading="lazy" />
                       <div className={styles.licenseBadge}>
                         {idea.licenseCode ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -365,7 +365,7 @@ export default function IdeasClient() {
                       
                       <div className={styles.articleMeta}>
                         <div className={styles.authorInfo}>
-                          <img src={idea.authorPhoto || `https://i.pravatar.cc/150?u=${idea.authorUid || i}`} alt={idea.author} className={styles.authorAvatar} />
+                          <img src={idea.authorPhoto || `https://i.pravatar.cc/150?u=${idea.authorUid || i}`} alt={idea.author} className={styles.authorAvatar} loading="lazy" />
                           <span className={styles.authorName}>{idea.author}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', opacity: 0.6 }}>

@@ -107,9 +107,10 @@ export default function AddLicenseModal({ isOpen, onClose, onSuccess }: AddLicen
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               Legal Terms & Limitations
             </label>
-            <input 
-              type="text" 
+            <textarea 
+              placeholder="Specify the legal constraints and usage rights..." 
               className={styles.adminInput} 
+              style={{ minHeight: '80px', padding: '12px' }}
               value={licenseForm.terms} 
               onChange={e => setLicenseForm({ ...licenseForm, terms: e.target.value })} 
             />
