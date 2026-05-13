@@ -19,25 +19,27 @@ export async function publishIdea(uid: string, ideaData: {
     description: string;
     image?: string;
     author: string;
+    isPrivate: boolean;
     authorPhoto?: string;
+    licenseCode?: string;
 }) {
     try {
         const db = await getMongoDb();
-        
+
         if (!uid || !ideaData.title || !ideaData.description) {
             return { success: false, error: "Missing required fields." };
         }
 
         const baseSlug = await generateSlug(ideaData.title);
         let slug = baseSlug;
-        
+
         const existing = await db.collection("ideas").findOne({ slug });
         if (existing) {
             slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
         }
 
         const newId = new ObjectId().toHexString();
-        
+
         await db.collection<any>("ideas").insertOne({
             _id: newId,
             title: ideaData.title,
@@ -46,7 +48,9 @@ export async function publishIdea(uid: string, ideaData: {
             image: ideaData.image || "https://images.unsplash.com/photo-1614728263952-84ea206f25ab?q=80&w=2070&auto=format&fit=crop",
             author: ideaData.author,
             authorUid: uid,
+            isPrivate: ideaData.isPrivate,
             authorPhoto: ideaData.authorPhoto || '',
+            licenseCode: ideaData.licenseCode || '',
             time: new Date(),
             status: { views: 0, likes: 0 },
             lastUpdated: new Date()
@@ -60,7 +64,7 @@ export async function publishIdea(uid: string, ideaData: {
 }
 
 export async function saveCollaborationContent(
-    ideaId: string, 
+    ideaId: string,
     editorData: {
         uid: string;
         name: string;
@@ -155,11 +159,17 @@ export async function saveCollaborationContent(
 
 export const getIdeas = cache(
     unstable_cache(
-        async () => {
+        async (limit = 10, skip = 0) => {
             try {
                 const db = await getMongoDb();
-                const ideas = await db.collection("ideas").find().sort({ time: -1 }).toArray();
-                return { success: true, ideas: JSON.parse(JSON.stringify(ideas)) };
+                const ideas = await db.collection("ideas")
+                    .find({ isPrivate: false })
+                    .sort({ time: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .toArray();
+                const total = await db.collection("ideas").countDocuments({ isPrivate: false });
+                return { success: true, ideas: JSON.parse(JSON.stringify(ideas)), total };
             } catch (error: any) {
                 return { success: false, error: error.message };
             }
@@ -168,6 +178,31 @@ export const getIdeas = cache(
         { revalidate: 60, tags: ['ideas'] }
     )
 );
+
+export async function getIdeaStats() {
+    try {
+        const db = await getMongoDb();
+        const now = new Date();
+        const startOfToday = new Date(now.setHours(0,0,0,0));
+        
+        const [todayPubs, allPubs, allCollabs] = await Promise.all([
+            db.collection("ideas").countDocuments({ time: { $gte: startOfToday } }),
+            db.collection("ideas").countDocuments({ isPrivate: false }),
+            db.collection("idea_collaborations").countDocuments({ isApproved: true })
+        ]);
+
+        return {
+            success: true,
+            stats: {
+                todayPublications: todayPubs,
+                allPublications: allPubs,
+                allCollaborations: allCollabs
+            }
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
 
 export const getIdeaById = cache(
     async (ideaId: string) => {
@@ -192,30 +227,30 @@ export const getIdeaSections = cache(
     async (ideaId: string, userId?: string) => {
         try {
             const db = await getMongoDb();
-            
+
             // Build the query to find:
             // 1. ALL Approved content (creator or collaborations)
             // 2. The Current User's own (potentially unapproved) content so they don't lose their work
             const sections = await db.collection("creator").aggregate([
                 { $match: { ideaId, isApproved: true } },
-                { 
-                    $unionWith: { 
-                        coll: "idea_collaborations", 
+                {
+                    $unionWith: {
+                        coll: "idea_collaborations",
                         pipeline: [
-                            { 
-                                $match: { 
-                                    ideaId, 
+                            {
+                                $match: {
+                                    ideaId,
                                     $or: [
                                         { isApproved: true },
                                         { authorId: userId }
                                     ]
-                                } 
+                                }
                             }
-                        ] 
-                    } 
+                        ]
+                    }
                 },
                 { $sort: { updated_time: -1, time: -1 } },
-                { 
+                {
                     $group: {
                         _id: "$sectionId",
                         title: { $first: "$subtitle" },
@@ -226,7 +261,7 @@ export const getIdeaSections = cache(
                         updated_time: { $first: "$updated_time" }
                     }
                 },
-                { 
+                {
                     $lookup: {
                         from: "accounts",
                         localField: "authorId",
@@ -236,7 +271,7 @@ export const getIdeaSections = cache(
                 },
                 { $sort: { orderid: 1 } }
             ]).toArray();
-            
+
             const mappedSections = sections.map(doc => ({
                 id: doc._id,
                 title: doc.title || '',
@@ -245,7 +280,7 @@ export const getIdeaSections = cache(
                 authorPhoto: doc.authorDetails?.[0]?.photoURL || '',
                 updated_time: doc.updated_time
             }));
-            
+
             return { success: true, sections: mappedSections };
         } catch (error: any) {
             console.error("Error fetching sections:", error);
@@ -347,14 +382,14 @@ export async function approveCollaboration(collaborationId: string) {
     try {
         const db = await getMongoDb();
         const { ObjectId } = await import('mongodb');
-        
+
         const result = await db.collection("idea_collaborations").updateOne(
             { _id: new ObjectId(collaborationId) },
-            { 
-                $set: { 
-                    isApproved: true, 
-                    updated_time: Date.now() 
-                } 
+            {
+                $set: {
+                    isApproved: true,
+                    updated_time: Date.now()
+                }
             }
         );
 
@@ -376,14 +411,14 @@ export async function unapproveCollaboration(collaborationId: string) {
     try {
         const db = await getMongoDb();
         const { ObjectId } = await import('mongodb');
-        
+
         const result = await db.collection("idea_collaborations").updateOne(
             { _id: new ObjectId(collaborationId) },
-            { 
-                $set: { 
-                    isApproved: false, 
-                    updated_time: Date.now() 
-                } 
+            {
+                $set: {
+                    isApproved: false,
+                    updated_time: Date.now()
+                }
             }
         );
 
@@ -399,21 +434,87 @@ export async function unapproveCollaboration(collaborationId: string) {
 }
 
 /**
+ * Delete a collaboration request
+ */
+export async function deleteCollaboration(collaborationId: string, uid: string) {
+    try {
+        const db = await getMongoDb();
+        const { ObjectId } = await import('mongodb');
+
+        const collabs = db.collection("idea_collaborations");
+        const collab: any = await collabs.findOne({ _id: new ObjectId(collaborationId) });
+        
+        if (!collab) return { success: false, error: 'Collaboration not found' };
+
+        // Authorization: Contributor or Idea Author
+        const idea = await db.collection("ideas").findOne({ _id: collab.ideaId });
+        const isIdeaAuthor = idea && idea.authorUid === uid;
+        const isContributor = collab.authorId === uid;
+
+        if (!isIdeaAuthor && !isContributor) {
+            return { success: false, error: 'Unauthorized to delete this publication.' };
+        }
+
+        const result = await collabs.deleteOne({
+            _id: new ObjectId(collaborationId)
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error deleting collaboration:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateCollaboration(collaborationId: string, uid: string, data: { subtitle: string, paragraph: any[] }) {
+    try {
+        const db = await getMongoDb();
+        const { ObjectId } = await import('mongodb');
+
+        const collabs = db.collection("idea_collaborations");
+        const collab: any = await collabs.findOne({ _id: new ObjectId(collaborationId) });
+        
+        if (!collab) return { success: false, error: 'Collaboration not found' };
+
+        // Only the contributor can update their draft (and only if not approved yet, usually)
+        if (collab.authorId !== uid) {
+            return { success: false, error: 'Unauthorized to update this publication.' };
+        }
+
+        await collabs.updateOne(
+            { _id: new ObjectId(collaborationId) },
+            { 
+                $set: { 
+                    subtitle: data.subtitle, 
+                    paragraph: data.paragraph,
+                    time: Date.now() 
+                } 
+            }
+        );
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating collaboration:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Idea Comments Actions
  */
 export async function getIdeaComments(ideaId: string, page = 1, limit = 10) {
     try {
         const commentsCol = await getCollection('idea_comments');
         const skip = (page - 1) * limit;
-        
+
         const comments = await commentsCol.find({ ideaId })
             .sort({ commenteddatetime: -1 })
             .skip(skip)
             .limit(limit)
             .toArray();
-            
-        return { 
-            success: true, 
+
+        return {
+            success: true,
             comments: comments.map(c => ({
                 id: c._id.toString(),
                 userId: c.userId,
@@ -441,13 +542,13 @@ export async function upsertIdeaComment(ideaId: string, userId: string, data: an
             commenteddatetime: data.commenteddatetime || new Date(),
             lastUpdated: new Date()
         };
-        
+
         await commentsCol.updateOne(
             { ideaId, userId },
             { $set: payload },
             { upsert: true }
         );
-        
+
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
@@ -491,7 +592,7 @@ export async function getUserIdeas(uid: string) {
 export async function deleteIdea(ideaId: string, uid: string) {
     try {
         const db = await getMongoDb();
-        
+
         // 1. Verify ownership
         const idea = await db.collection<any>("ideas").findOne({ _id: ideaId });
         if (!idea) {

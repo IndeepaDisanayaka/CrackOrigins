@@ -101,9 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAffiliateLevelDetails(res.affiliateLevelDetails || null);
         setAffiliateCount(res.affiliateCount || 0);
         setMetadata(res.metadata || { creationTime: null, lastSignInTime: null });
-        if (res.country && res.country !== 'Unknown') {
-          setCountry(res.country);
-        }
+        // if (res.country && res.country !== 'Unknown') {
+        //   setCountry(res.country);
+        // }
       }
 
       if (permRes.success) {

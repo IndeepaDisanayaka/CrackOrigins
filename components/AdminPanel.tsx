@@ -24,7 +24,8 @@ import {
   ChevronUp,
   ExternalLink,
   Trash2,
-  Filter
+  Filter,
+  BadgeCheck
 } from 'lucide-react';
 
 import { StatCard } from './admin/StatCard';
@@ -33,6 +34,7 @@ import CouponModal from './admin/CouponModal';
 import DispatchModal from './admin/DispatchModal';
 import ListGameModal from './admin/ListGameModal';
 import AdminSupport from './admin/AdminSupport';
+import AddLicenseModal from './admin/AddLicenseModal';
 import { 
   getAdminDashboardData,
   updateUserOwnerStatus,
@@ -46,7 +48,9 @@ import {
   getMyPermissions,
   assignRuleToUser,
   getAccountRules,
-  returnGameXP
+  returnGameXP,
+  getLicenses,
+  deleteLicense
 } from '@/lib/admin-actions';
 
 import RolesModal from './admin/RolesModal';
@@ -64,7 +68,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'support';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'support';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -88,6 +92,7 @@ export default function AdminPanel({
   const [showPaypalBalance, setShowPaypalBalance] = useState(false);
   const [isPaypalLoading, setIsPaypalLoading] = useState(false);
   const [blogData, setBlogData] = useState<any[]>([]);
+  const [licenseData, setLicenseData] = useState<any[]>([]);
 
   // Live Cursor Users
   const [showLiveCursors, setShowLiveCursors] = useState(false);
@@ -157,6 +162,11 @@ export default function AdminPanel({
     const resBlogs = await getBlogPostsAction();
     if (resBlogs.success && resBlogs.posts) {
       setBlogData(resBlogs.posts);
+    }
+
+    const resLic = await getLicenses(userUid);
+    if (resLic.success && resLic.licenses) {
+      setLicenseData(resLic.licenses);
     }
   };
 
@@ -332,6 +342,17 @@ export default function AdminPanel({
     }
   };
 
+  const handleDeleteLicense = async (id: string) => {
+    if (!confirm("Are you sure you want to revoke this license?")) return;
+    const res = await deleteLicense(userUid, id);
+    if (res.success) {
+      showToast("License revoked successfully.", "success");
+      fetchData();
+    } else {
+      showToast(res.error || "Failed to revoke.", "error");
+    }
+  };
+
   // Filter Logic
   const filteredUsers = (data?.users || []).filter((u: any) => {
     const matchesSearch = u.name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -410,6 +431,7 @@ export default function AdminPanel({
                { id: 'payments', icon: <CreditCard size={18} />, label: 'Payments', visible: hasPerm('payments', 'READ') },
                { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games', visible: hasPerm('games', 'READ') },
                { id: 'blogs', icon: <MessageSquare size={18} />, label: 'Blogs', visible: hasPerm('blogs', 'READ') },
+               { id: 'licenses', icon: <BadgeCheck size={18} />, label: 'Licenses', visible: myPerms.isOwner },
                { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries', visible: true },
              ].filter(i => i.visible).map(item => (
                <button
@@ -1366,7 +1388,48 @@ export default function AdminPanel({
                                 </td>
                               </tr>
                             ))}
-                          </tbody>
+
+                             {/* Licenses Rendering */}
+                             {activeTab === 'licenses' && licenseData.map((lic: any, idx: number) => (
+                               <tr key={lic._id || idx} style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div style={{ fontWeight: 800, color: 'var(--primary)' }}>{lic.code}</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{lic.type} License</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div style={{ fontWeight: 700 }}>{lic.name}</div>
+                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Validity: {lic.validity}</div>
+                                   <div style={{ fontSize: '0.65rem', opacity: 0.6, marginTop: '4px' }}>Ref: {lic.ideaRef || "N/A"}</div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div style={{ 
+                                     fontSize: '0.7rem', 
+                                     maxWidth: '200px', 
+                                     overflow: 'hidden', 
+                                     textOverflow: 'ellipsis', 
+                                     whiteSpace: 'nowrap',
+                                     opacity: 0.8
+                                   }}>
+                                      {lic.description}
+                                   </div>
+                                   <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '4px' }}>
+                                     Issued: {lic.createdAt ? formatDate(new Date(lic.createdAt), 'dd MMM yyyy') : "N/A"}
+                                   </div>
+                                 </td>
+                                 <td style={{ padding: '1rem' }}>
+                                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                     <button 
+                                       onClick={() => handleDeleteLicense(lic._id)} 
+                                       className="btnOutline" 
+                                       style={{ padding: '0.4rem 0.60rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                     >
+                                       <Trash2 size={12} /> Revoke
+                                     </button>
+                                   </div>
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
                       </table>
                    </div>
                 </div>

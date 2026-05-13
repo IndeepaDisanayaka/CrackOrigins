@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { syncUserRecord } from "./lib/admin-actions";
+import { syncUserRecord, findUserByEmail } from "./lib/admin-actions";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -16,10 +16,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       console.log("SignIn Callback:", { provider: account?.provider, id: user.id, email: user.email });
       if (account?.provider === "google") {
         try {
+          if (user.email) {
+            const linkedUser = await findUserByEmail(user.email);
+            if (linkedUser && linkedUser.uid && linkedUser.uid !== user.id) {
+              console.log("Linking Google login to existing account uid:", linkedUser.uid);
+              user.id = linkedUser.uid;
+            }
+          }
+
           console.log("Syncing Google user to MongoDB:", user.email);
-          // Sync user record to MongoDB on every sign-in
           const syncRes = await syncUserRecord(user.id!, {
-            isOwner: false, 
+            isOwner: false,
             name: user.name || profile?.name || "User",
             email: user.email!,
             photoURL: user.image || null,

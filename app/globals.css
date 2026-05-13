@@ -540,19 +540,6 @@ mark {
   font-weight: 500;
 }
 
-.blog-content p:first-of-type::first-letter {
-  float: left;
-  font-size: 5rem;
-  line-height: 0.85;
-  padding-top: 4px;
-  padding-right: 12px;
-  padding-left: 3px;
-  font-weight: 900;
-  color: var(--primary);
-  text-transform: uppercase;
-  font-family: inherit;
-}
-
 .blog-sidebar {
   position: absolute;
   left: -120px;

@@ -849,11 +849,9 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
 
     const fetchOffers = async () => {
         const offers = await getGlobalOffers();
-        if (offers && offers.length > 0) {
-            setSteamGames(offers);
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('crack_origins_offers_cache', JSON.stringify(offers));
-            }
+        setSteamGames(offers || []);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('crack_origins_offers_cache', JSON.stringify(offers || []));
         }
         setIsLoadingOffers(false);
     };

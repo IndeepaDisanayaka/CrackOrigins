@@ -10,6 +10,8 @@ import styles from './IdeaEditor.module.css';
 import { structuredToHtml } from '@/lib/text-parser';
 import { useToast } from '@/components/Toast';
 import Modal from '@/components/Modal';
+import getGlitch from '@/app/page.module.css';
+
 
 interface ContentSection {
   id: string;
@@ -473,24 +475,24 @@ export default function IdeaEditor({
             className={`${styles.saveBtn} ${isLocalSaving ? styles.btnProcessing : ''}`}
             disabled={isLocalSaving}
           >
-            {isLocalSaving ? (
+            {/* {isLocalSaving ? (
               <div className={styles.spinner} style={{ width: '14px', height: '14px' }}></div>
             ) : (
               <Save size={18} />
-            )}
-            <span>{isLocalSaving ? 'SAVING...' : 'SAVE DRAFT'}</span>
+            )} */}
+            <span className={isLocalSaving ? "glitchLoader": "" } style={{color:"black"}}>{isLocalSaving ? 'SAVING...' : 'SAVE DRAFT'}</span>
           </button>
           <button
             onClick={() => onSave?.(sections, true)}
             className={`${styles.publishBtn} ${isSaving ? styles.btnProcessing : ''}`}
             disabled={isSaving}
           >
-            {isSaving ? (
+            {/* {isSaving ? (
               <div className={styles.spinner}></div>
             ) : (
               <Sparkles size={18} />
-            )}
-            <span>{isSaving ? 'PROCESSING...' : 'SAVE TO CLOUD'}</span>
+            )} */}
+            <span className={isSaving ? "glitchLoader": ""} style={{color:"black"}}>{isSaving ? 'PROCESSING...' : 'SAVE TO CLOUD'}</span>
           </button>
         </div>
       </div>

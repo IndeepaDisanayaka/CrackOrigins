@@ -10,11 +10,12 @@
   margin: 0 auto;
 }
 
+
 /* ─── Sticky Author / Interaction Bar ────────────────────────────────── */
 .authorRow {
-  position: sticky;
-  top: 76px;
-  z-index: 100;
+  position: sticky  !important;
+  top: 70px !important;
+  z-index: 1000;
 
   display: flex;
   align-items: center;
@@ -22,9 +23,8 @@
   flex-wrap: wrap;
   gap: 16px;
 
-  padding: 1.5rem 0.5rem;
-  border-top: 1px solid var(--outline-color);
-  border-bottom: 1px solid var(--outline-color);
+  padding: 1.5rem;
+  border: 1px solid var(--outline-color);
   margin: 3rem 0;
 
   background: var(--background);
@@ -80,6 +80,41 @@
 
 .authorName:hover {
   opacity: 1;
+}
+
+.licenseBadgeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 1rem;
+  border-left: 1px solid var(--outline-color);
+}
+
+.licenseLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.licenseValue {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--primary);
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .licenseBadgeRow {
+    border-left: none;
+    border-top: 1px solid var(--outline-color);
+    padding: 1rem 0 0 0;
+    width: 100%;
+  }
 }
 
 /* ─── Interactions cluster ────────────────────────────────────────────── */
@@ -359,14 +394,14 @@
 /* ─── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .authorRow {
-    top: 56px;
+    top: 100px;
     padding: 0.75rem 1rem;
   }
 }
 
 @media (max-width: 768px) {
   .authorRow {
-    top: 56px;
+    top: 96px;
     flex-direction: column;
     align-items: flex-start;
     gap: 1.25rem;

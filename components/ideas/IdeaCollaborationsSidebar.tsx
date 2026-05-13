@@ -1,11 +1,14 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock, 
+  CheckCircle2, Trash2, Edit3, Save, Type, Bold, Italic, 
+  Underline, Strikethrough, Maximize2, Minimize2, Highlighter, Plus
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration } from '@/lib/idea-actions';
-import { structuredToHtml } from '@/lib/text-parser';
+import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration, deleteCollaboration, updateCollaboration } from '@/lib/idea-actions';
+import { structuredToHtml, parseHtmlToStructured } from '@/lib/text-parser';
 import { useToast } from '../Toast';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import styles from './idea-collaborations-sidebar.module.css';
 
 interface Collaboration {
@@ -27,7 +30,47 @@ interface IdeaCollaborationsSidebarProps {
   onApproved?: () => void;
   currentSections: any[];
   isMobile?: boolean;
+  isAuthor: boolean;
+  onEditCollaboration?: (collab: Collaboration) => void;
 }
+
+const EditableQuickPara = ({
+    initialValue,
+    onBlur,
+    onRemove,
+    showRemove
+  }: {
+    initialValue: string,
+    onBlur: (val: string) => void,
+    onRemove: () => void,
+    showRemove: boolean
+  }) => {
+    const contentRef = useRef<HTMLDivElement>(null);
+  
+    useEffect(() => {
+      if (contentRef.current && contentRef.current.innerHTML !== initialValue) {
+        contentRef.current.innerHTML = initialValue;
+      }
+    }, [initialValue]);
+  
+    return (
+      <div className={styles.quickParaWrapper}>
+        <div
+          ref={contentRef}
+          className={styles.editableQuickPara}
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={(e) => onBlur(e.currentTarget.innerHTML)}
+          data-placeholder="Start typing paragraph..."
+        />
+        {showRemove && (
+            <button onClick={onRemove} className={styles.removeParaBtn} title="Remove Paragraph">
+                <Trash2 size={14} />
+            </button>
+        )}
+      </div>
+    );
+  };
 
 export default function IdeaCollaborationsSidebar({
   isOpen,
@@ -35,15 +78,68 @@ export default function IdeaCollaborationsSidebar({
   ideaId,
   onApproved,
   currentSections,
-  isMobile = false
+  isMobile = false,
+  isAuthor,
+  onEditCollaboration
 }: IdeaCollaborationsSidebarProps) {
   const [collaborations, setCollaborations] = useState<Collaboration[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCollab, setSelectedCollab] = useState<Collaboration | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [isUnapproving, setIsUnapproving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const originalSubtitle = useRef("");
+  const originalParagraphs = useRef<string[]>([]);
+
+  const [activeStyles, setActiveStyles] = useState<{ [key: string]: boolean }>({
+    bold: false,
+    italic: false,
+    underline: false,
+    strikeThrough: false,
+  });
+
+  // Quick Edit States
+  const [isQuickEditing, setIsQuickEditing] = useState(false);
+  const [editedSubtitle, setEditedSubtitle] = useState("");
+  const [editedParagraphs, setEditedParagraphs] = useState<string[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      setActiveStyles({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        strikeThrough: document.queryCommandState('strikeThrough'),
+      });
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
+
+  const execCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    setActiveStyles(prev => ({
+        ...prev,
+        [command]: document.queryCommandState(command)
+    }));
+  };
+
+  const applyHighlight = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+      const range = selection.getRangeAt(0);
+      const mark = document.createElement('mark');
+      mark.appendChild(range.extractContents());
+      range.insertNode(mark);
+    }
+  };
+
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const loadCollaborations = async (tab: 'pending' | 'all') => {
     if (!ideaId) return;
@@ -53,7 +149,19 @@ export default function IdeaCollaborationsSidebar({
         ? await getPendingCollaborations(ideaId)
         : await getAllCollaborations(ideaId);
       if (res.success && res.collaborations) {
-        setCollaborations(res.collaborations);
+        if (!isAuthor && user) {
+          // If not author, we filter based on status for the two tabs
+          // activeTab === 'pending' means 'Unapproved'
+          // activeTab === 'all' means 'Approved'
+          const filtered = res.collaborations.filter((c: any) => {
+              const isOwn = c.authorId === user.uid;
+              if (tab === 'pending') return isOwn && !c.isApproved;
+              return isOwn && c.isApproved;
+          });
+          setCollaborations(filtered);
+        } else {
+          setCollaborations(res.collaborations);
+        }
       }
     } catch (e) {
       console.error('Error loading collaborations:', e);
@@ -66,9 +174,10 @@ export default function IdeaCollaborationsSidebar({
     if (isOpen && ideaId) {
       loadCollaborations(activeTab);
     }
-  }, [isOpen, ideaId, activeTab]);
+  }, [isOpen, ideaId, activeTab, isAuthor, user]);
 
   const handleApprove = async (id: string) => {
+    if (!isAuthor) return;
     setIsApproving(true);
     try {
       const res = await approveCollaboration(id);
@@ -90,12 +199,12 @@ export default function IdeaCollaborationsSidebar({
   };
 
   const handleUnapprove = async (id: string) => {
+    if (!isAuthor) return;
     setIsUnapproving(true);
     try {
       const res = await unapproveCollaboration(id);
       if (res.success) {
         showToast('Collaboration unapproved.', 'success');
-        // Refresh list
         loadCollaborations(activeTab);
         setSelectedCollab(null);
         if (onApproved) onApproved();
@@ -107,6 +216,100 @@ export default function IdeaCollaborationsSidebar({
     } finally {
       setIsUnapproving(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!user) return;
+    if (window.confirm("Are you sure you want to delete this publication?")) {
+        setIsDeleting(true);
+        try {
+            const res = await deleteCollaboration(id, user.uid);
+            if (res.success) {
+                showToast("Collaboration deleted successfully.", "success");
+                setCollaborations(prev => prev.filter(c => c.id !== id));
+                setSelectedCollab(null);
+                if (onApproved) onApproved();
+            } else {
+                showToast(res.error || "Failed to delete.", "error");
+            }
+        } catch (e) {
+            showToast("Deletion failed.", "error");
+        } finally {
+            setIsDeleting(false);
+        }
+    }
+  };
+
+  const startQuickEdit = (collab: Collaboration) => {
+      setEditedSubtitle(collab.subtitle);
+      // Convert structured text to HTML for the editor
+      const paras = collab.paragraph.map((p: any) => {
+        if (!p) return "";
+        if (typeof p === 'string') return p;
+        if (p.text) return structuredToHtml(p);
+        return p.content || "";
+      });
+      const finalParas = paras.length > 0 ? paras : [""];
+      setEditedParagraphs(finalParas);
+      
+      // Store original values for change detection
+      originalSubtitle.current = collab.subtitle;
+      originalParagraphs.current = finalParas;
+      
+      setIsQuickEditing(true);
+  };
+
+  const addQuickPara = () => {
+    setEditedParagraphs([...editedParagraphs, ""]);
+  };
+
+  const removeQuickPara = (index: number) => {
+    setEditedParagraphs(editedParagraphs.filter((_, i) => i !== index));
+  };
+
+  const updateQuickPara = (index: number, val: string) => {
+    const next = [...editedParagraphs];
+    next[index] = val;
+    setEditedParagraphs(next);
+  };
+
+  const handleUpdate = async () => {
+      if (!selectedCollab || !user) return;
+      
+      // Check if anything changed
+      const hasSubtitleChanged = editedSubtitle !== originalSubtitle.current;
+      const hasParasChanged = JSON.stringify(editedParagraphs) !== JSON.stringify(originalParagraphs.current);
+      
+      if (!hasSubtitleChanged && !hasParasChanged) {
+        showToast("No Changes Detected", "info", { subtitle: "Please modify the content before updating." });
+        return;
+      }
+
+      setIsUpdating(true);
+      try {
+          const parsedParagraphs = editedParagraphs.map(html => {
+              return parseHtmlToStructured(html);
+          });
+
+          const res = await updateCollaboration(selectedCollab.id, user.uid, {
+              subtitle: editedSubtitle,
+              paragraph: parsedParagraphs
+          });
+
+          if (res.success) {
+              showToast("Changes saved successfully.", "success");
+              setIsQuickEditing(false);
+              loadCollaborations(activeTab);
+              setSelectedCollab(null);
+          } else {
+              showToast(res.error || "Update failed.", "error");
+          }
+      } catch (e) {
+          console.error("Update Error:", e);
+          showToast("System error during update.", "error");
+      } finally {
+          setIsUpdating(false);
+      }
   };
 
   return (
@@ -127,25 +330,24 @@ export default function IdeaCollaborationsSidebar({
                 <X size={24} />
               </button>
               <div className={styles.badge}>
-                <MessageSquare size={14} /> Collaborations
+                <MessageSquare size={14} /> {isAuthor ? "Collaborations" : "Your Publications"}
               </div>
               <div className={styles.headerTitle}>
-                <h3>Review <span>Edits</span></h3>
+                <h3>{isAuthor ? "Review" : "Manage"} <span>Edits</span></h3>
               </div>
 
-              {/* Tabs */}
               <div className={styles.tabs}>
                 <button
                   className={`${styles.tab} ${activeTab === 'pending' ? styles.tabActive : ''}`}
                   onClick={() => setActiveTab('pending')}
                 >
-                  Pending
+                  {isAuthor ? "Pending" : "Unapproved"}
                 </button>
                 <button
                   className={`${styles.tab} ${activeTab === 'all' ? styles.tabActive : ''}`}
                   onClick={() => setActiveTab('all')}
                 >
-                  All
+                  {isAuthor ? "All" : "Approved"}
                 </button>
               </div>
             </div>
@@ -184,9 +386,12 @@ export default function IdeaCollaborationsSidebar({
                     </div>
                     <button
                       className={styles.readBtn}
-                      onClick={() => setSelectedCollab(collab)}
+                      onClick={() => {
+                        setSelectedCollab(collab);
+                        setIsQuickEditing(false);
+                      }}
                     >
-                      <Eye size={14} /> Read Proposed Edit
+                      <Eye size={14} /> Review Edit
                     </button>
                   </div>
                 ))
@@ -194,9 +399,9 @@ export default function IdeaCollaborationsSidebar({
                 <div className={styles.empty}>
                   <AlertTriangle size={32} opacity={0.2} />
                   <p>
-                    {activeTab === 'pending'
-                      ? 'No pending collaboration requests.'
-                      : 'No collaborations found for this idea.'}
+                    {isAuthor 
+                      ? (activeTab === 'pending' ? 'No pending collaboration requests.' : 'No collaborations found.') 
+                      : (activeTab === 'pending' ? 'No unapproved edits found.' : 'You have no approved edits yet.')}
                   </p>
                 </div>
               )}
@@ -205,7 +410,6 @@ export default function IdeaCollaborationsSidebar({
         )}
       </AnimatePresence>
 
-      {/* Full-screen Review Modal — rendered outside the sidebar */}
       <AnimatePresence>
         {selectedCollab && (
           <motion.div
@@ -217,7 +421,7 @@ export default function IdeaCollaborationsSidebar({
             onClick={(e) => e.target === e.currentTarget && setSelectedCollab(null)}
           >
             <motion.div
-              className={styles.fullModal}
+              className={`${styles.fullModal} ${isFullScreen ? styles.fullModalActive : ''}`}
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -231,35 +435,112 @@ export default function IdeaCollaborationsSidebar({
                   />
                   <div>
                     <h4>{selectedCollab.authorName}</h4>
-                    <span>Proposed edit · {selectedCollab.time ? new Date(selectedCollab.time).toLocaleDateString() : ''}</span>
+                    <span>{isQuickEditing ? "Modifying Draft..." : "Proposed edit"} · {selectedCollab.time ? new Date(selectedCollab.time).toLocaleDateString() : ''}</span>
                   </div>
-                  {selectedCollab.isApproved && (
+                  {selectedCollab.isApproved && !isQuickEditing && (
                     <div className={styles.approvedBadge}>
-                      <CheckCircle2 size={14} /> Approved
+                      <CheckCircle2 size={14} /> Published
                     </div>
                   )}
                 </div>
-                <button onClick={() => setSelectedCollab(null)} className={styles.modalClose}>
-                  <X size={20} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <button 
+                        onClick={() => setIsFullScreen(!isFullScreen)} 
+                        className={styles.modalExpand}
+                        title={isFullScreen ? "Exit Full Screen" : "Full Screen Mode"}
+                    >
+                        {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                    </button>
+                    <button onClick={() => setSelectedCollab(null)} className={styles.modalClose}>
+                    <X size={20} />
+                    </button>
+                </div>
               </div>
 
               <div className={styles.modalBody}>
-
-                {(() => {
-                  const parent = currentSections.find(s => s.id === selectedCollab.sectionId);
-                  if (parent) {
-                    return (
-                      <div className={styles.reviewSection}>
-                        <div className={styles.sectionHeader}>
-                          <div className={`${styles.sectionIndicator} ${styles.indicatorOriginal}`} />
-                          <label>Current Version</label>
+                {isQuickEditing ? (
+                    <div className={styles.quickEditorContainer} style={{ padding: isFullScreen ? '2rem 4rem' : '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <label style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase' }}>Section Title</label>
+                            <input 
+                                type="text"
+                                className={styles.quickInput}
+                                value={editedSubtitle}
+                                onChange={e => setEditedSubtitle(e.target.value)}
+                            />
                         </div>
 
-                        <div className={`${styles.reviewCard} ${styles.originalCard}`}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={{ fontSize: '0.7rem', fontWeight: 950, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Proposed Lore Content</label>
+                                <div className={styles.quickToolbar}>
+                                    <button className={`${styles.toolBtn} ${activeStyles.bold ? styles.toolBtnActive : ''}`} onClick={() => execCommand('bold')} title="Bold"><Bold size={16} /></button>
+                                    <button className={`${styles.toolBtn} ${activeStyles.italic ? styles.toolBtnActive : ''}`} onClick={() => execCommand('italic')} title="Italic"><Italic size={16} /></button>
+                                    <button className={`${styles.toolBtn} ${activeStyles.underline ? styles.toolBtnActive : ''}`} onClick={() => execCommand('underline')} title="Underline"><Underline size={16} /></button>
+                                    <button className={`${styles.toolBtn} ${activeStyles.strikeThrough ? styles.toolBtnActive : ''}`} onClick={() => execCommand('strikeThrough')} title="Strikethrough"><Strikethrough size={16} /></button>
+                                    <button className={styles.toolBtn} onClick={applyHighlight} title="Highlight"><Highlighter size={16} /></button>
+                                </div>
+                            </div>
+                            
+                            <div className={styles.paragraphsEditorArea}>
+                                {editedParagraphs.map((para: string, idx: number) => (
+                                    <EditableQuickPara 
+                                        key={idx}
+                                        initialValue={para}
+                                        onBlur={(val: string) => updateQuickPara(idx, val)}
+                                        onRemove={() => removeQuickPara(idx)}
+                                        showRemove={editedParagraphs.length > 1}
+                                    />
+                                ))}
+
+                                <button onClick={addQuickPara} className={styles.addQuickParaBtn}>
+                                    <Plus size={14} />
+                                    <span>ADD PARAGRAPH</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                    {(() => {
+                        const parent = currentSections.find(s => s.id === selectedCollab.sectionId);
+                        if (parent) {
+                          return (
+                            <div className={styles.reviewSection}>
+                              <div className={styles.sectionHeader}>
+                                <div className={`${styles.sectionIndicator} ${styles.indicatorOriginal}`} />
+                                <label>Current Version</label>
+                              </div>
+                              <div className={`${styles.reviewCard} ${styles.originalCard}`}>
+                                <div className={styles.contentBlock}>
+                                  <div className={styles.parentContent}>
+                                    {parent.paragraphs.map((p: any, i: number) => {
+                                      const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
+                                      return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+      
+                      <div className={styles.reviewSection}>
+                        <div className={styles.sectionHeader}>
+                          <div className={styles.sectionIndicator} />
+                          <label>Proposed Changes</label>
+                        </div>
+                        <div className={styles.reviewCard}>
+                          <div className={styles.proposedTitleBlock}>
+                            <span className={styles.fieldLabel}>Section Title</span>
+                            <h3 className={styles.proposedTitle}>{selectedCollab.subtitle || 'Untitled'}</h3>
+                          </div>
                           <div className={styles.contentBlock}>
-                            <div className={styles.parentContent}>
-                              {parent.paragraphs.map((p: any, i: number) => {
+                            <span className={styles.fieldLabel}>Proposed Content</span>
+                            <div className={styles.proposedContent}>
+                              {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => {
                                 const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
                                 return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
                               })}
@@ -267,68 +548,81 @@ export default function IdeaCollaborationsSidebar({
                           </div>
                         </div>
                       </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <div className={styles.reviewSection}>
-                  <div className={styles.sectionHeader}>
-                    <div className={styles.sectionIndicator} />
-                    <label>Proposed Changes</label>
-                  </div>
-
-                  <div className={styles.reviewCard}>
-                    <div className={styles.proposedTitleBlock}>
-                      <span className={styles.fieldLabel}>Section Title</span>
-                      <h3 className={styles.proposedTitle}>{selectedCollab.subtitle || 'Untitled'}</h3>
-                    </div>
-
-                    <div className={styles.contentBlock}>
-                      <span className={styles.fieldLabel}>Proposed Content</span>
-                      <div className={styles.proposedContent}>
-                        {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => {
-                          const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
-                          return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-
+                    </>
+                )}
               </div>
 
               <div className={styles.modalFooter}>
-                <button className={styles.cancelBtn} onClick={() => setSelectedCollab(null)}>
-                  Close
-                </button>
-                {!selectedCollab.isApproved ? (
-                  <button
-                    className={styles.approveBtn}
-                    onClick={() => handleApprove(selectedCollab.id)}
-                    disabled={isApproving}
-                  >
-                    {isApproving ? (
-                      <Loader2 size={16} className="animate-spin" />
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    {!isQuickEditing ? (
+                        <>
+                        <button 
+                            className={styles.deleteBtnRed}
+                            onClick={() => handleDelete(selectedCollab.id)}
+                            disabled={isDeleting}
+                            style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: '1px solid #ff4d4d', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
+                        >
+                            {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <><Trash2 size={16} /> Delete</>}
+                        </button>
+                        {!selectedCollab.isApproved && selectedCollab.authorId === user?.uid && (
+                             <button 
+                                className={styles.editBtnBox}
+                                onClick={() => startQuickEdit(selectedCollab)}
+                                style={{ background: 'rgba(254, 182, 12, 0.1)', color: 'var(--primary)', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                <Edit3 size={16} /> Quick Edit
+                            </button>
+                        )}
+                        </>
                     ) : (
-                      <><Check size={16} /> Approve & Publish</>
+                        <button 
+                            className={styles.cancelEditBtn}
+                            onClick={() => setIsQuickEditing(false)}
+                            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontWeight: 700, padding: '0 1rem', cursor: 'pointer' }}
+                        >
+                            Cancel Edit
+                        </button>
                     )}
-                  </button>
-                ) : (
-                  <button
-                    className={styles.unapproveBtn}
-                    onClick={() => handleUnapprove(selectedCollab.id)}
-                    disabled={isUnapproving}
-                    style={{ background: '#ff4d4d', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    {isUnapproving ? (
-                      <Loader2 size={16} className="animate-spin" />
+                </div>
+
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+                    {isQuickEditing ? (
+                         <button
+                            className={styles.approveBtn}
+                            onClick={handleUpdate}
+                            disabled={isUpdating}
+                            style={{ minWidth: '160px' }}
+                        >
+                            {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Update Draft</>}
+                        </button>
                     ) : (
-                      <><X size={16} /> Unapprove Content</>
+                        <>
+                        <button className={styles.cancelBtn} onClick={() => setSelectedCollab(null)}>
+                        Close
+                        </button>
+                        {isAuthor && (
+                            !selectedCollab.isApproved ? (
+                            <button
+                                className={styles.approveBtn}
+                                onClick={() => handleApprove(selectedCollab.id)}
+                                disabled={isApproving}
+                            >
+                                {isApproving ? <Loader2 size={16} className="animate-spin" /> : <><Check size={16} /> Approve & Publish</>}
+                            </button>
+                            ) : (
+                            <button
+                                className={styles.unapproveBtn}
+                                onClick={() => handleUnapprove(selectedCollab.id)}
+                                disabled={isUnapproving}
+                                style={{ background: '#ff4d4d', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                {isUnapproving ? <Loader2 size={16} className="animate-spin" /> : <><X size={16} /> Unapprove</>}
+                            </button>
+                            )
+                        )}
+                        </>
                     )}
-                  </button>
-                )}
+                </div>
               </div>
             </motion.div>
           </motion.div>

@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { getIdeas } from '../../lib/idea-actions';
-import { motion } from 'framer-motion';
-import { TrendingUp, Bookmark, Heart, ArrowRight, Zap, FileText, LayoutGrid, List, Search, Filter } from 'lucide-react';
+import { getIdeas, getIdeaStats } from '../../lib/idea-actions';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  TrendingUp, Bookmark, Heart, ArrowRight, Zap, 
+  FileText, Search, Plus, User, Clock, 
+  ChevronRight, Sparkles, Globe, Shield, BadgeCheck
+} from 'lucide-react';
 import Header from '../../components/layout/Header';
 import MobileNav from '../../components/layout/MobileNav';
 import Footer from '../../components/layout/Footer';
-import Modal from '../../components/Modal';
 import AuthModal from '../../components/AuthModal';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useModals } from '../../lib/contexts/ModalContext';
@@ -21,18 +24,44 @@ const AddOfferModal = dynamic(() => import('../../components/admin/AddOfferModal
 const ListGameModal = dynamic(() => import('../../components/admin/ListGameModal'), { ssr: false });
 const DispatchModal = dynamic(() => import('../../components/admin/DispatchModal'), { ssr: false });
 
-const categories = [
-  "Featured Stories", "Lore Explorations", "Original Fiction", "Character Backstories", "Worldbuilding", "Fan Fiction", "Developer Diaries"
-];
-
 const sidebarTopics = [
   "Fantasy Fiction", "Sci-Fi Lore", "Cyberpunk", "Horror Stories", "World Building", "Character Studies", "Fan Theories", "Game Mythology"
 ];
 
+// SVG Graphic Component for Hero
+const GamingLogoSVG = () => (
+  <svg viewBox="0 0 500 500" className={styles.svgLogo} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <motion.path 
+      d="M250 50L450 150V350L250 450L50 350V150L250 50Z" 
+      stroke="var(--primary)" 
+      strokeWidth="2"
+      initial={{ pathLength: 0 }}
+      animate={{ pathLength: 1 }}
+      transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+    />
+    <motion.path 
+      d="M250 100L400 175V325L250 400L100 325V175L250 100Z" 
+      stroke="var(--primary)" 
+      strokeWidth="1"
+      strokeDasharray="10 5"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+      style={{ originX: "250px", originY: "250px" }}
+    />
+    <circle cx="250" cy="250" r="40" stroke="var(--primary)" strokeWidth="4" />
+    <motion.path 
+      d="M250 210V180M250 320V290M180 250H210M290 250H320" 
+      stroke="var(--primary)" 
+      strokeWidth="4" 
+      strokeLinecap="round"
+      animate={{ opacity: [0.3, 1, 0.3] }}
+      transition={{ duration: 2, repeat: Infinity }}
+    />
+  </svg>
+);
+
 export default function IdeasClient() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'horizontal'>('grid');
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const { user, isAdmin, login } = useAuth();
   const { 
     isAuthModalOpen, setIsAuthModalOpen,
@@ -45,39 +74,93 @@ export default function IdeasClient() {
   } = useModals();
   const [ideas, setIdeas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [stats, setStats] = useState({ todayPublications: 0, allPublications: 852, allCollaborations: 52401 });
   const router = useRouter();
 
-  const getSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+  const loadingRef = React.useRef(false);
+  const hasMoreRef = React.useRef(true);
+
+  const fetchIdeas = async (currentSkip: number, isNew: boolean) => {
+    if (loadingRef.current) return;
+    
+    if (isNew) setLoading(true);
+    else setLoadingMore(true);
+    loadingRef.current = true;
+    
+    try {
+      const res: any = await getIdeas(10, currentSkip);
+      if (res.success && res.ideas) {
+        if (isNew) {
+          setIdeas(res.ideas);
+        } else {
+          setIdeas(prev => [...prev, ...res.ideas]);
+        }
+        const more = res.ideas.length === 10;
+        setHasMore(more);
+        hasMoreRef.current = more;
+      }
+    } catch (error) {
+      console.error("Error fetching ideas: ", error);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+      loadingRef.current = false;
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await getIdeaStats();
+      if (res.success && res.stats) {
+        setStats(res.stats);
+      }
+    } catch (err) {}
   };
 
   useEffect(() => {
-    const fetchIdeas = async () => {
-      try {
-        const res = await getIdeas();
-        if (res.success && res.ideas) {
-          setIdeas(res.ideas);
+    fetchIdeas(0, true);
+    fetchStats();
+    
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight;
+
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        if (!loadingRef.current && hasMoreRef.current) {
+          setSkip(prev => {
+            const nextSkip = prev + 10;
+            fetchIdeas(nextSkip, false);
+            return nextSkip;
+          });
         }
-      } catch (error) {
-        console.error("Error fetching ideas: ", error);
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchIdeas();
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'Just now';
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const getSlug = (title: string) => {
+    return title.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
   };
+
+  const filteredIdeas = useMemo(() => {
+    return ideas.filter(idea => 
+      idea.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      idea.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      idea.author?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [ideas, searchQuery]);
+
+  const userIdeas = useMemo(() => {
+    if (!user) return [];
+    return ideas.filter(idea => idea.authorUid === user.uid);
+  }, [ideas, user]);
 
   const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
     const res = await login(type, credentials);
@@ -87,154 +170,86 @@ export default function IdeasClient() {
     return res;
   };
 
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'Just now';
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   return (
-    <main>
-      <Header 
-        isMobileMenuOpen={isMobileMenuOpen} 
-        setIsMobileMenuOpen={setIsMobileMenuOpen} 
-      />
-      <MobileNav 
-        isOpen={isMobileMenuOpen} 
-        setIsOpen={setIsMobileMenuOpen} 
-      />
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-        onLogin={handleLogin} 
-      />
-
-      <CouponModal 
-        isOpen={isCouponModalOpen} 
-        onClose={() => setIsCouponModalOpen(false)} 
-      />
-
-      <AddOfferModal 
-        isOpen={isAddOfferModalOpen} 
-        onClose={() => setIsAddOfferModalOpen(false)} 
-      />
+    <main style={{ backgroundColor: 'var(--background)', color: 'var(--foreground)', minHeight: '100vh', position: 'relative' }}>
+      <Header isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+      <MobileNav isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
       
-      <ListGameModal 
-        isOpen={isListGameOpen} 
-        onClose={() => setIsListGameOpen(false)} 
-      />
-
-      <DispatchModal
-        isOpen={isDispatchModalOpen}
-        onClose={() => setIsDispatchModalOpen(false)}
-      />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onLogin={handleLogin} />
+      <CouponModal isOpen={isCouponModalOpen} onClose={() => setIsCouponModalOpen(false)} />
+      <AddOfferModal isOpen={isAddOfferModalOpen} onClose={() => setIsAddOfferModalOpen(false)} />
+      <ListGameModal isOpen={isListGameOpen} onClose={() => setIsListGameOpen(false)} />
+      <DispatchModal isOpen={isDispatchModalOpen} onClose={() => setIsDispatchModalOpen(false)} />
 
       {user && isAdmin && (
-        <AdminPanel
-          userUid={user.uid}
-          isOpen={isAdminModalOpen}
-          setIsOpen={setIsAdminModalOpen}
-        />
+        <AdminPanel userUid={user.uid} isOpen={isAdminModalOpen} setIsOpen={setIsAdminModalOpen} />
       )}
 
-      <Modal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} title="Filter Chronicles" maxWidth="500px">
-        <div className={styles.filterGroup}>
-          <h4>Categories</h4>
-          <div className={styles.filterOptions}>
-            {categories.map(cat => (
-              <label key={cat} className={styles.checkboxLabel}>
-                <input type="checkbox" /> {cat}
-              </label>
-            ))}
-          </div>
-        </div>
-        <div className={styles.filterGroup} style={{ marginTop: '24px' }}>
-          <h4>Read Time</h4>
-          <div className={styles.filterOptions}>
-            <label className={styles.checkboxLabel}><input type="checkbox" /> Under 5 mins</label>
-            <label className={styles.checkboxLabel}><input type="checkbox" /> 5-15 mins</label>
-            <label className={styles.checkboxLabel}><input type="checkbox" /> 15+ mins</label>
-          </div>
-        </div>
-        <div className={styles.modalFooter}>
-          <button className={styles.resetBtn}>Reset</button>
-          <button className="btnSolid" onClick={() => setIsFilterModalOpen(false)}>Apply Filters</button>
-        </div>
-      </Modal>
-
+      {/* Hero Section */}
       <section className={styles.heroSection}>
+        {/* Background Scrolling Text - Contained within Hero */}
+        <div className={styles.scrollingBg}>
+          <div className={`${styles.scrollingText} ${styles.animateScroll}`}>
+            CRACK ORIGINS • CRACK ORIGINS • CRACK ORIGINS • CRACK ORIGINS • CRACK ORIGINS • CRACK ORIGINS • 
+          </div>
+        </div>
         <div className={styles.ideasContainer}>
           <div className={styles.heroGrid}>
             <motion.div 
               className={styles.heroTextContent}
-              initial={{ opacity: 0, x: -30 }}
+              initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              transition={{ duration: 1 }}
             >
-              <div className={styles.heroBadge}>
-                 <Zap size={14} fill="currentColor" /> THE CREATOR HUB
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary)', fontWeight: 900, fontSize: '0.8rem', letterSpacing: '3px' }}>
+                <Sparkles size={18} /> THE CHRONICLES
               </div>
-              
               <h1 className={styles.heroTitle}>
-                Craft The Universe.<br />
-                <span>Publish Your Lore.</span>
+                Unleash Your<br />
+                <span>Original Lore.</span>
               </h1>
-              
               <p className={styles.heroSubtitle}>
-                Join the ultimate sanctuary for game developers and storytellers. 
-                Read exclusive backstories, share your original fiction, and collaborate on world-building.
+                Dive into the multi-verse of Crack Origins. Share your stories, collaborate with world-builders, and leave your mark on the gaming history.
               </p>
               
               <div className={styles.heroActions}>
-                <button className={styles.primaryActionBtn} onClick={() => setIsCreateIdeaOpen(true)}>
-                   <FileText size={18} /> Write Article
+                <button className={styles.primaryActionBtn} onClick={() => user ? setIsCreateIdeaOpen(true) : setIsAuthModalOpen(true)}>
+                  <Plus size={20} /> New Story
                 </button>
                 <button className={styles.secondaryActionBtn}>
-                   Explore Library
+                  <Globe size={20} /> Explore All
                 </button>
               </div>
-              
+
               <div className={styles.heroStats}>
                 <div className={styles.statItem}>
-                  <span className={styles.statNumber}>{ideas.length > 0 ? `${(ideas.length / 1000).toFixed(1)}K+` : '0'}</span>
-                  <span className={styles.statLabel}>Stories</span>
+                  <span className={styles.statNumber}>{stats.todayPublications}</span>
+                  <span className={styles.statLabel}>Today Published</span>
                 </div>
-                <div className={styles.statDivider}></div>
                 <div className={styles.statItem}>
-                  <span className={styles.statNumber}>850+</span>
-                  <span className={styles.statLabel}>Writers</span>
+                  <span className={styles.statNumber}>{stats.allPublications}</span>
+                  <span className={styles.statLabel}>All Chronicles</span>
                 </div>
-                <div className={styles.statDivider}></div>
                 <div className={styles.statItem}>
-                  <span className={styles.statNumber}>50K+</span>
-                  <span className={styles.statLabel}>Readers</span>
+                  <span className={styles.statNumber}>{stats.allCollaborations}</span>
+                  <span className={styles.statLabel}>Collaborations</span>
                 </div>
               </div>
             </motion.div>
-            
+
             <motion.div 
               className={styles.heroVisuals}
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, delay: 0.2 }}
+              transition={{ duration: 1.5 }}
             >
-               <div className={styles.visualCardPrimary}>
-                  <div className={styles.vcHeader}>
-                    <div className={styles.vcDot} style={{background: '#ff5f56'}}></div>
-                    <div className={styles.vcDot} style={{background: '#ffbd2e'}}></div>
-                    <div className={styles.vcDot} style={{background: '#27c93f'}}></div>
-                  </div>
-                  <div className={styles.vcBody}>
-                    <div className={styles.vcLine} style={{width: '60%'}}></div>
-                    <div className={styles.vcLinePrimary} style={{width: '85%'}}></div>
-                    <div className={styles.vcLine} style={{width: '40%'}}></div>
-                    <div className={styles.vcLine} style={{width: '70%', marginTop: '20px'}}></div>
-                    <div className={styles.vcLine} style={{width: '50%'}}></div>
-                    <button className={styles.vcBtn}>PUBLISHING...</button>
-                  </div>
-               </div>
-               
-               <div className={styles.visualCardSecondary}>
-                 <TrendingUp size={24} color="var(--primary)" />
-                 <div>
-                   <h5>Trending Now</h5>
-                   <p>Cyber-Ascent Lore</p>
-                 </div>
-               </div>
+              <GamingLogoSVG />
             </motion.div>
           </div>
         </div>
@@ -242,154 +257,136 @@ export default function IdeasClient() {
 
       <div className={styles.ideasContainer}>
         <div className={styles.mainLayout}>
+          {/* Sidebar */}
           <aside className={styles.sidebar}>
-            <div className={styles.sidebarSection}>
-              <h3 className={styles.sidebarTitle}>Discover Topics</h3>
-              <div className={styles.tagCloud}>
-                {sidebarTopics.map(topic => (
-                  <a key={topic} href="#" className={styles.tag}>{topic}</a>
-                ))}
-              </div>
-            </div>
-            
-            <div className={styles.sidebarSection}>
-              <h3 className={styles.sidebarTitle}>Staff Picks</h3>
-              <div className={styles.staffPicksList}>
-                {[1, 2, 3].map(i => (
-                  <div key={i} className={styles.staffPickItem}>
-                    <div className={styles.staffPickAuthor}>
-                      <div className={styles.staffPickAvatar}>
-                         <img src={`https://i.pravatar.cc/150?u=editor${i}`} alt="Editor" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '2px' }} />
-                      </div>
-                      <span>Editor in Chief</span>
+            {user && userIdeas.length > 0 && (
+              <div className={styles.userCardsSection}>
+                <h3 className={styles.sidebarTitle}>Your Stories</h3>
+                <div className={styles.userCardsGrid}>
+                  {userIdeas.map(idea => (
+                    <div 
+                      key={idea.id || idea._id} 
+                      className={styles.userCardSmall}
+                      onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
+                    >
+                      <h4 className={styles.userCardTitle}>{idea.title}</h4>
+                      <span className={styles.userCardDate}>{formatDate(idea.time)}</span>
                     </div>
-                    <h4 className={styles.staffPickTitle}>
-                      {i === 1 ? "The Future of Game Development in the Age of AI" : i === 2 ? "How We Built the Crack Origins Universe" : "Top 10 Indie Games of 2026"}
-                    </h4>
+                  ))}
+                </div>
+              </div>
+            )}
+
+
+            <div className={styles.sidebarSection}>
+              <h3 className={styles.sidebarTitle}>Last Stories</h3>
+              <div className={styles.lastStoriesList}>
+                {ideas.slice(0, 4).map((idea, i) => (
+                  <div 
+                    key={idea.id || idea._id || i} 
+                    className={styles.lastStoryItem}
+                    onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
+                  >
+                    <div className={styles.lastStoryAuthor}>
+                      <img src={idea.authorPhoto || `https://i.pravatar.cc/150?u=${idea.authorUid || i}`} alt={idea.author} className={styles.lastStoryAvatar} />
+                      <span className={styles.lastStoryAuthorName}>{idea.author}</span>
+                    </div>
+                    <h4 className={styles.lastStoryTitle}>{idea.title}</h4>
                   </div>
                 ))}
               </div>
-              <a href="#" style={{ color: '#feb60c', fontSize: '0.9rem', fontWeight: '800', marginTop: '24px', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-                See full list <ArrowRight size={16} />
+              <a href="#" className={styles.seeAllLink}>
+                See Full List <ArrowRight size={16} />
               </a>
             </div>
 
-            <div className={styles.sidebarSection} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '24px' }}>
-              <div className={styles.footerLinks}>
-                <a href="#">Help</a>
-                <a href="#">Status</a>
-                <a href="#">About</a>
-                <a href="#">Careers</a>
-                <a href="#">Press</a>
-                <a href="#">Privacy</a>
-                <a href="#">Terms</a>
+            <div className={styles.sidebarSection} style={{ opacity: 0.5 }}>
+              <div className={styles.footerGrid}>
+                {['Help', 'Status', 'About', 'Careers', 'Press', 'Privacy'].map(link => (
+                  <a key={link} href="#" className={styles.footerLink}>{link}</a>
+                ))}
               </div>
             </div>
           </aside>
 
+          {/* Main Feed */}
           <div>
             <div className={styles.controlsHeader}>
-              <div className={styles.searchFilter}>
-                <div className={styles.searchWrapper}>
-                  <Search size={16} className={styles.searchIcon} />
-                  <input type="text" placeholder="Search stories..." className={styles.searchInput} />
-                </div>
-                <button className={styles.filterBtn} onClick={() => setIsFilterModalOpen(true)}>
-                  <Filter size={16} /> Filter
-                </button>
-              </div>
-
-              <div className={styles.viewControls}>
-                <button 
-                  className={`${styles.viewBtn} ${viewMode === 'grid' ? styles.viewBtnActive : ''}`}
-                  onClick={() => setViewMode('grid')}
-                  title="Grid View"
-                >
-                  <LayoutGrid size={18} />
-                </button>
-                <button 
-                  className={`${styles.viewBtn} ${viewMode === 'horizontal' ? styles.viewBtnActive : ''}`}
-                  onClick={() => setViewMode('horizontal')}
-                  title="List View"
-                >
-                  <List size={18} />
-                </button>
+              <div className={styles.searchBox}>
+                <Search size={18} className={styles.searchIcon} />
+                <input 
+                  type="text" 
+                  placeholder="Search chronicles..." 
+                  className={styles.searchInput}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
             </div>
-            
-            <section className={`${styles.articleList} ${viewMode === 'horizontal' ? styles.horizontalView : ''}`}>
-              {loading ? (
-                <div style={{ gridColumn: '1/-1', padding: '4rem', textAlign: 'center', opacity: 0.5 }}>
-                   <div className="premiumLoader" style={{ margin: '0 auto 1rem' }}></div>
-                   <p>Gathering Chronicles...</p>
-                </div>
-              ) : ideas.length === 0 ? (
-                <div style={{ gridColumn: '1/-1', padding: '4rem', textAlign: 'center', opacity: 0.5 }}>
-                   <FileText size={48} style={{ margin: '0 auto 1rem', display: 'block' }} />
-                   <p>No stories have been published yet. Be the first!</p>
-                </div>
-              ) : ideas.map((post, i) => (
-                <motion.article 
-                  key={post.id || post._id} 
-                  className={styles.articleCard}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6 }}
-                  onClick={() => router.push(`/ideas/${post.id || post._id}/${post.slug || getSlug(post.title || 'story')}`)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {post.image && (
+
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '100px 0', opacity: 0.5 }}>
+                <div className="premiumLoader" style={{ marginBottom: '20px' }}></div>
+                <p style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px' }}>Loading the Chronicles...</p>
+              </div>
+            ) : filteredIdeas.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '100px 0', opacity: 0.3 }}>
+                <FileText size={60} style={{ marginBottom: '20px' }} />
+                <p style={{ fontSize: '1.2rem', fontWeight: 900 }}>No chronicles found in this sector.</p>
+              </div>
+            ) : (
+              <div className={styles.articleList}>
+                {filteredIdeas.map((idea, i) => (
+                  <motion.div 
+                    key={idea.id || idea._id}
+                    className={styles.articleCard}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
+                  >
                     <div className={styles.articleImageWrapper}>
-                      <img src={post.image} alt={post.title} />
-                    </div>
-                  )}
-
-                  <div className={styles.articlePlatformRow}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.65rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
-                      <FileText size={14} color="var(--primary)" /> 
-                      CHRONICLE
-                    </div>
-                    <motion.div className={styles.articleCategoryBadge} whileHover={{ scale: 1.1, rotate: 2 }}>
-                      {post.category || "STORY"}
-                    </motion.div>
-                  </div>
-
-                  <div className={styles.articleContentWrapper}>
-                    <div className={styles.articleText}>
-                      <div className={styles.metaRow}>
-                        <span>{formatDate(post.time)}</span>
-                        <div className={styles.metaDivider} />
-                        <span>{post.readTime || "5 min read"}</span>
+                      <img src={idea.image || `https://picsum.photos/seed/${idea.id || i}/800/450`} alt={idea.title} />
+                      <div className={styles.licenseBadge}>
+                        {idea.licenseCode ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <BadgeCheck size={12} /> {idea.licenseCode}
+                          </div>
+                        ) : (
+                          "Community"
+                        )}
                       </div>
+                    </div>
+                    <div className={styles.articleContent}>
+                      <span className={styles.categoryBadge}>{idea.category || "Original Fiction"}</span>
+                      <h2 className={styles.articleTitle}>{idea.title}</h2>
+                      <p className={styles.articleExcerpt}>{idea.description || idea.excerpt || "No description available for this chronicle."}</p>
                       
-                      <h2 className={styles.articleTitle}>{post.title}</h2>
-                      <p className={styles.articleExcerpt}>{post.description || post.excerpt}</p>
-                      
-                      <div className={styles.articleAuthor}>
-                        <img src={post.authorPhoto || `https://i.pravatar.cc/150?u=${post.authorUid || i}`} alt={post.author} className={styles.authorAvatar} />
-                        <span>{post.author}</span>
+                      <div className={styles.articleMeta}>
+                        <div className={styles.authorInfo}>
+                          <img src={idea.authorPhoto || `https://i.pravatar.cc/150?u=${idea.authorUid || i}`} alt={idea.author} className={styles.authorAvatar} />
+                          <span className={styles.authorName}>{idea.author}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', opacity: 0.6 }}>
+                           <ArrowRight size={14} />
+                           <span style={{ fontSize: '0.7rem', fontWeight: 900 }}>READ MORE</span>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className={styles.articleFooter}>
-                      <button className={styles.readBtn}>Read Story</button>
-                      <div 
-                        className={styles.actionIcons} 
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ display: 'flex', gap: '12px' }}
-                      >
-                        <Bookmark size={18} className={styles.actionIcon} style={{ cursor: 'pointer' }} />
-                        <Heart size={18} className={styles.actionIcon} style={{ cursor: 'pointer' }} />
-                      </div>
-                    </div>
+                  </motion.div>
+                ))}
+                {loadingMore && (
+                  <div style={{ gridColumn: '1/-1', display: 'flex', justifyContent: 'center', padding: '20px' }}>
+                    <div className="premiumLoader"></div>
                   </div>
-                </motion.article>
-              ))}
-            </section>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
       <Footer />
     </main>
   );

@@ -8,3 +8,4 @@ export * from './payments';
 export * from './rewards';
 export * from './rules';
 export * from './blogs';
+export * from './licenses';

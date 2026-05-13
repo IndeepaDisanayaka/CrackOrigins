@@ -1,13 +1,46 @@
 "use server";
 
+import crypto from 'crypto';
 import { getMongoDb } from '../mongodb';
 import { encrypt, decrypt } from '../crypto';
-import { getBlogPosts } from '../blog';
 import { toIsoDate } from './helpers';
 import * as Types from './types';
 import { hasPermission } from './rules';
-import { addAffiliateReward } from './payments';
 import { ObjectId } from 'mongodb';
+
+export async function normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+}
+
+export async function hashEmail(email: string) {
+    return crypto.createHash('sha256').update(await normalizeEmail(email)).digest('hex');
+}
+
+export async function findUserByEmail(email: string) {
+    const db = await getMongoDb();
+    const accountsCol = db.collection('accounts');
+    const normalizedEmail:string = await normalizeEmail(email);
+    const emailHash = await hashEmail(normalizedEmail);
+
+    const byHash = await accountsCol.findOne({ emailHash });
+    if (byHash) return byHash;
+
+    const cursor = accountsCol.find({});
+    while (await cursor.hasNext()) {
+        const account = await cursor.next();
+        if (!account?.email || typeof account.email !== 'string') continue;
+        try {
+            const decryptedEmail:string = await normalizeEmail(decrypt(account.email));
+            if (decryptedEmail === normalizedEmail) {
+                return account;
+            }
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
+}
 
 export async function syncUserRecord(uid: string, data: {
     isOwner: boolean,
@@ -58,6 +91,7 @@ export async function syncUserRecord(uid: string, data: {
             isOwner: isNewUser ? data.isOwner : (existing?.isOwner ?? data.isOwner),
             name: data.name,
             email: encrypt(data.email || "unknown"),
+            emailHash: data.email ? await hashEmail(data.email) : null,
             photoURL: data.photoURL,
             created: existing?.created || data.created || new Date().toISOString(),
             last: data.last || new Date().toISOString(),
