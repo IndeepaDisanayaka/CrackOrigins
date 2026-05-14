@@ -17,8 +17,8 @@ import { useModals } from '@/lib/contexts/ModalContext';
 import AuthModal from '@/components/AuthModal';
 import IdeaEditor from '@/components/ideas/IdeaEditor';
 import { useToast } from '@/components/Toast';
-import { 
-  getIdeaSections, saveCollaborationContent, getIdeaById, 
+import {
+  getIdeaSections, saveCollaborationContent, getIdeaById,
   incrementIdeaViews, toggleLibrarySave, voteIdea, getIdeaUserStatus,
   updateIdeaMetadata
 } from '@/lib/idea-actions';
@@ -61,6 +61,9 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     isPrivate: false
   });
   const [isUpdatingMeta, setIsUpdatingMeta] = useState(false);
+  const [isVoteTutorialOpen, setIsVoteTutorialOpen] = useState(false);
+  const [isVoteTutorialAgreed, setIsVoteTutorialAgreed] = useState(false);
+  const [pendingVote, setPendingVote] = useState<'up' | 'down' | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -95,10 +98,10 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
           const viewedKey = `chronicle_viewed_${id}`;
           const hasViewed = localStorage.getItem(viewedKey);
           if (!hasViewed) {
-             const vRes = await incrementIdeaViews(id);
-             if (vRes.success) {
-                localStorage.setItem(viewedKey, 'true');
-             }
+            const vRes = await incrementIdeaViews(id);
+            if (vRes.success) {
+              localStorage.setItem(viewedKey, 'true');
+            }
           }
 
           // Fetch sections using Server Action
@@ -136,15 +139,15 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   useEffect(() => {
     const fetchUserStatus = async () => {
       if (!user || !id) {
-          setIsSaved(false);
-          setUserVote(null);
-          return;
+        setIsSaved(false);
+        setUserVote(null);
+        return;
       }
       try {
         const statusRes = await getIdeaUserStatus(user.uid, id);
         if (statusRes.success) {
-            setIsSaved(!!statusRes.isSaved);
-            setUserVote(statusRes.userVote as any);
+          setIsSaved(!!statusRes.isSaved);
+          setUserVote(statusRes.userVote as any);
         }
       } catch (err) {
         console.error("Error fetching user status:", err);
@@ -159,18 +162,18 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     if (!user || !idea) return;
     setIsUpdatingMeta(true);
     try {
-        const res = await updateIdeaMetadata(id, user.uid, metaFormData);
-        if (res.success) {
-            showToast("Metadata updated successfully.", "success");
-            setIdea((prev: any) => ({ ...prev, ...metaFormData }));
-            setIsMetaEditModalOpen(false);
-        } else {
-            showToast(res.error || "Failed to update.", "error");
-        }
+      const res = await updateIdeaMetadata(id, user.uid, metaFormData);
+      if (res.success) {
+        showToast("Metadata updated successfully.", "success");
+        setIdea((prev: any) => ({ ...prev, ...metaFormData }));
+        setIsMetaEditModalOpen(false);
+      } else {
+        showToast(res.error || "Failed to update.", "error");
+      }
     } catch (e) {
-        showToast("An error occurred.", "error");
+      showToast("An error occurred.", "error");
     } finally {
-        setIsUpdatingMeta(false);
+      setIsUpdatingMeta(false);
     }
   };
 
@@ -198,7 +201,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
   const handleSaveContent = async (content: any[], toCloud?: boolean, bypassAgreement = false) => {
     const isSame = JSON.stringify(content) === JSON.stringify(idea.sections);
-    
+
     if (toCloud && isSame) {
       showToast("No Changes Detected", "info", { subtitle: "You haven't made any modifications to publish yet." });
       return;
@@ -207,48 +210,48 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     setIdea((prev: any) => ({ ...prev, sections: content }));
 
     if (toCloud) {
-       if (!user) {
-         showToast("Authentication Required", "warning", { subtitle: "You must be logged in to save to the cloud." });
-         setIsAuthModalOpen(true);
-         return;
-       }
+      if (!user) {
+        showToast("Authentication Required", "warning", { subtitle: "You must be logged in to save to the cloud." });
+        setIsAuthModalOpen(true);
+        return;
+      }
 
-       if (!isSavingConfirmed && !bypassAgreement) {
-         setPendingSaveParams({ content });
-         setIsLicenseModalOpen(true);
-         return;
-       }
+      if (!isSavingConfirmed && !bypassAgreement) {
+        setPendingSaveParams({ content });
+        setIsLicenseModalOpen(true);
+        return;
+      }
 
-       setIsSaving(true);
-       try {
-         const structuredSections = content.map(section => ({
-           ...section,
-           paragraphs: section.paragraphs.map((p: string) => parseHtmlToStructured(p))
-         }));
+      setIsSaving(true);
+      try {
+        const structuredSections = content.map(section => ({
+          ...section,
+          paragraphs: section.paragraphs.map((p: string) => parseHtmlToStructured(p))
+        }));
 
-         const res = await saveCollaborationContent(id, {
-           uid: user.uid,
-           name: user.displayName || 'Anonymous',
-           photo: user.photoURL || ''
-         }, structuredSections);
+        const res = await saveCollaborationContent(id, {
+          uid: user.uid,
+          name: user.displayName || 'Anonymous',
+          photo: user.photoURL || ''
+        }, structuredSections);
 
-         if (res.success) {
-           showToast(
-             res.approved ? "Changes Published" : "Draft Submitted",
-             "success",
-             { subtitle: res.approved ? "Your changes are now live!" : "Draft submitted! Waiting for author's approval." }
-           );
-           setIsSavingConfirmed(false);
-           setPendingSaveParams(null);
-         } else {
-           showToast("Save Failed", "error", { subtitle: res.error });
-         }
-       } catch (err: any) {
-         console.error("Cloud save error:", err);
-         showToast("System Error", "error", { subtitle: "An unexpected error occurred while saving." });
-       } finally {
-         setIsSaving(false);
-       }
+        if (res.success) {
+          showToast(
+            res.approved ? "Changes Published" : "Draft Submitted",
+            "success",
+            { subtitle: res.approved ? "Your changes are now live!" : "Draft submitted! Waiting for author's approval." }
+          );
+          setIsSavingConfirmed(false);
+          setPendingSaveParams(null);
+        } else {
+          showToast("Save Failed", "error", { subtitle: res.error });
+        }
+      } catch (err: any) {
+        console.error("Cloud save error:", err);
+        showToast("System Error", "error", { subtitle: "An unexpected error occurred while saving." });
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -262,93 +265,114 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
   const handleEditCollaboration = (collab: any) => {
     if (!collab || !collab.paragraph) return;
-    
+
     setIdea((prev: any) => {
-        const newSections = prev.sections.map((s: any) => {
-            if (s.id === collab.sectionId) {
-                return {
-                    ...s,
-                    title: collab.subtitle || s.title,
-                    paragraphs: collab.paragraph.map((p: any) => 
-                        typeof p === 'string' ? p : structuredToHtml(p)
-                    )
-                };
-            }
-            return s;
-        });
-        return { ...prev, sections: newSections };
+      const newSections = prev.sections.map((s: any) => {
+        if (s.id === collab.sectionId) {
+          return {
+            ...s,
+            title: collab.subtitle || s.title,
+            paragraphs: collab.paragraph.map((p: any) =>
+              typeof p === 'string' ? p : structuredToHtml(p)
+            )
+          };
+        }
+        return s;
+      });
+      return { ...prev, sections: newSections };
     });
-    
+
     setTargetSectionId(collab.sectionId);
     setMode('editor');
   };
 
   const handleToggleSave = async () => {
     if (!user) {
-        showToast("Authentication Required", "warning", { subtitle: "Login to save this chronicle to your library." });
-        setIsAuthModalOpen(true);
-        return;
+      showToast("Authentication Required", "warning", { subtitle: "Login to save this chronicle to your library." });
+      setIsAuthModalOpen(true);
+      return;
     }
-    
+
     const prevSaved = isSaved;
     setIsSaved(!prevSaved);
-    
+
     try {
-        const res = await toggleLibrarySave(user.uid, id);
-        if (res.success) {
-            setIsSaved(!!res.saved);
-            showToast(
-                res.saved ? "Saved to Library" : "Removed from Library",
-                "success",
-                { subtitle: res.saved ? "This chronicle is now in your vault." : "Chronicle removed from your collection." }
-            );
-        } else {
-            setIsSaved(prevSaved);
-            showToast("Failed to update library status.", "error");
-        }
-    } catch (e) {
+      const res = await toggleLibrarySave(user.uid, id);
+      if (res.success) {
+        setIsSaved(!!res.saved);
+        showToast(
+          res.saved ? "Saved to Library" : "Removed from Library",
+          "success",
+          { subtitle: res.saved ? "This chronicle is now in your vault." : "Chronicle removed from your collection." }
+        );
+      } else {
         setIsSaved(prevSaved);
-        showToast("Operation Failed", "error");
+        showToast("Failed to update library status.", "error");
+      }
+    } catch (e) {
+      setIsSaved(prevSaved);
+      showToast("Operation Failed", "error");
     }
   };
 
   const handleVote = async (type: 'up' | 'down') => {
     if (!user) {
-        showToast("Authentication Required", "warning", { subtitle: "Login to rate this chronicle's uniqueness." });
-        setIsAuthModalOpen(true);
-        return;
+      showToast("Authentication Required", "warning", { subtitle: "Login to rate this chronicle's uniqueness." });
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    // Check if tutorial has been seen
+    const hasSeenTutorial = localStorage.getItem('chronicle_vote_tutorial_seen');
+    if (!hasSeenTutorial) {
+      setPendingVote(type);
+      setIsVoteTutorialOpen(true);
+      return;
     }
 
     const prevVote = userVote;
     const prevIdeaState = { ...idea };
-    
+
     const newVote = prevVote === type ? null : type;
     setUserVote(newVote);
 
     setIdea((prev: any) => {
-        const newStatus = { ...prev.status };
-        if (prevVote === 'up') newStatus.upvotes = Math.max(0, (newStatus.upvotes || 0) - 1);
-        if (prevVote === 'down') newStatus.downvotes = Math.max(0, (newStatus.downvotes || 0) - 1);
-        
-        if (newVote === 'up') newStatus.upvotes = (newStatus.upvotes || 0) + 1;
-        if (newVote === 'down') newStatus.downvotes = (newStatus.downvotes || 0) + 1;
-        
-        return { ...prev, status: newStatus };
+      const newStatus = { ...prev.status };
+      if (prevVote === 'up') newStatus.upvotes = Math.max(0, (newStatus.upvotes || 0) - 1);
+      if (prevVote === 'down') newStatus.downvotes = Math.max(0, (newStatus.downvotes || 0) - 1);
+
+      if (newVote === 'up') newStatus.upvotes = (newStatus.upvotes || 0) + 1;
+      if (newVote === 'down') newStatus.downvotes = (newStatus.downvotes || 0) + 1;
+
+      return { ...prev, status: newStatus };
     });
 
     try {
-        const res = await voteIdea(user.uid, user.displayName || 'Operative', id, type);
-        if (res.success) {
-            setUserVote(res.vote as any);
-        } else {
-            setUserVote(prevVote);
-            setIdea(prevIdeaState);
-            showToast("Failed to register vote.", "error");
-        }
-    } catch (e) {
+      const res = await voteIdea(user.uid, user.displayName || 'Operative', id, type);
+      if (res.success) {
+        setUserVote(res.vote as any);
+      } else {
         setUserVote(prevVote);
         setIdea(prevIdeaState);
-        showToast("Voting Failed", "error");
+        showToast("Failed to register vote.", "error");
+      }
+    } catch (e) {
+      setUserVote(prevVote);
+      setIdea(prevIdeaState);
+      showToast("Voting Failed", "error");
+    }
+  };
+
+  const handleTutorialConfirm = () => {
+    if (!isVoteTutorialAgreed) {
+      showToast("Agreement Required", "warning", { subtitle: "Please acknowledge the voting terms to proceed." });
+      return;
+    }
+    localStorage.setItem('chronicle_vote_tutorial_seen', 'true');
+    setIsVoteTutorialOpen(false);
+    if (pendingVote) {
+      handleVote(pendingVote);
+      setPendingVote(null);
     }
   };
 
@@ -393,16 +417,16 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
               {isAuthor && (
                 <div style={{ marginTop: '1.5rem' }}>
-                    <button 
-                        onClick={() => {
-                            setMetaFormData({ description: idea.description || '', image: idea.image || '', isPrivate: idea.isPrivate || false });
-                            setIsMetaEditModalOpen(true);
-                        }}
-                        className="btnOutline"
-                        style={{ padding: '0.6rem 1.2rem', fontSize: '0.75rem', gap: '0.5rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
-                    >
-                        <Settings size={14} /> EDIT CHRONICLE INFO
-                    </button>
+                  <button
+                    onClick={() => {
+                      setMetaFormData({ description: idea.description || '', image: idea.image || '', isPrivate: idea.isPrivate || false });
+                      setIsMetaEditModalOpen(true);
+                    }}
+                    className="btnOutline"
+                    style={{ padding: '0.6rem 1.2rem', fontSize: '0.75rem', gap: '0.5rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                  >
+                    <Settings size={14} /> EDIT CHRONICLE INFO
+                  </button>
                 </div>
               )}
             </header>
@@ -457,7 +481,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
             {idea.image && (
               <div className={blogPostStyles.bannerContainer} style={{ width: '100%', height: '450px', overflow: 'hidden', border: '1px solid var(--outline-color)' }}>
-                <img src={idea.image} alt={idea.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} />
+                <img src={idea.image} alt={idea.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             )}
 
@@ -474,20 +498,20 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                         <p key={pIndex} dangerouslySetInnerHTML={{ __html: typeof para === 'string' ? para : structuredToHtml(para) }} />
                       ))}
                       {section.collaborators && section.collaborators.length > 0 && (
-                          <div className={styles.sectionCollaborators}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
-                                  <Users size={12} style={{ color: 'var(--primary)' }} /><span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Contributors</span>
-                              </div>
-                              <div className={styles.collaboratorAvatars}>
-                                  {section.collaborators.slice(0, 3).map((collab: any) => (
-                                      <div key={collab.uid} className={styles.collabAvatarWrapper} title={collab.name}>
-                                          <img src={collab.photo || `https://i.pravatar.cc/150?u=${collab.uid}`} alt={collab.name} className={styles.collabAvatar} />
-                                          <div className={styles.collabTooltip}>{collab.name}</div>
-                                      </div>
-                                  ))}
-                                  {section.collaborators.length > 3 && <div className={styles.moreCollabs}>+{section.collaborators.length - 3}</div>}
-                              </div>
+                        <div className={styles.sectionCollaborators}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                            <Users size={12} style={{ color: 'var(--primary)' }} /><span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Contributors</span>
                           </div>
+                          <div className={styles.collaboratorAvatars}>
+                            {section.collaborators.slice(0, 3).map((collab: any) => (
+                              <div key={collab.uid} className={styles.collabAvatarWrapper} title={collab.name}>
+                                <img src={collab.photo || `https://i.pravatar.cc/150?u=${collab.uid}`} alt={collab.name} className={styles.collabAvatar} />
+                                <div className={styles.collabTooltip}>{collab.name}</div>
+                              </div>
+                            ))}
+                            {section.collaborators.length > 3 && <div className={styles.moreCollabs}>+{section.collaborators.length - 3}</div>}
+                          </div>
+                        </div>
                       )}
                     </section>
                   ))}
@@ -517,11 +541,11 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
       <Modal isOpen={isLicenseModalOpen} onClose={() => { setIsLicenseModalOpen(false); setPendingSaveParams(null); }} title="Chronicle License Information" maxWidth="600px">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid var(--primary)', borderRadius: '8px' }}>
-             <BadgeCheck size={32} color="var(--primary)" />
-             <div>
-               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 950 }}>{licenseData?.code || idea.licenseCode || "COMMUNITY OPEN"}</h3>
-               <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.7 }}>{licenseData?.name || "Standard Agency Agreement"}</p>
-             </div>
+            <BadgeCheck size={32} color="var(--primary)" />
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 950 }}>{licenseData?.code || idea.licenseCode || "COMMUNITY OPEN"}</h3>
+              <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.7 }}>{licenseData?.name || "Standard Agency Agreement"}</p>
+            </div>
           </div>
           <div style={{ padding: '0 0.5rem' }}>
             <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem', color: 'var(--primary)' }}>Usage Details</h4>
@@ -541,24 +565,83 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
       </Modal>
 
       <Modal isOpen={isMetaEditModalOpen} onClose={() => setIsMetaEditModalOpen(false)} title="Edit Chronicle Info" maxWidth="600px">
-          <form onSubmit={handleUpdateMeta} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.5rem 0' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}>DESCRIPTION</label>
-                  <textarea className={styles.metaInput} style={{ minHeight: '120px', resize: 'vertical', background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--outline-color)', borderRadius: '4px', padding: '0.8rem' }} value={metaFormData.description} onChange={e => setMetaFormData({ ...metaFormData, description: e.target.value })} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}>COVER IMAGE URL</label>
-                  <input type="url" className={styles.metaInput} style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--outline-color)', borderRadius: '4px', padding: '0.8rem' }} value={metaFormData.image} onChange={e => setMetaFormData({ ...metaFormData, image: e.target.value })} />
-              </div>
-              <div onClick={() => setMetaFormData({ ...metaFormData, isPrivate: !metaFormData.isPrivate })} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1rem', border: '1px solid var(--outline-color)', borderRadius: '8px', cursor: 'pointer', borderColor: metaFormData.isPrivate ? 'var(--primary)' : 'var(--outline-color)', background: metaFormData.isPrivate ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent' }}>
-                  <div style={{ color: metaFormData.isPrivate ? 'var(--primary)' : 'var(--text-muted)' }}>{metaFormData.isPrivate ? <CheckSquare size={18} /> : <Square size={18} />}</div>
-                  <div><div style={{ fontSize: '0.85rem', fontWeight: 800 }}>Private Chronicle</div><div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Direct link access only.</div></div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                  <button type="button" onClick={() => setIsMetaEditModalOpen(false)} className="btnOutline">Cancel</button>
-                  <button type="submit" disabled={isUpdatingMeta} className="btnSolid">{isUpdatingMeta ? "Syncing..." : "Update Meta"}</button>
-              </div>
-          </form>
+        <form onSubmit={handleUpdateMeta} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.5rem 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}>DESCRIPTION</label>
+            <textarea className={styles.metaInput} style={{ minHeight: '120px', resize: 'vertical', background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--outline-color)', borderRadius: '4px', padding: '0.8rem' }} value={metaFormData.description} onChange={e => setMetaFormData({ ...metaFormData, description: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}>COVER IMAGE URL</label>
+            <input type="url" className={styles.metaInput} style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--outline-color)', borderRadius: '4px', padding: '0.8rem' }} value={metaFormData.image} onChange={e => setMetaFormData({ ...metaFormData, image: e.target.value })} />
+          </div>
+          <div onClick={() => setMetaFormData({ ...metaFormData, isPrivate: !metaFormData.isPrivate })} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1rem', border: '1px solid var(--outline-color)', borderRadius: '8px', cursor: 'pointer', borderColor: metaFormData.isPrivate ? 'var(--primary)' : 'var(--outline-color)', background: metaFormData.isPrivate ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent' }}>
+            <div style={{ color: metaFormData.isPrivate ? 'var(--primary)' : 'var(--text-muted)' }}>{metaFormData.isPrivate ? <CheckSquare size={18} /> : <Square size={18} />}</div>
+            <div><div style={{ fontSize: '0.85rem', fontWeight: 800 }}>Private Chronicle</div><div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Direct link access only.</div></div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+            <button type="button" onClick={() => setIsMetaEditModalOpen(false)} className="btnOutline">Cancel</button>
+            <button type="submit" disabled={isUpdatingMeta} className="btnSolid">{isUpdatingMeta ? "Syncing..." : "Update Meta"}</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isVoteTutorialOpen} onClose={() => setIsVoteTutorialOpen(false)} title="Intelligence Validation Protocol" maxWidth="550px">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', padding: '0.5rem 0' }}>
+          <div style={{ background: 'rgba(var(--primary-rgb), 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--primary)', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <BadgeCheck size={32} color="var(--primary)" />
+            <p style={{ margin: 0, fontSize: '0.8rem', lineHeight: 1.5, color: 'var(--foreground)', opacity: 0.9 }}>
+              <strong>Integrity First:</strong> You are the final judge of originality in the Crack Origins multi-verse. Join us in maintaining a high-fidelity narrative environment.
+            </p>
+          </div>
+
+          <div style={{ padding: '0.5rem' }}>
+            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, opacity: 0.9, marginBottom: '1.2rem' }}>
+              If you feel this content is genuinely creative and <strong>not AI-generated</strong> or <strong>duplicate</strong>, please <strong>Upvote</strong>.
+              If it appears to be unoriginal, duplicated, or AI-generated content, please <strong>Downvote</strong>.
+            </p>
+
+            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, opacity: 0.9, marginBottom: '1.2rem' }}>
+              Please be honest. If this is an authentic creation, support the original creator respectfully and consider <strong>Collaborating</strong> together.
+              Simply put, this is your judgment of content quality.
+            </p>
+
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--outline-color)', fontSize: '0.75rem', opacity: 0.7, fontStyle: 'italic' }}>
+              The Upvote/Downvote system measures whether content is high-quality or redundant based on your objective evaluation.
+            </div>
+          </div>
+          <div
+            onClick={() => setIsVoteTutorialAgreed(!isVoteTutorialAgreed)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.8rem',
+              padding: '1.2rem',
+              background: isVoteTutorialAgreed ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent',
+              border: `1px solid ${isVoteTutorialAgreed ? 'var(--primary)' : 'var(--outline-color)'}`,
+              borderRadius: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.3s'
+            }}
+          >
+            <div style={{ color: isVoteTutorialAgreed ? 'var(--primary)' : 'var(--text-muted)' }}>
+              {isVoteTutorialAgreed ? <CheckSquare size={20} /> : <Square size={20} />}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 900, color: isVoteTutorialAgreed ? 'var(--primary)' : 'var(--foreground)' }}>
+                I ACKNOWLEDGE PROTOCOLS
+              </span>
+              <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>I will vote honestly to protect the multi-verse's integrity.</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleTutorialConfirm}
+            className="btnSolid"
+            style={{ width: '100%', padding: '1rem', marginTop: '0.5rem' }}
+          >
+            CONFIRM & VOTE
+          </button>
+        </div>
       </Modal>
     </div>
   );

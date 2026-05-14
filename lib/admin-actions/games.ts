@@ -35,7 +35,7 @@ export async function listGame(adminUid: string, gameData: any) {
 export async function getGames() {
     try {
         const db = await getMongoDb();
-        const docs = await db.collection("games").find().toArray();
+        const docs = await db.collection("games").find().sort({ time: -1 }).toArray();
         const games = await Promise.all(docs.map(async (data: any) => {
             const generatedSlug = await generateGameSlug(data.title || "");
 

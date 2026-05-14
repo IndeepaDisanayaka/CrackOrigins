@@ -10,7 +10,7 @@ import Image from 'next/image';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => Promise<any> | void;
+  onLogin: (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }, referralId?: string | null) => Promise<any> | void;
   title?: string;
 }
 
@@ -25,6 +25,7 @@ export default function AuthModal({
   const [mode, setMode] = useState<'login' | 'signup' | 'google'>('google');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [affiliateCode, setAffiliateCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   const submitAuth = async (type: 'google' | 'email-login' | 'email-signup') => {
@@ -40,7 +41,9 @@ export default function AuthModal({
     setIsLoggingIn(true);
     setErrorMsg('');
     try {
-      const res = await onLogin(type, type === 'google' ? undefined : { email, password });
+      const searchParams = new URLSearchParams(window.location.search);
+      const refId = affiliateCode || searchParams.get('ref');
+      const res = await onLogin(type, type === 'google' ? undefined : { email, password }, refId);
       if (res && res.success === false) {
         setErrorMsg(res.error);
         if (res.error.includes("use Google") || res.error.includes("via Google")) {
@@ -141,6 +144,21 @@ export default function AuthModal({
                                 />
                             </div>
                         </div>
+                        {mode === 'signup' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '0.25rem' }}>Affiliate Code (Optional)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <ShieldCheck size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                    <input 
+                                        type="text" 
+                                        value={affiliateCode}
+                                        onChange={(e) => setAffiliateCode(e.target.value)}
+                                        placeholder="e.g. CRACK77" 
+                                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

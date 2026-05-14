@@ -7,6 +7,7 @@ import { toIsoDate } from './helpers';
 import * as Types from './types';
 import { hasPermission } from './rules';
 import { ObjectId } from 'mongodb';
+import { addAffiliateReward } from './payments';
 
 export async function normalizeEmail(email: string) {
     return email.trim().toLowerCase();
@@ -78,11 +79,12 @@ export async function syncUserRecord(uid: string, data: {
 
         // Handle Referral Logic (new users only)
         let referredBy = existing?.referredBy || null;
+        let inviterUid: string | null = null;
         if (isNewUser && data.referralId && data.referralId !== affiliateId) {
             const inviter = await accountsCol.findOne({ affiliateId: data.referralId });
             if (inviter) {
                 referredBy = data.referralId;
-                // Could trigger reward here if needed
+                inviterUid = inviter.uid;
             }
         }
 
@@ -110,6 +112,20 @@ export async function syncUserRecord(uid: string, data: {
             { upsert: true }
         );
 
+        // Also track in account_affiliates collection for proper affiliate counting
+        if (isNewUser && referredBy && inviterUid) {
+            const db2 = await getMongoDb();
+            await db2.collection('account_affiliates').updateOne(
+                { referredUid: uid },
+                { $set: { referredUid: uid, referredBy: inviterUid, affiliateCode: referredBy, date: new Date() } },
+                { upsert: true }
+            );
+            // Reward the inviter based on their current level
+            try {
+                await addAffiliateReward(inviterUid, 0, 'onetime');
+            } catch (e) { console.warn('Could not reward inviter:', e); }
+        }
+
         return { success: true, affiliateId };
     } catch (error: any) {
         console.error("Error syncing user record:", error);
@@ -128,7 +144,7 @@ export async function checkAdminStatus(uid: string) {
             metadata: { creationTime: null, lastSignInTime: null } 
         };
 
-        const affiliateCount = await db.collection('affiliates').countDocuments({ referredBy: uid });
+        const affiliateCount = await db.collection('account_affiliates').countDocuments({ referredBy: uid });
         const isOwner = data?.isOwner === true;
         const isAdmin = isOwner || !!data?.ruleId;
 
@@ -302,7 +318,7 @@ export async function getAdminDashboardData(adminUid: string) {
             // e.g. 'payments' and 'user_offers' with 'userId' or 'uid' field
             const [paymentsSnap, offersPurchSnap] = await Promise.all([
                 db.collection("payments").find().toArray(),
-                db.collection("user_offers").find().toArray()
+                db.collection("account_offers").find().toArray()
             ]);
 
             const pushRecord = (data: any, source: "payment" | "offerPayment") => {
@@ -372,8 +388,8 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
         await Promise.all([
             db.collection("accounts").deleteOne({ uid: targetUid }),
             db.collection("payments").deleteMany({ userId: targetUid }),
-            db.collection("user_offers").deleteMany({ userId: targetUid }),
-            db.collection("affiliates").deleteMany({ referredBy: targetUid })
+            db.collection("account_offers").deleteMany({ userId: targetUid }),
+            db.collection("account_affiliates").deleteMany({ referredBy: targetUid })
         ]);
 
         return { success: true };
@@ -430,7 +446,7 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
 
             const [paymentCount, offerCount] = await Promise.all([
                 db.collection("payments").countDocuments({ userId: data.uid }),
-                db.collection("user_offers").countDocuments({ userId: data.uid })
+                db.collection("account_offers").countDocuments({ userId: data.uid })
             ]);
 
             const hasActivity = paymentCount > 0 || offerCount > 0;
@@ -469,7 +485,7 @@ export async function getUserSupportData(adminUid: string, targetUid: string) {
         const [userDoc, paymentsSnap, offersPurchSnap] = await Promise.all([
             db.collection("accounts").findOne({ uid: targetUid }),
             db.collection("payments").find({ userId: targetUid }).toArray(),
-            db.collection("user_offers").find({ userId: targetUid }).toArray()
+            db.collection("account_offers").find({ userId: targetUid }).toArray()
         ]);
 
         if (!userDoc) return { success: false, error: "User not found." };

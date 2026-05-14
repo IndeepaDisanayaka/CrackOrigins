@@ -25,6 +25,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
 
           console.log("Syncing Google user to MongoDB:", user.email);
+          
+          let referralId = null;
+          try {
+            const { cookies } = await import("next/headers");
+            referralId = (await cookies()).get("referralId")?.value || null;
+          } catch (e) {
+            console.warn("Could not read referral cookie:", e);
+          }
+
           const syncRes = await syncUserRecord(user.id!, {
             isOwner: false,
             name: user.name || profile?.name || "User",
@@ -34,6 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             last: new Date().toISOString(),
             country: "Unknown",
             emailVerified: true,
+            referralId: referralId
           });
 
           return true;

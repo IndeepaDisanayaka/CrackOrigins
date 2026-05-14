@@ -16,7 +16,7 @@ export async function getOwnedGames(uid: string) {
  
         const [payments, offers] = await Promise.all([
             db.collection("payments").find({ userId: uid, status: "COMPLETED" }).toArray(),
-            db.collection("user_offers").find({ userId: uid }).toArray()
+            db.collection("account_offers").find({ userId: uid }).toArray()
         ]);
  
         const processRecord = (data: any, isOffer = false) => {
@@ -64,14 +64,14 @@ export async function updateUserKey(adminUid: string, uid: string, paymentId: st
  
         const res = await db.collection("payments").updateOne(
             { _id: objId, userId: uid },
-            { $set: { steamKey: encryptedKey } }
+            { $set: { steamKey: encryptedKey, status: "COMPLETED" } }
         );
  
         if (res.matchedCount > 0) return { success: true };
  
-        const resOffer = await db.collection("user_offers").updateOne(
+        const resOffer = await db.collection("account_offers").updateOne(
             { _id: objId, userId: uid },
-            { $set: { steamKey: encryptedKey } }
+            { $set: { steamKey: encryptedKey, status: "COMPLETED" } }
         );
  
         if (resOffer.matchedCount > 0) return { success: true };
@@ -91,7 +91,7 @@ export async function getUserKey(uid: string, offerId: string) {
         let objId: any = offerId;
         try { objId = new ObjectId(offerId); } catch {}
         
-        let data = await db.collection("user_offers").findOne({ 
+        let data = await db.collection("account_offers").findOne({ 
             $or: [{ _id: objId }, { offerId: offerId }], 
             userId: uid 
         });
@@ -126,7 +126,7 @@ export async function getUserKey(uid: string, offerId: string) {
 export async function getAffiliateProgress(uid: string, listedTime: string, offerId: string) {
     try {
         const db = await getMongoDb();
-        const data = await db.collection("user_offers").findOne({ userId: uid, offerId });
+        const data = await db.collection("account_offers").findOne({ userId: uid, offerId });
         
         if (!data) {
             return { success: true, count: 0 };
@@ -162,7 +162,7 @@ export async function investXP(uid: string, offerId: string, xp: number) {
             const investments = await db.collection("offer_investments").find({ offerId }).toArray();
             investments.forEach((d: any) => currentProgress += Number(d.xp || 0));
         } else {
-            const userOffer = await db.collection("user_offers").findOne({ userId: uid, offerId });
+            const userOffer = await db.collection("account_offers").findOne({ userId: uid, offerId });
             if (userOffer) {
                 currentProgress = userOffer.investedXP || 0;
             }
@@ -179,11 +179,19 @@ export async function investXP(uid: string, offerId: string, xp: number) {
         );
 
         // Add to user's offer record
-        await db.collection("user_offers").updateOne(
+        await db.collection("account_offers").updateOne(
             { userId: uid, offerId },
             { 
                 $inc: { investedXP: xp },
-                $set: { lastInvested: new Date(), status: "investing" }
+                $set: { 
+                    lastInvested: new Date(), 
+                    status: "investing",
+                    game: offerData.title,
+                    gameId: offerData.gameId || offerId,
+                    amount: "0.00",
+                    purchaseDate: new Date(),
+                    payerEmail: userDoc.email
+                }
             },
             { upsert: true }
         );

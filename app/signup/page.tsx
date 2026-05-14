@@ -27,6 +27,7 @@ function SignupContent() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [affiliateCode, setAffiliateCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
@@ -38,6 +39,11 @@ function SignupContent() {
       }
     }
   }, [user, isAuthLoading, router]);
+
+  useEffect(() => {
+    const ref = searchParams?.get('ref');
+    if (ref) setAffiliateCode(ref);
+  }, [searchParams]);
 
   const submitAuth = async (type: 'google' | 'email-signup') => {
     if (type !== 'google' && (!email || !password)) {
@@ -52,7 +58,7 @@ function SignupContent() {
     setIsLoggingIn(true);
     setErrorMsg('');
     try {
-      const refId = searchParams?.get('ref');
+      const refId = affiliateCode || searchParams?.get('ref');
       const res = await login(type, type === 'google' ? undefined : { email, password }, refId);
       
       if (res && res.success === false) {
@@ -137,6 +143,20 @@ function SignupContent() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Create a strong password" 
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
+                      />
+                  </div>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', textAlign: 'left' }}>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '0.25rem' }}>Affiliate Code (Optional)</label>
+                  <div style={{ position: 'relative' }}>
+                      <UserPlus size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                          type="text" 
+                          value={affiliateCode}
+                          onChange={(e) => setAffiliateCode(e.target.value)}
+                          placeholder="e.g. CRACK77" 
                           style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--outline-color)', borderRadius: '8px', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'var(--foreground)', outline: 'none' }}
                       />
                   </div>

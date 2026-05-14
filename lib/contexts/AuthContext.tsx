@@ -163,6 +163,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [session]); // Removed metadata from dependencies to prevent infinite loop
 
   const login = async (type: 'google' | 'email-login' | 'email-signup' = 'google', credentials?: { email: string, password: string }, referralId?: string | null) => {
+    if (referralId) {
+      // Set a short-lived cookie for referral tracking (1 hour)
+      document.cookie = `referralId=${referralId}; path=/; max-age=3600; SameSite=Lax`;
+    }
+
     if (type === 'google') {
       // For Google, we redirect to the login page or trigger sign-in
       // ReferralId logic is handled in the signIn callback on the server

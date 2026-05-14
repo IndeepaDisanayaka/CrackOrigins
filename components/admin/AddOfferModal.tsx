@@ -144,6 +144,8 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
             <Gift size={20} style={{ marginLeft: 'auto', opacity: 0.3 }} />
           </div>
 
+
+          {offerForm.isGiveaway && (
           <div style={{ display: 'flex', gap: '1rem' }}>
             <div 
               onClick={() => setOfferForm({ ...offerForm, offerScope: 'local' })}
@@ -180,6 +182,8 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
               </div>
             </div>
           </div>
+          )}
+
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>

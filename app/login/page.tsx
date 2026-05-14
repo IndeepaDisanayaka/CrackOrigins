@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Mail, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, AlertCircle, ArrowLeft, CheckSquare, Square } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -27,6 +27,7 @@ function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     if (!isAuthLoading && user) {
@@ -169,16 +170,34 @@ function LoginContent() {
             <div style={{ height: '1px', background: 'var(--outline-color)', flex: 1 }}></div>
           </div>
 
+          {/* Terms acceptance - gates Google login */}
+          <div 
+            onClick={() => setAcceptedTerms(!acceptedTerms)}
+            style={{ 
+              display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', 
+              width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)',
+              transition: 'border-color 0.2s ease', borderRadius: '8px',
+              borderColor: acceptedTerms ? 'var(--primary)' : 'var(--outline-color)'
+            }}
+          >
+            <div style={{ marginTop: '0.1rem', color: acceptedTerms ? 'var(--primary)' : 'var(--text-muted)' }}>
+              {acceptedTerms ? <CheckSquare size={18} /> : <Square size={18} />}
+            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', textAlign: 'left', lineHeight: 1.4, fontWeight: 500 }}>
+              I have read and agree to the <a href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 700 }} onClick={(e) => e.stopPropagation()}>Privacy Policy and Terms of Service</a>.
+            </span>
+          </div>
+
           <button
-            disabled={isLoggingIn}
+            disabled={!acceptedTerms || isLoggingIn}
             onClick={() => submitAuth('google')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
               width: '100%', padding: '0.85rem', background: 'transparent', color: 'var(--foreground)',
               border: '1px solid var(--outline-color)', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600,
-              cursor: isLoggingIn ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: isLoggingIn ? 0.5 : 1
+              cursor: (!acceptedTerms || isLoggingIn) ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: (!acceptedTerms || isLoggingIn) ? 0.5 : 1
             }}
-            onMouseOver={(e) => { if (!isLoggingIn) e.currentTarget.style.borderColor = 'var(--primary)' }}
+            onMouseOver={(e) => { if (acceptedTerms && !isLoggingIn) e.currentTarget.style.borderColor = 'var(--primary)' }}
             onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--outline-color)'}
           >
             <Image src="https://www.google.com/favicon.ico" alt="Google" width={16} height={16} quality={75} />

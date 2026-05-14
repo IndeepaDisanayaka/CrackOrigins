@@ -113,7 +113,7 @@ export async function cleanupExpiredOffers(adminUid: string) {
 
         // Identify which expired offers have sales
         const expiredIds = expiredOffers.map(o => o._id);
-        const userOffers = await db.collection("user_offers").find({ offerId: { $in: expiredIds } }).toArray();
+        const userOffers = await db.collection("account_offers").find({ offerId: { $in: expiredIds } }).toArray();
         const soldOfferIds = new Set(userOffers.map(u => u.offerId));
 
         let deletedCount = 0;
@@ -137,19 +137,42 @@ export async function cleanupExpiredOffers(adminUid: string) {
  * Get all purchased offers for a user (payments + user_offers subcollections).
  * Replaces Firestore onSnapshot listeners in SteamMarketplace.
  */
+/** Convert a raw MongoDB document to a plain serializable object safe for Next.js client boundaries. */
+function serializeDoc(doc: any): any {
+    if (doc === null || doc === undefined) return doc;
+    if (Array.isArray(doc)) return doc.map(serializeDoc);
+    if (typeof doc !== 'object') return doc;
+    // BSON ObjectId
+    if (typeof doc.toHexString === 'function') return doc.toHexString();
+    // JS Date
+    if (doc instanceof Date) return doc.toISOString();
+    // Buffer / BSON Binary
+    if (doc.buffer !== undefined && doc._bsontype !== undefined) return doc.toString('hex');
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(doc)) {
+        out[k] = serializeDoc(v);
+    }
+    return out;
+}
+
 export async function getUserPurchasedOffers(userId: string) {
     try {
         const { getMongoDb } = await import('../mongodb');
         const db = await getMongoDb();
         const payments = await db.collection('payments').find({ userId } as any).toArray();
-        const userOffers = await db.collection('user_offers').find({ userId } as any).toArray();
+        const userOffers = await db.collection('account_offers').find({ userId } as any).toArray();
         const offers: Record<string, any> = {};
         for (const p of payments as any[]) {
-            if (p.offerId) offers[p.offerId] = p;
+            if (p.offerId) offers[p.offerId] = serializeDoc(p);
         }
         for (const o of userOffers as any[]) {
-            const key = o.offerId || o._id;
-            offers[key] = { ...(offers[key] || {}), ...o };
+            const raw = serializeDoc(o);
+            const key = raw.offerId || raw._id;
+            const existing = offers[key];
+            // Always prefer COMPLETED status records over investing/other status
+            if (!existing || raw.status === 'COMPLETED' || existing.status !== 'COMPLETED') {
+                offers[key] = { ...(existing || {}), ...raw };
+            }
         }
         return { success: true, purchasedOffers: offers, offers };
     } catch (error: any) {
@@ -157,3 +180,4 @@ export async function getUserPurchasedOffers(userId: string) {
         return { success: false, error: error.message, offers: {} };
     }
 }
+

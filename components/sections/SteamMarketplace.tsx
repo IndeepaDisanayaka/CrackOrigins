@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ShoppingCart, Shield, Clock, CheckCircle2, User as UserIcon, TrendingUp, Users, RefreshCw } from 'lucide-react';
 
@@ -39,6 +39,7 @@ interface SteamCardProps {
     setModalState: (state: any) => void;
     setOfferPayLock: (lock: any) => void;
     handleInvestClick: (game: any) => void;
+    onClaimSuccess?: () => void;
 }
 
 
@@ -54,7 +55,8 @@ function SteamCard({
     setSelectedSteamGame, 
     setModalState,
     setOfferPayLock,
-    handleInvestClick
+    handleInvestClick,
+    onClaimSuccess
 }: SteamCardProps) {
 
     const { showToast } = useToast();
@@ -69,6 +71,7 @@ function SteamCard({
             const result = await capturePayPalOrder("FREE_CLAIM_" + Date.now(), user.uid, game.title, "0.00", undefined, game.id, game.id);
             if (result.success) {
                 showToast(`Success! ${game.title} has been added to your pending claims. Our team will verify it soon.`, "success");
+                if (onClaimSuccess) onClaimSuccess();
             } else {
                 showToast(result.error || "Failed to claim reward.", "error");
             }
@@ -183,14 +186,14 @@ function SteamCard({
                     <div className={styles.keyContainer}>
                         {(() => {
                             const purchasedOffer = purchasedOffers[game.id];
-                            const hasPurchased = purchasedOffer?.status === 'COMPLETED';
+                            const hasPurchased = purchasedOffer?.status === 'COMPLETED' || purchasedOffer?.status === 'PENDING';
 
                             if (hasPurchased) {
-                                if (purchasedOffer.steamKey) {
+                                if (purchasedOffer.status === 'COMPLETED' && purchasedOffer.steamKey) {
                                     return (
                                         <>
-                                            <div className={styles.hiddenKey}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
-                                            <button className={styles.btnUnlock} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
+                                            <div className={styles.hiddenKey} style={{ flex: 4 }}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
+                                            <button className={styles.btnUnlock} style={{ flex: 1 }} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
                                                 {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
                                             </button>
                                         </>
@@ -198,8 +201,8 @@ function SteamCard({
                                 } else {
                                     return (
                                         <>
-                                            <div className={styles.hiddenKey} style={{ fontSize: '0.8rem' }}>PENDING VERIFICATION</div>
-                                            <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                            <div className={styles.hiddenKey} style={{ fontSize: '0.8rem', flex: 4 }}>PENDING VERIFICATION</div>
+                                            <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                                 <Clock size={16} /> PENDING
                                             </button>
                                         </>
@@ -284,7 +287,8 @@ function GlobalSteamCard({
     setSelectedSteamGame, 
     setModalState,
     setOfferPayLock,
-    handleInvestClick
+    handleInvestClick,
+    onClaimSuccess
 }: SteamCardProps) {
 
     const { showToast } = useToast();
@@ -301,6 +305,7 @@ function GlobalSteamCard({
             const result = await capturePayPalOrder("FREE_CLAIM_WINNER_" + Date.now(), user.uid, game.title, "0.00", undefined, game.id, game.id);
             if (result.success) {
                 showToast(`Success! You have claimed your reward for ${game.title}. Our team will verify it soon.`, "success");
+                if (onClaimSuccess) onClaimSuccess();
             } else {
                 showToast(result.error || "Failed to claim reward.", "error");
             }
@@ -388,15 +393,14 @@ function GlobalSteamCard({
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                     {(() => {
                         const purchasedOffer = purchasedOffers[game.id];
-                        const hasPurchased = purchasedOffer?.status === 'COMPLETED';
-
+                        const hasPurchased = purchasedOffer?.status === 'COMPLETED' || purchasedOffer?.status === 'PENDING';
 
                         if (hasPurchased) {
-                            if (purchasedOffer.steamKey) {
+                            if (purchasedOffer.status === 'COMPLETED' && purchasedOffer.steamKey) {
                                 return (
                                     <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
-                                        <div className={styles.hiddenKey}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
-                                        <button className={styles.btnUnlock} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
+                                        <div className={styles.hiddenKey} style={{ flex: 4 }}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
+                                        <button className={styles.btnUnlock} style={{ flex: 1 }} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
                                             {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
                                         </button>
                                     </div>
@@ -404,8 +408,8 @@ function GlobalSteamCard({
                             } else {
                                 return (
                                     <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
-                                        <div className={styles.hiddenKey} style={{ fontSize: '0.8rem' }}>PENDING VERIFICATION</div>
-                                        <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                        <div className={styles.hiddenKey} style={{ fontSize: '0.8rem', flex: 4 }}>PENDING VERIFICATION</div>
+                                        <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                             <Clock size={16} /> PENDING
                                         </button>
                                     </div>
@@ -484,21 +488,9 @@ function GiveawayLeaderboard({
     setSelectedSteamGame, 
     setModalState, 
     setOfferPayLock,
-    handleInvestClick 
-}: { 
-    game: any, 
-    user: any, 
-    affiliateId: string | null, 
-    purchasedOffers: any,
-    showKeys: any,
-    decryptedKeys: any,
-    isFetchingKey: any,
-    handleShowKey: (id: string) => void,
-    setSelectedSteamGame: (game: any) => void, 
-    setModalState: (state: any) => void, 
-    setOfferPayLock: (lock: any) => void,
-    handleInvestClick: (game: any) => void 
-}) {
+    handleInvestClick,
+    onClaimSuccess
+}: any) {
 
 
     const { showToast } = useToast();
@@ -514,6 +506,7 @@ function GiveawayLeaderboard({
             const result = await capturePayPalOrder("FREE_CLAIM_WINNER_" + Date.now(), user.uid, game.title, "0.00", undefined, game.id, game.id);
             if (result.success) {
                 showToast(`Success! You have claimed your reward for ${game.title}. Our team will verify it soon.`, "success");
+                if (onClaimSuccess) onClaimSuccess();
             } else {
                 showToast(result.error || "Failed to claim reward.", "error");
             }
@@ -619,15 +612,14 @@ function GiveawayLeaderboard({
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     {(() => {
                         const purchasedOffer = purchasedOffers[game.id];
-                        const hasPurchased = purchasedOffer?.status === 'COMPLETED';
-
+                        const hasPurchased = purchasedOffer?.status === 'COMPLETED' || purchasedOffer?.status === 'PENDING';
 
                         if (hasPurchased) {
-                            if (purchasedOffer.steamKey) {
+                            if (purchasedOffer.status === 'COMPLETED' && purchasedOffer.steamKey) {
                                 return (
                                     <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
-                                        <div className={styles.hiddenKey}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
-                                        <button className={styles.btnUnlock} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
+                                        <div className={styles.hiddenKey} style={{ flex: 4 }}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
+                                        <button className={styles.btnUnlock} style={{ flex: 1 }} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
                                             {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
                                         </button>
                                     </div>
@@ -635,8 +627,8 @@ function GiveawayLeaderboard({
                             } else {
                                 return (
                                     <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
-                                        <div className={styles.hiddenKey} style={{ fontSize: '0.8rem' }}>PENDING VERIFICATION</div>
-                                        <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                        <div className={styles.hiddenKey} style={{ fontSize: '0.8rem', flex: 4 }}>PENDING VERIFICATION</div>
+                                        <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                             <Clock size={16} /> PENDING
                                         </button>
                                     </div>
@@ -861,23 +853,22 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
+  const fetchUserOffers = useCallback(async () => {
     if (!user) {
-      setPurchasedOffers({});
-      return;
+        setPurchasedOffers({});
+        return;
     }
+    const res = await getUserPurchasedOffers(user.uid);
+    if (res.success && res.purchasedOffers) {
+        setPurchasedOffers(res.purchasedOffers);
+    }
+  }, [user]);
 
-    const fetchUserOffers = async () => {
-        const res = await getUserPurchasedOffers(user.uid);
-        if (res.success && res.purchasedOffers) {
-            setPurchasedOffers(res.purchasedOffers);
-        }
-    };
-
+  useEffect(() => {
     fetchUserOffers();
     const interval = setInterval(fetchUserOffers, 10000); // Poll user offers every 10s
     return () => clearInterval(interval);
-  }, [user]);
+  }, [fetchUserOffers]);
 
   const handleShowKey = async (offerId: string) => {
     if (!user) return;
@@ -935,8 +926,8 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
               setModalState={setModalState}
               setOfferPayLock={setOfferPayLock}
               handleInvestClick={handleInvestClick}
+              onClaimSuccess={fetchUserOffers}
             />
-
         ))}
 
         {isLoadingOffers && steamGames.length === 0 ? (
@@ -952,9 +943,7 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
         ) : (
           (() => {
-            // Filter out the global ones already shown as leaderboards
             const remainingGames = steamGames.filter(game => game.offerScope !== 'global');
-            
             return (showAll ? remainingGames : remainingGames.slice(0, 3))
               .map((game) => {
                 if (game.offerScope === 'global') {
@@ -973,6 +962,7 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
                             setModalState={setModalState}
                             setOfferPayLock={setOfferPayLock}
                             handleInvestClick={handleInvestClick}
+                            onClaimSuccess={fetchUserOffers}
                         />
                     );
                 }
@@ -991,6 +981,7 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
                         setModalState={setModalState}
                         setOfferPayLock={setOfferPayLock}
                         handleInvestClick={handleInvestClick}
+                        onClaimSuccess={fetchUserOffers}
                     />
                 );
               });

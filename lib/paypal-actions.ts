@@ -133,6 +133,14 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
 
             // If it's a limited offer purchase, decrement its quantity
             if (offerId) {
+                // One-time claim validation for free offers
+                if (amount === "0.00" || amount === "0") {
+                    const existingClaim = await db.collection("account_offers").findOne({ userId: uid, offerId });
+                    if (existingClaim) {
+                        return { success: false, error: "You have already claimed this offer." };
+                    }
+                }
+
                 await db.collection("offers").updateOne(
                     { _id: offerId as any },
                     { $inc: { quantity: -1 } }
@@ -151,28 +159,37 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 }
             }
 
+            const isFreeClaim = amount === "0.00" || amount === "0";
+            const userDocForEmail = await db.collection("accounts").findOne({ uid });
+
             const paymentData: any = {
                 userId: uid,
                 game: game,
                 gameId: gameId || "",
                 purchaseDate: new Date(),
-                coupon: couponUsed,
                 amount: amount,
-                activationKey: orderID,
-                activation: "permanent",
-                status: "COMPLETED",
-                paypalOrderId: orderID,
-                payerEmail: encrypt(details.payer?.email_address || "unknown"),
-                payerName: encrypt(
+                status: isFreeClaim ? "PENDING" : "COMPLETED",
+            };
+
+            if (isFreeClaim) {
+                // For free claims, we use user's own email if available
+                paymentData.payerEmail = userDocForEmail?.email || encrypt("free-tier@crackorigins.com");
+            } else {
+                paymentData.coupon = couponUsed;
+                paymentData.activationKey = orderID;
+                paymentData.activation = "permanent";
+                paymentData.paypalOrderId = orderID;
+                paymentData.payerEmail = encrypt(details.payer?.email_address || "unknown");
+                paymentData.payerName = encrypt(
                     details.payer?.name 
                     ? `${details.payer.name.given_name || ""} ${details.payer.name.surname || ""}`.trim() || "unknown" 
                     : "unknown"
-                ),
-            };
+                );
+            }
 
             if (offerId) {
                 paymentData.offerId = offerId;
-                await db.collection("user_offers").updateOne(
+                await db.collection("account_offers").updateOne(
                     { _id: orderID as any, userId: uid },
                     { $set: paymentData },
                     { upsert: true }
@@ -220,7 +237,7 @@ export async function getPayPalBalance(adminUid: string) {
 
         const [payments, offers] = await Promise.all([
             db.collection("payments").find({ status: "COMPLETED" }).toArray(),
-            db.collection("user_offers").find({ status: "COMPLETED" }).toArray()
+            db.collection("account_offers").find({ status: "COMPLETED" }).toArray()
         ]);
 
         payments.forEach(doc => {
