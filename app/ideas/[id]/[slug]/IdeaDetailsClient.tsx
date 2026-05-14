@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowBigUp, ArrowBigDown, Bookmark, Heart, Share2, MessageSquare, Pencil, Eye, ArrowLeft, Users, BadgeCheck, ShieldAlert } from 'lucide-react';
+import { ArrowBigUp, ArrowBigDown, Bookmark, Share2, MessageSquare, Pencil, Eye, ArrowLeft, Users, BadgeCheck, ShieldAlert, Settings, Square, CheckSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
@@ -19,7 +19,8 @@ import IdeaEditor from '@/components/ideas/IdeaEditor';
 import { useToast } from '@/components/Toast';
 import { 
   getIdeaSections, saveCollaborationContent, getIdeaById, 
-  incrementIdeaViews, toggleLibrarySave, voteIdea, getIdeaUserStatus 
+  incrementIdeaViews, toggleLibrarySave, voteIdea, getIdeaUserStatus,
+  updateIdeaMetadata
 } from '@/lib/idea-actions';
 import { getLicenseByCode } from '@/lib/admin-actions';
 import Modal from '@/components/Modal';
@@ -40,7 +41,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [isLiked, setIsLiked] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mode, setMode] = useState<'reader' | 'editor'>('reader');
@@ -54,6 +54,13 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [pendingSaveParams, setPendingSaveParams] = useState<{ content: any[] } | null>(null);
   const [isSavingConfirmed, setIsSavingConfirmed] = useState(false);
+  const [isMetaEditModalOpen, setIsMetaEditModalOpen] = useState(false);
+  const [metaFormData, setMetaFormData] = useState({
+    description: '',
+    image: '',
+    isPrivate: false
+  });
+  const [isUpdatingMeta, setIsUpdatingMeta] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -94,7 +101,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
              }
           }
 
-          // Fetch sections using Server Action to bypass client permission issues
+          // Fetch sections using Server Action
           const sectionsRes = await getIdeaSections(id);
           const sectionsData = sectionsRes.success ? sectionsRes.sections : [];
 
@@ -147,6 +154,26 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     fetchUserStatus();
   }, [user, id]);
 
+  const handleUpdateMeta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !idea) return;
+    setIsUpdatingMeta(true);
+    try {
+        const res = await updateIdeaMetadata(id, user.uid, metaFormData);
+        if (res.success) {
+            showToast("Metadata updated successfully.", "success");
+            setIdea((prev: any) => ({ ...prev, ...metaFormData }));
+            setIsMetaEditModalOpen(false);
+        } else {
+            showToast(res.error || "Failed to update.", "error");
+        }
+    } catch (e) {
+        showToast("An error occurred.", "error");
+    } finally {
+        setIsUpdatingMeta(false);
+    }
+  };
+
   const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
     const res = await login(type, credentials);
     if (res?.success !== false) {
@@ -170,7 +197,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   }
 
   const handleSaveContent = async (content: any[], toCloud?: boolean, bypassAgreement = false) => {
-    // Check if anything actually changed
     const isSame = JSON.stringify(content) === JSON.stringify(idea.sections);
     
     if (toCloud && isSame) {
@@ -178,7 +204,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
       return;
     }
 
-    // Always update local state
     setIdea((prev: any) => ({ ...prev, sections: content }));
 
     if (toCloud) {
@@ -188,7 +213,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
          return;
        }
 
-       // License Agreement Check
        if (!isSavingConfirmed && !bypassAgreement) {
          setPendingSaveParams({ content });
          setIsLicenseModalOpen(true);
@@ -239,9 +263,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const handleEditCollaboration = (collab: any) => {
     if (!collab || !collab.paragraph) return;
     
-    // Map the collaboration sections to match the editor's expected format
-    // For now, we assume collab.paragraph is the content for collab.sectionId
-    
     setIdea((prev: any) => {
         const newSections = prev.sections.map((s: any) => {
             if (s.id === collab.sectionId) {
@@ -260,7 +281,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     
     setTargetSectionId(collab.sectionId);
     setMode('editor');
-    showToast("Content Loaded", "success", { subtitle: "Collaboration draft has been loaded into your editor." });
   };
 
   const handleToggleSave = async () => {
@@ -270,7 +290,6 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         return;
     }
     
-    // Optimistic Update
     const prevSaved = isSaved;
     setIsSaved(!prevSaved);
     
@@ -300,21 +319,17 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         return;
     }
 
-    // Optimistic Update
     const prevVote = userVote;
     const prevIdeaState = { ...idea };
     
     const newVote = prevVote === type ? null : type;
     setUserVote(newVote);
 
-    // Locally update counts
     setIdea((prev: any) => {
         const newStatus = { ...prev.status };
-        // Remove old vote effect
         if (prevVote === 'up') newStatus.upvotes = Math.max(0, (newStatus.upvotes || 0) - 1);
         if (prevVote === 'down') newStatus.downvotes = Math.max(0, (newStatus.downvotes || 0) - 1);
         
-        // Add new vote effect
         if (newVote === 'up') newStatus.upvotes = (newStatus.upvotes || 0) + 1;
         if (newVote === 'down') newStatus.downvotes = (newStatus.downvotes || 0) + 1;
         
@@ -325,19 +340,12 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         const res = await voteIdea(user.uid, user.displayName || 'Operative', id, type);
         if (res.success) {
             setUserVote(res.vote as any);
-            if (res.vote) {
-                const msg = type === 'up' ? "Upvoted!" : "Downvoted";
-                const sub = type === 'up' ? "You found this entry unique and insightful." : "You marked this as less relevant or redundant.";
-                showToast(msg, "success", { subtitle: sub });
-            }
         } else {
-            // Revert on failure
             setUserVote(prevVote);
             setIdea(prevIdeaState);
             showToast("Failed to register vote.", "error");
         }
     } catch (e) {
-        // Revert on failure
         setUserVote(prevVote);
         setIdea(prevIdeaState);
         showToast("Voting Failed", "error");
@@ -354,47 +362,16 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      minHeight: '100vh',
-      width: '100vw',
-      background: 'var(--background)',
-      position: 'relative',
-    }}>
-      {/* Main content — pushed left when sidebar opens */}
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', background: 'var(--background)', position: 'relative' }}>
       <motion.div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 0,
-          position: 'relative',
-          zIndex: 1,
-          width: '100%'
-        }}
-        animate={{
-          width: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '75%' : '100%',
-          marginRight: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '0%' : '0%'
-        }}
+        style={{ display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', zIndex: 1, width: '100%' }}
+        animate={{ width: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '75%' : '100%' }}
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       >
-        <Header
-          isMobileMenuOpen={isMobileMenuOpen}
-          setIsMobileMenuOpen={setIsMobileMenuOpen}
-          style={{
-            width: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile) ? '75%' : '100%',
-            transition: 'width 0.4s ease'
-          }}
-        />
-        <MobileNav
-          isOpen={isMobileMenuOpen}
-          setIsOpen={setIsMobileMenuOpen}
-        />
+        <Header isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+        <MobileNav isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
 
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-          onLogin={handleLogin}
-        />
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} onLogin={handleLogin} />
 
         <CouponModal isOpen={isCouponModalOpen} onClose={() => setIsCouponModalOpen(false)} />
         <AddOfferModal isOpen={isAddOfferModalOpen} onClose={() => setIsAddOfferModalOpen(false)} />
@@ -402,34 +379,31 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         <DispatchModal isOpen={isDispatchModalOpen} onClose={() => setIsDispatchModalOpen(false)} />
 
         {user && isAdmin && (
-          <AdminPanel
-            userUid={user.uid}
-            isOpen={isAdminModalOpen}
-            setIsOpen={setIsAdminModalOpen}
-          />
+          <AdminPanel userUid={user.uid} isOpen={isAdminModalOpen} setIsOpen={setIsAdminModalOpen} />
         )}
 
         <main className={pageStyles.main}>
           <article className={blogPostStyles.blogPostWrapper}>
-            <div className={blogPostStyles.topNavigation}>
-              <Link href="/ideas" className="btnOutline" style={{ marginBottom: '2rem', padding: '0.6rem 1.2rem', fontSize: '0.8rem' }}>
-                <ArrowLeft size={16} /> BACK TO LIBRARY
-              </Link>
-            </div>
-
             <header className={blogPostStyles.postHeader}>
               <div className={blogPostStyles.postMeta}>
-                <span style={{ color: 'var(--primary)', fontWeight: 900 }}>{idea.category || "CHRONICLE"}</span> • {formatDate(idea.time)} • {idea.readTime || "5 min read"}
+                <span style={{ color: 'var(--primary)', fontWeight: 900 }}>{idea.category || "CHRONICLE"}</span> • {formatDate(idea.time)}
               </div>
+              <h1 className={blogPostStyles.postTitle}>{idea.title}</h1>
+              {idea.description && <p className={styles.postDescription}>{idea.description}</p>}
 
-              <h1 className={blogPostStyles.postTitle}>
-                {idea.title}
-              </h1>
-
-              {idea.description && (
-                <p className={styles.postDescription}>
-                  {idea.description}
-                </p>
+              {isAuthor && (
+                <div style={{ marginTop: '1.5rem' }}>
+                    <button 
+                        onClick={() => {
+                            setMetaFormData({ description: idea.description || '', image: idea.image || '', isPrivate: idea.isPrivate || false });
+                            setIsMetaEditModalOpen(true);
+                        }}
+                        className="btnOutline"
+                        style={{ padding: '0.6rem 1.2rem', fontSize: '0.75rem', gap: '0.5rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                    >
+                        <Settings size={14} /> EDIT CHRONICLE INFO
+                    </button>
+                </div>
               )}
             </header>
 
@@ -443,133 +417,47 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                   </div>
                 </div>
 
-                <div 
-                  className={styles.licenseBadgeRow} 
-                  onClick={() => setIsLicenseModalOpen(true)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className={styles.licenseLabel}>
-                    <BadgeCheck size={14} color="var(--primary)" />
-                    <span>LICENSE</span>
-                  </div>
+                <div className={styles.licenseBadgeRow} onClick={() => setIsLicenseModalOpen(true)} style={{ cursor: 'pointer' }}>
+                  <div className={styles.licenseLabel}><BadgeCheck size={14} color="var(--primary)" /><span>LICENSE</span></div>
                   <div className={styles.licenseValue}>{idea.licenseCode || "COMMUNITY"}</div>
                 </div>
               </div>
 
               <div className={styles.interactions}>
                 <div className={styles.modeSwitchContainer}>
-                  <span
-                    className={`${styles.modeLabel} ${mode === 'reader' ? styles.modeLabelActive : ''}`}
-                    onClick={() => setMode('reader')}
-                  >
-                    Reader
-                  </span>
-                  <div
-                    className={`${styles.switch} ${mode === 'editor' ? styles.switchActive : ''}`}
-                    onClick={() => setMode(mode === 'reader' ? 'editor' : 'reader')}
-                  >
+                  <span className={`${styles.modeLabel} ${mode === 'reader' ? styles.modeLabelActive : ''}`} onClick={() => setMode('reader')}>Reader</span>
+                  <div className={`${styles.switch} ${mode === 'editor' ? styles.switchActive : ''}`} onClick={() => setMode(mode === 'reader' ? 'editor' : 'reader')}>
                     <div className={styles.switchHandle} />
                   </div>
-                  <span
-                    className={`${styles.modeLabel} ${mode === 'editor' ? styles.modeLabelActive : ''}`}
-                    onClick={() => setMode('editor')}
-                  >
-                    Editor
-                  </span>
+                  <span className={`${styles.modeLabel} ${mode === 'editor' ? styles.modeLabelActive : ''}`} onClick={() => setMode('editor')}>Editor</span>
                 </div>
 
                 <div className={styles.statsGroup}>
-                  <div className={styles.statBtn} title="Total interactions and views">
-                    <Eye size={20} strokeWidth={1.5} />
-                    <span>{idea.status?.views || idea.views || '0'}</span>
-                  </div>
-                  
+                  <div className={styles.statBtn} title="Views"><Eye size={20} strokeWidth={1.5} /><span>{idea.status?.views || 0}</span></div>
                   <div className={styles.votingCluster}>
-                    <button
-                      className={`${styles.statBtn} ${userVote === 'up' ? styles.statBtnActiveUp : ''}`}
-                      onClick={() => handleVote('up')}
-                      title="Mark as Unique & Insightful (Upvote)"
-                    >
-                      <ArrowBigUp 
-                        size={22} 
-                        strokeWidth={userVote === 'up' ? 0 : 1.5} 
-                        fill={userVote === 'up' ? "var(--primary)" : "none"} 
-                      />
+                    <button className={`${styles.statBtn} ${userVote === 'up' ? styles.statBtnActiveUp : ''}`} onClick={() => handleVote('up')} title="Unique (Upvote)">
+                      <ArrowBigUp size={22} strokeWidth={userVote === 'up' ? 0 : 1.5} fill={userVote === 'up' ? "var(--primary)" : "none"} />
                       <span>{idea.status?.upvotes || 0}</span>
                     </button>
-
-                    <button
-                      className={`${styles.statBtn} ${userVote === 'down' ? styles.statBtnActiveDown : ''}`}
-                      onClick={() => handleVote('down')}
-                      title="Redundant or Less Relevant (Downvote)"
-                    >
-                      <ArrowBigDown 
-                        size={22} 
-                        strokeWidth={userVote === 'down' ? 0 : 1.5} 
-                        fill={userVote === 'down' ? "#ff4d4d" : "none"} 
-                      />
+                    <button className={`${styles.statBtn} ${userVote === 'down' ? styles.statBtnActiveDown : ''}`} onClick={() => handleVote('down')} title="Redundant (Downvote)">
+                      <ArrowBigDown size={22} strokeWidth={userVote === 'down' ? 0 : 1.5} fill={userVote === 'down' ? "#ff4d4d" : "none"} />
                       <span>{idea.status?.downvotes || 0}</span>
                     </button>
                   </div>
                 </div>
 
                 <div className={styles.actionsGroup}>
-                  <button 
-                    className={`${styles.actionBtn} ${isSaved ? styles.actionBtnSaved : ''}`} 
-                    title="Save to My Chronicles Vault"
-                    onClick={handleToggleSave}
-                  >
-                    <Bookmark size={18} fill={isSaved ? "currentColor" : "none"} />
-                  </button>
-                  <button 
-                    className={styles.actionBtn} 
-                    title="Share Chronicle Link"
-                    onClick={() => {
-                      const url = typeof window !== 'undefined' ? window.location.href : '';
-                      navigator.clipboard.writeText(url).then(() => {
-                        showToast('Link copied to clipboard!', 'success', { subtitle: 'Share this idea with others.' });
-                      }).catch(() => {
-                        showToast('Failed to copy link', 'error');
-                      });
-                    }}
-                  >
-                    <Share2 size={18} strokeWidth={1.5} />
-                  </button>
-                  <button
-                    className={`${styles.actionBtn} ${isChatSidebarOpen ? styles.actionBtnActive : ''}`}
-                    title="Comments"
-                    onClick={() => {
-                      setIsChatSidebarOpen(!isChatSidebarOpen);
-                      if (!isChatSidebarOpen) setIsCollabSidebarOpen(false);
-                    }}
-                  >
-                    <MessageSquare size={18} strokeWidth={1.5} />
-                  </button>
-
-                  {/* Collaboration Review Panel — now for everyone, filtered inside */}
-                  <button
-                    className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`}
-                    onClick={() => {
-                      setIsCollabSidebarOpen(!isCollabSidebarOpen);
-                      if (!isCollabSidebarOpen) setIsChatSidebarOpen(false);
-                    }}
-                    title={isCollabSidebarOpen ? "Close Review Panel" : "Review Collaborations"}
-                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
-                  >
-                    <Users size={18} strokeWidth={2} />
-                  </button>
+                  <button className={`${styles.actionBtn} ${isSaved ? styles.actionBtnSaved : ''}`} onClick={handleToggleSave} title="Save Vault"><Bookmark size={18} fill={isSaved ? "currentColor" : "none"} /></button>
+                  <button className={styles.actionBtn} onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('Link copied!', 'success'); }} title="Share"><Share2 size={18} /></button>
+                  <button className={`${styles.actionBtn} ${isChatSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsChatSidebarOpen(!isChatSidebarOpen); if (!isChatSidebarOpen) setIsCollabSidebarOpen(false); }} title="Comments"><MessageSquare size={18} /></button>
+                  <button className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsCollabSidebarOpen(!isCollabSidebarOpen); if (!isCollabSidebarOpen) setIsChatSidebarOpen(false); }} title="Collaborations" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}><Users size={18} /></button>
                 </div>
               </div>
             </div>
 
             {idea.image && (
-              <div className={blogPostStyles.bannerContainer} style={{ position: 'relative', width: '100%', height: '450px', overflow: 'hidden', border: '1px solid var(--outline-color)' }}>
-                <img
-                  src={idea.image}
-                  alt={idea.title}
-                  loading="lazy"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover'}}
-                />
+              <div className={blogPostStyles.bannerContainer} style={{ width: '100%', height: '450px', overflow: 'hidden', border: '1px solid var(--outline-color)' }}>
+                <img src={idea.image} alt={idea.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover'}} />
               </div>
             )}
 
@@ -579,74 +467,38 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                   {idea.sections && idea.sections.map((section: any, index: number) => (
                     <section key={section.id || index} className={styles.blogSection}>
                       <div className={styles.sectionHeaderReader}>
-                        <button
-                          className={styles.inlineEditBtn}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setTargetSectionId(section.id);
-                            setMode('editor');
-                          }}
-                          title="Edit this section"
-                        >
-                          <Pencil size={14} />
-                          <span>Edit Section</span>
-                        </button>
+                        <button className={styles.inlineEditBtn} onClick={() => { setTargetSectionId(section.id); setMode('editor'); }} title="Edit Section"><Pencil size={14} /><span>Edit Section</span></button>
                         <h1 className={styles.blogSectionTitle}>{section.title}</h1>
                       </div>
-                      {section.paragraphs.map((para: any, pIndex: number) => {
-                        const htmlContent = typeof para === 'string' ? para : structuredToHtml(para);
-                        return <p key={pIndex} dangerouslySetInnerHTML={{ __html: htmlContent }} />;
-                      })}
-
-                      {/* Section Contributor Info */}
-                      {section.authorName && section.authorName !== idea.author && (
-                        <div className={styles.sectionContributor}>
-                          <img src={section.authorPhoto || `https://i.pravatar.cc/150?u=${section.authorName}`} alt={section.authorName} className={styles.miniAvatar} />
-                          <div className={styles.contributorDetails}>
-                            <span className={styles.contributorLabel}>Contributed by</span>
-                            <span className={styles.contributorName}>{section.authorName}</span>
+                      {section.paragraphs.map((para: any, pIndex: number) => (
+                        <p key={pIndex} dangerouslySetInnerHTML={{ __html: typeof para === 'string' ? para : structuredToHtml(para) }} />
+                      ))}
+                      {section.collaborators && section.collaborators.length > 0 && (
+                          <div className={styles.sectionCollaborators}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
+                                  <Users size={12} style={{ color: 'var(--primary)' }} /><span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Contributors</span>
+                              </div>
+                              <div className={styles.collaboratorAvatars}>
+                                  {section.collaborators.slice(0, 3).map((collab: any) => (
+                                      <div key={collab.uid} className={styles.collabAvatarWrapper} title={collab.name}>
+                                          <img src={collab.photo || `https://i.pravatar.cc/150?u=${collab.uid}`} alt={collab.name} className={styles.collabAvatar} />
+                                          <div className={styles.collabTooltip}>{collab.name}</div>
+                                      </div>
+                                  ))}
+                                  {section.collaborators.length > 3 && <div className={styles.moreCollabs}>+{section.collaborators.length - 3}</div>}
+                              </div>
                           </div>
-                        </div>
                       )}
                     </section>
                   ))}
-                  {!idea.sections && (
-                    <div className={styles.emptyReader}>
-                      <p>No content available yet. Switch to Editor mode to add some!</p>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className={styles.editorModeContent}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <span className={styles.editorHint}>Editor Mode Active</span>
-                    {isSaving && <span className={styles.savingIndicator}>Saving to Cloud...</span>}
-                  </div>
-
-                  <IdeaEditor
-                    id={id}
-                    initialContent={idea.sections || []}
-                    onSave={handleSaveContent}
-                    isSaving={isSaving}
-                    targetSectionId={targetSectionId}
-                    isAuthor={isAuthor}
-                  />
-
-                  <div style={{ marginTop: '3rem', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--primary)', fontWeight: 800 }}>DRAFT SAVED LOCALLY</p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Use "SAVE TO CLOUD" to sync your changes to the database.</p>
-                  </div>
+                  <IdeaEditor id={id} initialContent={idea.sections || []} onSave={handleSaveContent} isSaving={isSaving} targetSectionId={targetSectionId} isAuthor={isAuthor} />
                 </div>
               )}
-
               <footer className={blogPostStyles.postFooter}>
-                <Link
-                  href="/ideas"
-                  className="btnOutline"
-                >
-                  <ArrowLeft size={16} />
-                  BACK TO IDEAS LIBRARY
-                </Link>
+                <Link href="/ideas" className="btnOutline"><ArrowLeft size={16} /> BACK TO LIBRARY</Link>
               </footer>
             </div>
           </article>
@@ -654,92 +506,59 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
         <Footer />
       </motion.div>
 
-      {/* Collaboration Sidebar — sibling, fixed on the right */}
       <IdeaCollaborationsSidebar
-        isOpen={isCollabSidebarOpen}
-        isMobile={isMobile}
-        onClose={() => setIsCollabSidebarOpen(false)}
-        ideaId={id}
-        currentSections={idea.sections || []}
-        onApproved={() => {
-          router.refresh();
-        }}
-        isAuthor={isAuthor === true} // pass explicit boolean
-        onEditCollaboration={handleEditCollaboration}
+        isOpen={isCollabSidebarOpen} isMobile={isMobile} onClose={() => setIsCollabSidebarOpen(false)}
+        ideaId={id} currentSections={idea.sections || []} onApproved={() => router.refresh()}
+        isAuthor={isAuthor === true} onEditCollaboration={handleEditCollaboration}
       />
 
-      {/* Chat Sidebar */}
-      <IdeaChatSidebar
-        isOpen={isChatSidebarOpen}
-        onClose={() => setIsChatSidebarOpen(false)}
-        ideaTitle={idea.title}
-        ideaId={id}
-        isMobile={isMobile}
-      />
+      <IdeaChatSidebar isOpen={isChatSidebarOpen} onClose={() => setIsChatSidebarOpen(false)} ideaTitle={idea.title} ideaId={id} isMobile={isMobile} />
 
-      <Modal 
-        isOpen={isLicenseModalOpen} 
-        onClose={() => {
-          setIsLicenseModalOpen(false);
-          setPendingSaveParams(null);
-        }} 
-        title="Chronicle License Information"
-        maxWidth="600px"
-      >
+      <Modal isOpen={isLicenseModalOpen} onClose={() => { setIsLicenseModalOpen(false); setPendingSaveParams(null); }} title="Chronicle License Information" maxWidth="600px">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid var(--primary)', borderRadius: '8px' }}>
              <BadgeCheck size={32} color="var(--primary)" />
              <div>
-               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 950 }}>{licenseData?.code || idea.licenseCode || "COMMUNITY OPEN LICENSE"}</h3>
-               <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.7 }}>{licenseData?.name || "Standard Crack Origins Community Usage"}</p>
+               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 950 }}>{licenseData?.code || idea.licenseCode || "COMMUNITY OPEN"}</h3>
+               <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.7 }}>{licenseData?.name || "Standard Agency Agreement"}</p>
              </div>
           </div>
-
           <div style={{ padding: '0 0.5rem' }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem', color: 'var(--primary)' }}>Authorized Usage Details</h4>
-            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, opacity: 0.9 }}>
-              {licenseData?.description || "This chronicle is shared under the standard Crack Origins community agreement. Contributors may propose changes, but the original author maintains creative control over the final version."}
-            </p>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem', color: 'var(--primary)' }}>Usage Details</h4>
+            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, opacity: 0.9 }}>{licenseData?.description || "Shared collective intelligence agreement."}</p>
           </div>
-
-          <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--outline-color)' }}>
-            <h4 style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem', opacity: 0.7 }}>Legal Terms</h4>
-            <p style={{ fontSize: '0.75rem', opacity: 0.5, fontStyle: 'italic', margin: 0 }}>
-              {licenseData?.terms || "By contributing to this chronicle, you acknowledge that Crack Origins holds the platform distribution rights. All unique lore stays with the respective authors under studio supervision."}
-            </p>
-          </div>
-
           {pendingSaveParams && (
             <div style={{ marginTop: '1rem', padding: '1.25rem', border: '2px solid var(--primary)', borderRadius: '12px', background: 'rgba(var(--primary-rgb), 0.03)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <ShieldAlert size={20} color="var(--primary)" />
-                <span style={{ fontWeight: 900, fontSize: '0.9rem' }}>COLABORATION AGREEMENT</span>
-              </div>
-              <p style={{ fontSize: '0.8rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-                Before pushing your changes to the cloud, you must agree to the license terms specified for this chronicle. Your contributions will be linked to your operative ID.
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}><ShieldAlert size={20} color="var(--primary)" /><span style={{ fontWeight: 900, fontSize: '0.9rem' }}>AGREEMENT</span></div>
+              <p style={{ fontSize: '0.8rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>Push changes to the cloud under this license?</p>
               <div style={{ display: 'flex', gap: '1rem' }}>
-                <button 
-                  className="btnSolid" 
-                  style={{ flex: 1, padding: '0.8rem' }}
-                  onClick={handleConfirmAgreement}
-                >
-                  I AGREE & PUBLISH
-                </button>
-                <button 
-                  className="btnOutline" 
-                  style={{ flex: 1, padding: '0.8rem' }}
-                  onClick={() => {
-                    setIsLicenseModalOpen(false);
-                    setPendingSaveParams(null);
-                  }}
-                >
-                  CANCEL
-                </button>
+                <button className="btnSolid" style={{ flex: 1, padding: '0.8rem' }} onClick={handleConfirmAgreement}>I AGREE & PUBLISH</button>
+                <button className="btnOutline" style={{ flex: 1, padding: '0.8rem' }} onClick={() => { setIsLicenseModalOpen(false); setPendingSaveParams(null); }}>CANCEL</button>
               </div>
             </div>
           )}
         </div>
+      </Modal>
+
+      <Modal isOpen={isMetaEditModalOpen} onClose={() => setIsMetaEditModalOpen(false)} title="Edit Chronicle Info" maxWidth="600px">
+          <form onSubmit={handleUpdateMeta} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.5rem 0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}>DESCRIPTION</label>
+                  <textarea className={styles.metaInput} style={{ minHeight: '120px', resize: 'vertical', background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--outline-color)', borderRadius: '4px', padding: '0.8rem' }} value={metaFormData.description} onChange={e => setMetaFormData({ ...metaFormData, description: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}>COVER IMAGE URL</label>
+                  <input type="url" className={styles.metaInput} style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--outline-color)', borderRadius: '4px', padding: '0.8rem' }} value={metaFormData.image} onChange={e => setMetaFormData({ ...metaFormData, image: e.target.value })} />
+              </div>
+              <div onClick={() => setMetaFormData({ ...metaFormData, isPrivate: !metaFormData.isPrivate })} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1rem', border: '1px solid var(--outline-color)', borderRadius: '8px', cursor: 'pointer', borderColor: metaFormData.isPrivate ? 'var(--primary)' : 'var(--outline-color)', background: metaFormData.isPrivate ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent' }}>
+                  <div style={{ color: metaFormData.isPrivate ? 'var(--primary)' : 'var(--text-muted)' }}>{metaFormData.isPrivate ? <CheckSquare size={18} /> : <Square size={18} />}</div>
+                  <div><div style={{ fontSize: '0.85rem', fontWeight: 800 }}>Private Chronicle</div><div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Direct link access only.</div></div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                  <button type="button" onClick={() => setIsMetaEditModalOpen(false)} className="btnOutline">Cancel</button>
+                  <button type="submit" disabled={isUpdatingMeta} className="btnSolid">{isUpdatingMeta ? "Syncing..." : "Update Meta"}</button>
+              </div>
+          </form>
       </Modal>
     </div>
   );

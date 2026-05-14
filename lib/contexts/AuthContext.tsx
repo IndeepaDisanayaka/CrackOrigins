@@ -79,7 +79,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (e) {
-       console.error("All country fetch attempts failed.");
+      console.warn("ipapi.co failed, trying db-ip...");
+    }
+
+    try {
+      // Tertiary: db-ip
+      const res = await fetch("https://api.db-ip.com/v2/free/self");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.countryName) {
+          setCountry(data.countryName);
+          return data.countryName;
+        }
+      }
+    } catch (e) {
+      // All failed, silence the error
     }
     
     return 'Unknown';

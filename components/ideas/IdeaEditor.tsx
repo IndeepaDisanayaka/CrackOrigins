@@ -225,16 +225,77 @@ export default function IdeaEditor({
     highlight: false
   });
 
+  const getSelectionParentElement = (): HTMLElement | null => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    const node = selection.anchorNode;
+    if (!node) return null;
+    return node.nodeType === Node.TEXT_NODE ? node.parentElement : node as HTMLElement;
+  };
+
+  const hasAncestorTag = (element: HTMLElement | null, tagNames: string[]): boolean => {
+    let current = element;
+    while (current) {
+      if (tagNames.includes(current.tagName)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  };
+
+  const deriveActiveStyles = () => {
+    const element = getSelectionParentElement();
+    return {
+      bold: hasAncestorTag(element, ['B', 'STRONG']),
+      italic: hasAncestorTag(element, ['I', 'EM']),
+      underline: hasAncestorTag(element, ['U']),
+      strikeThrough: hasAncestorTag(element, ['S', 'STRIKE']),
+      highlight: hasAncestorTag(element, ['MARK'])
+    };
+  };
+
+  const toggleFormat = (format: 'bold' | 'italic' | 'underline' | 'strikeThrough') => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+
+    const parent = getSelectionParentElement();
+    const formatTags = {
+      bold: ['B', 'STRONG'],
+      italic: ['I', 'EM'],
+      underline: ['U'],
+      strikeThrough: ['S', 'STRIKE']
+    } as const;
+
+    const tagName = format === 'bold' ? 'strong'
+      : format === 'italic' ? 'em'
+      : format === 'underline' ? 'u'
+      : 's';
+
+    const existing = parent?.closest(formatTags[format].join(','));
+    if (existing instanceof HTMLElement) {
+      const fragment = document.createDocumentFragment();
+      while (existing.firstChild) {
+        fragment.appendChild(existing.firstChild);
+      }
+      existing.replaceWith(fragment);
+      setActiveStyles(deriveActiveStyles());
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const wrapper = document.createElement(tagName);
+    wrapper.appendChild(range.extractContents());
+    range.insertNode(wrapper);
+    selection.removeAllRanges();
+    const newRange = document.createRange();
+    newRange.selectNodeContents(wrapper);
+    selection.addRange(newRange);
+    setActiveStyles(deriveActiveStyles());
+  };
+
   // Track selection to update toolbar state
   useEffect(() => {
     const handleSelectionChange = () => {
-      setActiveStyles({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        strikeThrough: document.queryCommandState('strikeThrough'),
-        highlight: document.queryCommandState('hiliteColor') || document.queryCommandState('backColor')
-      });
+      setActiveStyles(deriveActiveStyles());
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);

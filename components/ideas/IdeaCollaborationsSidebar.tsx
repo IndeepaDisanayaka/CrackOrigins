@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   X, Check, Eye, User, Loader2, AlertTriangle, MessageSquare, Clock, 
   CheckCircle2, Trash2, Edit3, Save, Type, Bold, Italic, 
-  Underline, Strikethrough, Maximize2, Minimize2, Highlighter, Plus
+  Underline, Strikethrough, Maximize2, Minimize2, Highlighter, Plus,
+  CheckSquare, Square
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '../Modal';
@@ -108,6 +109,7 @@ export default function IdeaCollaborationsSidebar({
   const [editedSubtitle, setEditedSubtitle] = useState("");
   const [editedParagraphs, setEditedParagraphs] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -178,6 +180,13 @@ export default function IdeaCollaborationsSidebar({
       loadCollaborations(activeTab);
     }
   }, [isOpen, ideaId, activeTab, isAuthor, user]);
+
+  const filteredCollaborations = useMemo(() => {
+    if (showOnlyMine && user) {
+        return collaborations.filter(collab => collab.authorId === user.uid);
+    }
+    return collaborations;
+  }, [collaborations, showOnlyMine, user]);
 
   const handleApprove = async (id: string) => {
     if (!isAuthor) return;
@@ -358,6 +367,31 @@ export default function IdeaCollaborationsSidebar({
               </div>
             </div>
 
+            {isAuthor && activeTab === 'all' && (
+              <div 
+                  onClick={() => setShowOnlyMine(!showOnlyMine)}
+                  style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.6rem', 
+                      padding: '0.75rem 1rem', 
+                      margin: '0 1rem 1rem',
+                      background: 'rgba(var(--primary-rgb), 0.03)',
+                      border: `1px solid ${showOnlyMine ? 'var(--primary)' : 'var(--outline-color)'}`,
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s'
+                  }}
+              >
+                  <div style={{ color: showOnlyMine ? 'var(--primary)' : 'var(--text-muted)' }}>
+                      {showOnlyMine ? <CheckSquare size={16} /> : <Square size={16} />}
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: showOnlyMine ? 'var(--primary)' : 'var(--foreground)' }}>
+                      ONLY MY PUBLISHES
+                  </span>
+              </div>
+            )}
+
             {/* List */}
             <div className={styles.listArea}>
               {loading ? (
@@ -365,8 +399,8 @@ export default function IdeaCollaborationsSidebar({
                   <Loader2 size={24} className="animate-spin" />
                   <p>Loading...</p>
                 </div>
-              ) : collaborations.length > 0 ? (
-                collaborations.map((collab: Collaboration) => (
+              ) : filteredCollaborations.length > 0 ? (
+                filteredCollaborations.map((collab: Collaboration) => (
                   <div key={collab.id} className={styles.collabCard}>
                     <div className={styles.collabHeader}>
                       <div className={styles.userIcon}>

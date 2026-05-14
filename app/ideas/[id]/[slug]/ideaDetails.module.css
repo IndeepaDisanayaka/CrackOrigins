@@ -85,8 +85,9 @@
 .licenseBadgeRow {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 1rem;
+  margin: 10px;
+  /* align-items: flex-end; */
+  padding: 0 0.4rem;
   border-left: 1px solid var(--outline-color);
 }
 
@@ -97,6 +98,7 @@
   font-size: 0.6rem;
   font-weight: 900;
   color: var(--text-muted);
+  margin-top: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -123,6 +125,7 @@
   align-items: center;
   gap: 1.5rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 /* ─── Mode Switch ────────────────────────────────────────────────────── */
@@ -499,7 +502,14 @@
     margin-left: auto;
   }
 }
+@media (max-width:780px) {
+    .modeSwitchContainer {
+    padding: 3px 8px;
+      justify-content: center;
+  width: 100%;
+  }
 
+}
 @media (max-width: 480px) {
   .modeSwitchContainer {
     padding: 3px 8px;

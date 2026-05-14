@@ -25,7 +25,8 @@ import {
   ExternalLink,
   Trash2,
   Filter,
-  BadgeCheck
+  BadgeCheck,
+  Eye
 } from 'lucide-react';
 
 import { StatCard } from './admin/StatCard';
@@ -127,6 +128,7 @@ export default function AdminPanel({
   const [licenseRevokeConfirm, setLicenseRevokeConfirm] = useState<{ open: boolean; id: string; name: string }>({
     open: false, id: "", name: ""
   });
+  const [expandedLicenses, setExpandedLicenses] = useState<string[]>([]);
 
   
   // Creation Modals
@@ -271,6 +273,12 @@ export default function AdminPanel({
   };
 
 
+
+  const toggleLicenseExpand = (id: string) => {
+    setExpandedLicenses(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
 
   const toggleOwner = async () => {
     const res = await updateUserOwnerStatus(userUid, roleConfirm.targetUid, roleConfirm.nextOwner);
@@ -1398,45 +1406,71 @@ export default function AdminPanel({
                             ))}
 
                              {/* Licenses Rendering */}
-                             {activeTab === 'licenses' && licenseData.map((lic: any, idx: number) => (
-                               <tr key={lic._id || idx} style={{ borderBottom: '1px solid var(--outline-color)' }}>
-                                 <td style={{ padding: '1rem' }}>
-                                   <div style={{ fontWeight: 800, color: 'var(--primary)' }}>{lic.code}</div>
-                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{lic.type} License</div>
-                                 </td>
-                                 <td style={{ padding: '1rem' }}>
-                                   <div style={{ fontWeight: 700 }}>{lic.name}</div>
-                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>Validity: {lic.validity}</div>
-                                   <div style={{ fontSize: '0.65rem', opacity: 0.6, marginTop: '4px' }}>Ref: {lic.ideaRef || "N/A"}</div>
-                                 </td>
-                                 <td style={{ padding: '1rem' }}>
-                                   <div style={{ 
-                                     fontSize: '0.7rem', 
-                                     maxWidth: '200px', 
-                                     overflow: 'hidden', 
-                                     textOverflow: 'ellipsis', 
-                                     whiteSpace: 'nowrap',
-                                     opacity: 0.8
-                                   }}>
-                                      {lic.description}
-                                   </div>
-                                   <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '4px' }}>
-                                     Issued: {lic.createdAt ? formatDate(new Date(lic.createdAt), 'dd MMM yyyy') : "N/A"}
-                                   </div>
-                                 </td>
-                                 <td style={{ padding: '1rem' }}>
-                                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                     <button 
-                                       onClick={() => handleDeleteLicense({ id: lic._id, name: lic.name })} 
-                                       className="btnOutline" 
-                                       style={{ padding: '0.4rem 0.60rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
-                                     >
-                                       <Trash2 size={12} /> Revoke
-                                     </button>
-                                   </div>
-                                 </td>
-                               </tr>
-                             ))}
+                             {activeTab === 'licenses' && licenseData.map((lic: any, idx: number) => {
+                               const isExpanded = expandedLicenses.includes(lic._id);
+                               return (
+                                 <React.Fragment key={lic._id || idx}>
+                                   <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--outline-color)', background: isExpanded ? 'rgba(var(--primary-rgb), 0.03)' : 'transparent' }}>
+                                     <td style={{ padding: '1rem' }}>
+                                       <div style={{ fontWeight: 800, color: 'var(--primary)' }}>{lic.code}</div>
+                                       <div style={{ fontSize: '0.65rem', opacity: 0.6, textTransform: 'uppercase' }}>STUDIO CERTIFICATE</div>
+                                     </td>
+                                     <td style={{ padding: '1rem' }}>
+                                       <div style={{ fontWeight: 700 }}>{lic.name}</div>
+                                       <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '4px' }}>
+                                         Issued: {lic.createdAt ? formatDate(new Date(lic.createdAt), 'dd MMM yyyy') : "N/A"}
+                                       </div>
+                                     </td>
+                                     <td style={{ padding: '1rem' }}>
+                                       <div style={{ 
+                                         fontSize: '0.7rem', 
+                                         maxWidth: '220px', 
+                                         overflow: 'hidden', 
+                                         textOverflow: 'ellipsis', 
+                                         whiteSpace: 'nowrap',
+                                         opacity: 0.8
+                                       }}>
+                                          {lic.description}
+                                       </div>
+                                     </td>
+                                     <td style={{ padding: '1rem' }}>
+                                       <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                         <button 
+                                           onClick={() => toggleLicenseExpand(lic._id)}
+                                           className="btnOutline"
+                                           style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', gap: '0.4rem' }}
+                                         >
+                                           {isExpanded ? <ChevronUp size={12} /> : <Eye size={12} />} {isExpanded ? "Collapse" : "Details"}
+                                         </button>
+                                         <button 
+                                           onClick={() => setLicenseRevokeConfirm({ open: true, id: lic._id, name: lic.name })} 
+                                           className="btnOutline" 
+                                           style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                         >
+                                           <Trash2 size={12} /> Revoke
+                                         </button>
+                                       </div>
+                                     </td>
+                                   </tr>
+                                   {isExpanded && (
+                                     <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'rgba(var(--primary-rgb), 0.02)' }}>
+                                       <td colSpan={4} style={{ padding: '1.5rem' }}>
+                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                           <div style={{ borderLeft: '2px solid var(--primary)', paddingLeft: '1rem' }}>
+                                             <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Scope & Description</div>
+                                             <div style={{ fontSize: '0.85rem', lineHeight: 1.6, opacity: 0.9 }}>{lic.description}</div>
+                                           </div>
+                                           <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--outline-color)' }}>
+                                             <div style={{ fontSize: '0.65rem', fontWeight: 800, opacity: 0.6, textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '1px' }}>Legal Terms & Usage Constraints</div>
+                                             <div style={{ fontSize: '0.75rem', opacity: 0.8, lineHeight: 1.5, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>{lic.terms || "Subject to standard agency lore agreement."}</div>
+                                           </div>
+                                         </div>
+                                       </td>
+                                     </tr>
+                                   )}
+                                 </React.Fragment>
+                               );
+                             })}
                            </tbody>
                       </table>
                    </div>

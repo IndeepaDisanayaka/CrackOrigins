@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Type, AlignLeft, ImageIcon, Plus, Sparkles, Loader2, CheckSquare, Square, BadgeCheck } from 'lucide-react';
+import { FileText, Type, AlignLeft, ImageIcon, Plus, Sparkles, Loader2, CheckSquare, Square, BadgeCheck, ShieldAlert } from 'lucide-react';
 import Modal from '../Modal';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useToast } from '../Toast';
@@ -84,7 +84,21 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Publish New Story" maxWidth="550px">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.5rem 0' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
+        <div style={{
+          background: 'rgba(255, 107, 107, 0.08)',
+          padding: '1rem',
+          borderRadius: '10px',
+          border: '1px dashed rgba(255, 107, 107, 0.3)',
+          display: 'flex',
+          gap: '0.8rem',
+          alignItems: 'center'
+        }}>
+           <ShieldAlert size={20} color="#ff6b6b" />
+           <p style={{ margin: 0, fontSize: '0.75rem', color: '#ff6b6b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+             Warning: Title and License terms are permanent once synchronized with the cloud.
+           </p>
+        </div>
         <div style={{
           background: 'linear-gradient(135deg, rgba(254, 182, 12, 0.1) 0%, rgba(254, 182, 12, 0.05) 100%)',
           padding: '1.25rem',
