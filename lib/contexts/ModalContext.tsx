@@ -29,6 +29,8 @@ interface ModalContextType {
   setIsCreateIdeaOpen: (open: boolean) => void;
   isLicenseModalOpen: boolean;
   setIsLicenseModalOpen: (open: boolean) => void;
+  isIdeaSidebarOpen: boolean;
+  setIsIdeaSidebarOpen: (open: boolean) => void;
   closeAllModals: () => void;
 }
 
@@ -48,6 +50,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const [selectedBlogId, setSelectedBlogId] = useState('');
   const [isCreateIdeaOpen, setIsCreateIdeaOpen] = useState(false);
   const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [isIdeaSidebarOpen, setIsIdeaSidebarOpen] = useState(false);
 
   const closeAllModals = () => {
     setIsAuthModalOpen(false);
@@ -60,6 +63,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     setIsBlogChatOpen(false);
     setIsCreateIdeaOpen(false);
     setIsLicenseModalOpen(false);
+    setIsIdeaSidebarOpen(false);
     setSelectedBugGame(null);
   };
 
@@ -91,6 +95,8 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       setIsCreateIdeaOpen,
       isLicenseModalOpen,
       setIsLicenseModalOpen,
+      isIdeaSidebarOpen,
+      setIsIdeaSidebarOpen,
       closeAllModals
     }}>
       {children}

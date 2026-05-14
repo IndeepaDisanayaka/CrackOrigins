@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '../Modal';
-import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration, deleteCollaboration, updateCollaboration } from '@/lib/idea-actions';
+import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration, deleteCollaboration, updateCollaboration, getCollaborationById } from '@/lib/idea-actions';
 import { structuredToHtml, parseHtmlToStructured } from '@/lib/text-parser';
 import { useToast } from '../Toast';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -23,6 +23,7 @@ interface Collaboration {
   sectionId: string;
   time: number;
   isApproved?: boolean;
+  parentId?: string;
 }
 
 interface IdeaCollaborationsSidebarProps {
@@ -91,6 +92,8 @@ export default function IdeaCollaborationsSidebar({
   const [isUnapproving, setIsUnapproving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [parentCollab, setParentCollab] = useState<any>(null);
+  const [parentLoading, setParentLoading] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const originalSubtitle = useRef("");
   const originalParagraphs = useRef<string[]>([]);
@@ -180,6 +183,29 @@ export default function IdeaCollaborationsSidebar({
       loadCollaborations(activeTab);
     }
   }, [isOpen, ideaId, activeTab, isAuthor, user]);
+
+  useEffect(() => {
+    const fetchParent = async () => {
+        if (!selectedCollab || !selectedCollab.parentId) {
+            setParentCollab(null);
+            return;
+        }
+        setParentLoading(true);
+        try {
+            const res = await getCollaborationById(selectedCollab.parentId);
+            if (res.success) {
+                setParentCollab(res.collaboration);
+            } else {
+                setParentCollab(null);
+            }
+        } catch (e) {
+            setParentCollab(null);
+        } finally {
+            setParentLoading(false);
+        }
+    };
+    fetchParent();
+  }, [selectedCollab]);
 
   const filteredCollaborations = useMemo(() => {
     if (showOnlyMine && user) {
@@ -544,15 +570,46 @@ export default function IdeaCollaborationsSidebar({
                 ) : (
                     <>
                     {(() => {
+                        // Priority 1: Fetch actual parent by parentId (Historical reference)
+                        if (parentCollab) {
+                            return (
+                                <div className={styles.reviewSection}>
+                                  <div className={styles.sectionHeader}>
+                                    <div className={`${styles.sectionIndicator} ${styles.indicatorOriginal}`} />
+                                    <label>Original Content (Base Version)</label>
+                                  </div>
+                                  <div className={`${styles.reviewCard} ${styles.originalCard}`}>
+                                  <div className={styles.proposedTitleBlock} style={{ marginBottom: '1rem', borderBottom: '1px dashed var(--outline-color)', paddingBottom: '0.75rem' }}>
+                                    <span className={styles.fieldLabel}>BASE TITLE (ID: {parentCollab.sectionId})</span>
+                                    <h3 className={styles.proposedTitle} style={{ opacity: 0.7 }}>{parentCollab.subtitle || 'Untitled'}</h3>
+                                  </div>
+                                  <div className={styles.contentBlock}>
+                                      <div className={styles.parentContent}>
+                                        {parentCollab.paragraph.map((p: any, i: number) => {
+                                          const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
+                                          return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                        }
+
+                        // Priority 2: Fallback to current section if no parentId but sectionId exists (Direct edit of live version)
                         const parent = currentSections.find(s => s.id === selectedCollab.sectionId);
                         if (parent) {
                           return (
                             <div className={styles.reviewSection}>
                               <div className={styles.sectionHeader}>
                                 <div className={`${styles.sectionIndicator} ${styles.indicatorOriginal}`} />
-                                <label>Current Version</label>
+                                <label>Original Content (Base Version)</label>
                               </div>
                               <div className={`${styles.reviewCard} ${styles.originalCard}`}>
+                                <div className={styles.proposedTitleBlock} style={{ marginBottom: '1rem', borderBottom: '1px dashed var(--outline-color)', paddingBottom: '0.75rem' }}>
+                                  <span className={styles.fieldLabel}>BASE TITLE (ID: {parent.id})</span>
+                                  <h3 className={styles.proposedTitle} style={{ opacity: 0.7 }}>{parent.subtitle || 'Untitled'}</h3>
+                                </div>
                                 <div className={styles.contentBlock}>
                                   <div className={styles.parentContent}>
                                     {parent.paragraphs.map((p: any, i: number) => {
@@ -565,21 +622,45 @@ export default function IdeaCollaborationsSidebar({
                             </div>
                           );
                         }
-                        return null;
+
+                        // Priority 3: Loading state
+                        if (parentLoading) {
+                            return (
+                                <div className={styles.reviewSection}>
+                                    <div className={styles.sectionHeader}>
+                                        <div className={styles.indicatorOriginal} />
+                                        <label>Loading Base Context...</label>
+                                    </div>
+                                    <div className={styles.reviewCard} style={{ opacity: 0.5, borderStyle: 'dashed' }}>
+                                        <div className="animate-pulse" style={{ height: '100px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }} />
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // Priority 4: Fresh contribution
+                        return (
+                            <div className={styles.reviewSection}>
+                              <div className={styles.sectionHeader}>
+                                <div className={`${styles.sectionIndicator} ${styles.indicatorNew}`} />
+                                <label>Fresh Contribution (New Section)</label>
+                              </div>
+                            </div>
+                        );
                       })()}
       
                       <div className={styles.reviewSection}>
                         <div className={styles.sectionHeader}>
                           <div className={styles.sectionIndicator} />
-                          <label>Proposed Changes</label>
+                          <label>New Proposed Revision</label>
                         </div>
                         <div className={styles.reviewCard}>
                           <div className={styles.proposedTitleBlock}>
-                            <span className={styles.fieldLabel}>Section Title</span>
+                            <span className={styles.fieldLabel}>PROPOSED REVISION TITLE (STABLE ID: {selectedCollab.sectionId})</span>
                             <h3 className={styles.proposedTitle}>{selectedCollab.subtitle || 'Untitled'}</h3>
                           </div>
                           <div className={styles.contentBlock}>
-                            <span className={styles.fieldLabel}>Proposed Content</span>
+                            <span className={styles.fieldLabel}>LORE CONTENT REVISION</span>
                             <div className={styles.proposedContent}>
                               {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => {
                                 const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));

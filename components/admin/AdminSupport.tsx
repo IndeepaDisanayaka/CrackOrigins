@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { getSupportChats, getSupportMessages, sendSupportMessage, assignChat, getUserSupportData } from '@/lib/admin-actions';
-import { MessageSquare, Send, User, Clock, Search, Shield, ChevronLeft, AlertCircle, ShoppingCart, Globe, Calendar } from 'lucide-react';
+import { getSupportChats, getSupportMessages, sendSupportMessage, assignChat, getUserSupportData, deleteSupportChat } from '@/lib/admin-actions';
+import { MessageSquare, Send, User, Clock, Search, Shield, ChevronLeft, AlertCircle, ShoppingCart, Globe, Calendar, Trash2 } from 'lucide-react';
 import { useToast } from '../Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -105,6 +105,19 @@ export default function AdminSupport({ adminUid, adminName }: AdminSupportProps)
         }]);
     };
 
+    const handleDeleteChat = async (chatId: string) => {
+        if (!window.confirm("Are you sure you want to delete this uplink? All messages will be permanently purged.")) return;
+        
+        const res = await deleteSupportChat(adminUid, chatId);
+        if (res.success) {
+            showToast("Uplink purged from archives.", "success");
+            setAllChats(prev => prev.filter(c => c.id !== chatId));
+            if (selectedChatId === chatId) setSelectedChatId(null);
+        } else {
+            showToast(res.error || "Failed to purge uplink.", "error");
+        }
+    };
+
     // Filter chats based on privacy rules:
     // 1. Unassigned chats are visible to everyone.
     // 2. Assigned chats are only visible to the assigned owner.
@@ -166,7 +179,7 @@ export default function AdminSupport({ adminUid, adminName }: AdminSupportProps)
                             </div>
                         ) : (
                             filteredChats.map(chat => (
-                                <button
+                                <div
                                     key={chat.id}
                                     onClick={() => setSelectedChatId(chat.id)}
                                     className="adminChatBtn"
@@ -205,7 +218,27 @@ export default function AdminSupport({ adminUid, adminName }: AdminSupportProps)
                                             UNASSIGNED
                                         </div>
                                     )}
-                                </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.id); }}
+                                        style={{
+                                            position: 'absolute',
+                                            bottom: '0.8rem',
+                                            right: '0.8rem',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: selectedChatId === chat.id ? '#000' : 'var(--foreground)',
+                                            opacity: 0.3,
+                                            cursor: 'pointer',
+                                            padding: '4px',
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.3')}
+                                        title="Purge Uplink"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
                             ))
                         ))}
                 </div>

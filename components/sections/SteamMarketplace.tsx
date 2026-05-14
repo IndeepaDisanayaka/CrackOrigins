@@ -43,16 +43,16 @@ interface SteamCardProps {
 }
 
 
-function SteamCard({ 
-    game, 
-    user, 
+function SteamCard({
+    game,
+    user,
     affiliateId,
-    purchasedOffers, 
-    showKeys, 
-    decryptedKeys, 
-    isFetchingKey, 
-    handleShowKey, 
-    setSelectedSteamGame, 
+    purchasedOffers,
+    showKeys,
+    decryptedKeys,
+    isFetchingKey,
+    handleShowKey,
+    setSelectedSteamGame,
     setModalState,
     setOfferPayLock,
     handleInvestClick,
@@ -118,17 +118,17 @@ function SteamCard({
 
 
     return (
-        <motion.div 
-            className={`${styles.steamCard} ${isFree ? styles.premiumCard : ''}`} 
+        <motion.div
+            className={`${styles.steamCard} ${isFree ? styles.premiumCard : ''}`}
             variants={revealVariants}
         >
             <div className={styles.cardImageContainer}>
-                <Image 
-                    src={game.image} 
-                    alt={game.title} 
-                    className={styles.cardImage} 
-                    width={460} 
-                    height={215} 
+                <Image
+                    src={game.image}
+                    alt={game.title}
+                    className={styles.cardImage}
+                    width={460}
+                    height={215}
                     quality={75}
                     loading="lazy"
                 />
@@ -227,8 +227,8 @@ function SteamCard({
                                     if (accumulatedDiscount >= 100) {
                                         return (
                                             <>
-                                                <button 
-                                                    className={styles.btnUnlock} 
+                                                <button
+                                                    className={styles.btnUnlock}
                                                     onClick={handleDirectClaim}
                                                     disabled={isClaiming}
                                                     style={{ width: '100%', justifyContent: 'center', gap: '0.8rem', background: 'var(--primary)', color: '#000', fontWeight: 900 }}
@@ -262,9 +262,9 @@ function SteamCard({
                             }
                         })()}
                     </div>
-                    <a 
-                        href={game.steamAppId ? `steam://store/${game.steamAppId}` : game.steamUrl} 
-                        className="btnOutline" 
+                    <a
+                        href={game.steamAppId ? `steam://store/${game.steamAppId}` : game.steamUrl}
+                        className="btnOutline"
                         style={{ width: '100%', textAlign: 'center', justifyContent: 'center', textDecoration: 'none' }}
                     >
                         View on Steam
@@ -275,16 +275,16 @@ function SteamCard({
     );
 }
 
-function GlobalSteamCard({ 
-    game, 
-    user, 
+function GlobalSteamCard({
+    game,
+    user,
     affiliateId,
-    purchasedOffers, 
-    showKeys, 
-    decryptedKeys, 
-    isFetchingKey, 
-    handleShowKey, 
-    setSelectedSteamGame, 
+    purchasedOffers,
+    showKeys,
+    decryptedKeys,
+    isFetchingKey,
+    handleShowKey,
+    setSelectedSteamGame,
     setModalState,
     setOfferPayLock,
     handleInvestClick,
@@ -334,7 +334,7 @@ function GlobalSteamCard({
 
                 }
 
-            } catch (err) {}
+            } catch (err) { }
         };
         fetchProgress();
         const interval = setInterval(fetchProgress, 60000);
@@ -348,9 +348,9 @@ function GlobalSteamCard({
     const progress = isFree ? accumulatedDiscount : 100;
 
     return (
-        <motion.div 
+        <motion.div
             className={styles.globalSteamCard}
-            style={{ 
+            style={{
                 gridColumn: '1 / -1',
                 borderRadius: '16px',
                 overflow: 'hidden',
@@ -370,8 +370,8 @@ function GlobalSteamCard({
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
                         <CountdownTimer endTime={game.endTime} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                             <span style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase', fontWeight: 800 }}>Retail Value:</span>
-                             <span style={{ fontSize: '1.1rem', fontWeight: 900, textDecoration: 'line-through', color: '#ff4d4d' }}>{game.originalPrice || '$59.99'}</span>
+                            <span style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase', fontWeight: 800 }}>Retail Value:</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 900, textDecoration: 'line-through', color: '#ff4d4d' }}>{game.originalPrice || '$59.99'}</span>
                         </div>
                     </div>
                 </div>
@@ -384,7 +384,7 @@ function GlobalSteamCard({
 
 
                 <div style={{ height: '10px', background: 'var(--outline-color)', borderRadius: '50px', position: 'relative', overflow: 'hidden' }}>
-                    <motion.div 
+                    <motion.div
                         initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 1.5 }}
                         style={{ height: '100%', background: 'var(--primary)', borderRadius: '50px' }}
                     />
@@ -421,9 +421,9 @@ function GlobalSteamCard({
                             const isWinner = leaderboard[0]?.uid === user?.uid;
                             if (isWinner) {
                                 return (
-                                    <motion.button 
+                                    <motion.button
                                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                        className={styles.btnUnlock} 
+                                        className={styles.btnUnlock}
                                         onClick={handleWinnerClaim}
                                         disabled={isClaiming}
                                         style={{ flex: 1, background: 'var(--primary)', color: '#000', border: 'none', padding: '1rem', borderRadius: '8px', fontWeight: 900, textTransform: 'uppercase', fontSize: '0.8rem', minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
@@ -434,8 +434,8 @@ function GlobalSteamCard({
                                 );
                             } else {
                                 return (
-                                    <motion.button 
-                                        className="btnSolid" 
+                                    <motion.button
+                                        className="btnSolid"
                                         disabled
                                         style={{ flex: 1, padding: '0.8rem', opacity: 0.5, cursor: 'not-allowed', borderRadius: '8px', fontWeight: 900, textTransform: 'uppercase', fontSize: '0.8rem', minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                                     >
@@ -446,7 +446,7 @@ function GlobalSteamCard({
                         }
 
                         return (
-                            <motion.button 
+                            <motion.button
                                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                                 className="btnSolid" onClick={() => handleInvestClick(game)}
                                 style={{ flex: 1, background: 'var(--primary)', color: '#000', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: 900, textTransform: 'uppercase', fontSize: '0.8rem', minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
@@ -456,7 +456,7 @@ function GlobalSteamCard({
                         );
                     })()}
 
-                    <motion.button 
+                    <motion.button
                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         className="btnOutline" onClick={() => { setSelectedSteamGame(game); setModalState('idle'); }}
                         style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', fontWeight: 900, textTransform: 'uppercase', fontSize: '0.8rem', minWidth: '150px' }}
@@ -476,17 +476,17 @@ function GlobalSteamCard({
     );
 }
 
-function GiveawayLeaderboard({ 
-    game, 
-    user, 
-    affiliateId, 
-    purchasedOffers, 
-    showKeys, 
-    decryptedKeys, 
-    isFetchingKey, 
+function GiveawayLeaderboard({
+    game,
+    user,
+    affiliateId,
+    purchasedOffers,
+    showKeys,
+    decryptedKeys,
+    isFetchingKey,
     handleShowKey,
-    setSelectedSteamGame, 
-    setModalState, 
+    setSelectedSteamGame,
+    setModalState,
     setOfferPayLock,
     handleInvestClick,
     onClaimSuccess
@@ -520,15 +520,15 @@ function GiveawayLeaderboard({
     useEffect(() => {
 
         if (!game || !game.listed) return;
-        
+
         const fetchBoard = async () => {
             try {
-                const res:any = await getGiveawayLeaderboard(game.targetXP || 50, game.listed, game.id);
+                const res: any = await getGiveawayLeaderboard(game.targetXP || 50, game.listed, game.id);
                 if (res.success) {
                     setLeaderboard(res.topUsers);
                     setTotalFilled(res.totalFilled);
                 }
-            } catch (err) {}
+            } catch (err) { }
             setLoading(false);
         };
 
@@ -546,10 +546,10 @@ function GiveawayLeaderboard({
 
 
     return (
-        <div style={{ 
-            gridColumn: '1 / -1', 
-            background: 'var(--background)', 
-            border: '1px solid var(--outline-color)', 
+        <div style={{
+            gridColumn: '1 / -1',
+            background: 'var(--background)',
+            border: '1px solid var(--outline-color)',
             borderRadius: '16px',
             overflow: 'hidden',
             marginBottom: '3rem'
@@ -557,10 +557,10 @@ function GiveawayLeaderboard({
             {/* Left: Game Info */}
             <div className={styles.leaderboardLeft} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 500px', overflow: 'hidden' }}>
                 <div style={{ width: '100%', position: 'relative', aspectRatio: '21/9' }}>
-                    <img 
-                        src={`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.id}/header.jpg`} 
-                        alt={game.title} 
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    <img
+                        src={`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.id}/header.jpg`}
+                        alt={game.title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={(e) => { (e.target as HTMLImageElement).src = game.image || ''; }}
                     />
                     <motion.div className={styles.discountBadge} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem' }}>GIVEAWAY</motion.div>
@@ -570,116 +570,116 @@ function GiveawayLeaderboard({
                 <div style={{ padding: '0.5rem 3rem 3rem 3rem', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'relative', zIndex: 2 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
 
-                    <div>
-                        <span className="sectionLabel">Community Challenge</span>
-                        <h2 style={{ fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--primary)', margin: '1rem 0 0.5rem' }}>{game.title}</h2>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
-                        <CountdownTimer endTime={game.endTime} />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                             <span style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase', fontWeight: 800 }}>Retail Value:</span>
-                             <span style={{ fontSize: '1.1rem', fontWeight: 900, textDecoration: 'line-through', color: '#ff4d4d' }}>{game.originalPrice || '$59.99'}</span>
+                        <div>
+                            <span className="sectionLabel">Community Challenge</span>
+                            <h2 style={{ fontSize: '2.5rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--primary)', margin: '1rem 0 0.5rem' }}>{game.title}</h2>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            <CountdownTimer endTime={game.endTime} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                                <span style={{ fontSize: '0.7rem', opacity: 0.6, textTransform: 'uppercase', fontWeight: 800 }}>Retail Value:</span>
+                                <span style={{ fontSize: '1.1rem', fontWeight: 900, textDecoration: 'line-through', color: '#ff4d4d' }}>{game.originalPrice || '$59.99'}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div>
-                    <p style={{ opacity: 0.7, fontSize: '0.95rem', lineHeight: 1.6, margin: 0 }}>
-                        A collective mission! Once the progress bar hits 100%, we'll unlock the vault and distribute <strong>{game.quantity} Steam keys</strong> to the top contributors.
-                    </p>
-                </div>
-
-
-                <div className={styles.progressContainer}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 900, fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                        <span>Vault Progress</span>
-                        <span>{totalFilled} / {game.targetXP || 50} XP</span>
+                    <div>
+                        <p style={{ opacity: 0.7, fontSize: '0.95rem', lineHeight: 1.6, margin: 0 }}>
+                            A collective mission! Once the progress bar hits 100%, we'll unlock the vault and distribute <strong>{game.quantity} Steam keys</strong> to the top contributors.
+                        </p>
                     </div>
 
-                    <div style={{ height: '12px', background: 'var(--outline-color)', borderRadius: '50px', overflow: 'hidden' }}>
-                        <motion.div 
-                            initial={{ width: 0 }} 
-                            animate={{ width: `${progress}%` }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            style={{ height: '100%', background: 'var(--primary)', borderRadius: '50px' }}
-                        />
+
+                    <div className={styles.progressContainer}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 900, fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                            <span>Vault Progress</span>
+                            <span>{totalFilled} / {game.targetXP || 50} XP</span>
+                        </div>
+
+                        <div style={{ height: '12px', background: 'var(--outline-color)', borderRadius: '50px', overflow: 'hidden' }}>
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                                transition={{ duration: 1.5, ease: "easeOut" }}
+                                style={{ height: '100%', background: 'var(--primary)', borderRadius: '50px' }}
+                            />
+                        </div>
+                        <p style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: '0.8rem', fontStyle: 'italic' }}>
+                            * Keys are automatically dispatched to the Top Field Agents once the goal is met.
+                        </p>
                     </div>
-                    <p style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: '0.8rem', fontStyle: 'italic' }}>
-                        * Keys are automatically dispatched to the Top Field Agents once the goal is met.
-                    </p>
-                </div>
 
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    {(() => {
-                        const purchasedOffer = purchasedOffers[game.id];
-                        const hasPurchased = purchasedOffer?.status === 'COMPLETED' || purchasedOffer?.status === 'PENDING';
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        {(() => {
+                            const purchasedOffer = purchasedOffers[game.id];
+                            const hasPurchased = purchasedOffer?.status === 'COMPLETED' || purchasedOffer?.status === 'PENDING';
 
-                        if (hasPurchased) {
-                            if (purchasedOffer.status === 'COMPLETED' && purchasedOffer.steamKey) {
-                                return (
-                                    <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
-                                        <div className={styles.hiddenKey} style={{ flex: 4 }}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
-                                        <button className={styles.btnUnlock} style={{ flex: 1 }} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
-                                            {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
-                                        </button>
-                                    </div>
-                                );
-                            } else {
-                                return (
-                                    <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
-                                        <div className={styles.hiddenKey} style={{ fontSize: '0.8rem', flex: 4 }}>PENDING VERIFICATION</div>
-                                        <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                                            <Clock size={16} /> PENDING
-                                        </button>
-                                    </div>
-                                );
+                            if (hasPurchased) {
+                                if (purchasedOffer.status === 'COMPLETED' && purchasedOffer.steamKey) {
+                                    return (
+                                        <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
+                                            <div className={styles.hiddenKey} style={{ flex: 4 }}>{showKeys[game.id] ? (decryptedKeys[game.id] || 'Retrieving...') : '••••••••••'}</div>
+                                            <button className={styles.btnUnlock} style={{ flex: 1 }} disabled={isFetchingKey[game.id]} onClick={() => handleShowKey(game.id)}>
+                                                {isFetchingKey[game.id] ? 'WAIT...' : (showKeys[game.id] ? 'HIDE' : 'SHOW')}
+                                            </button>
+                                        </div>
+                                    );
+                                } else {
+                                    return (
+                                        <div className={styles.keyContainer} style={{ width: '100%', flex: 1 }}>
+                                            <div className={styles.hiddenKey} style={{ fontSize: '0.8rem', flex: 4 }}>PENDING VERIFICATION</div>
+                                            <button className={styles.btnUnlock} disabled style={{ opacity: 0.5, cursor: 'not-allowed', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                <Clock size={16} /> PENDING
+                                            </button>
+                                        </div>
+                                    );
+                                }
                             }
-                        }
 
-                        if (progress >= 100) {
-                            const isWinner = leaderboard[0]?.uid === user?.uid;
-                            if (isWinner) {
-                                return (
-                                    <button 
-                                        className={styles.btnUnlock} 
-                                        style={{ width: '100%', flex: 1, padding: '1.2rem', justifyContent: 'center', gap: '0.8rem', background: 'var(--primary)', color: '#000', fontWeight: 900 }} 
-                                        onClick={handleWinnerClaim}
-                                        disabled={isClaiming}
-                                    >
-                                        {isClaiming ? <RefreshCw className="spin" size={16} /> : <ShoppingCart size={16} />}
-                                        {isClaiming ? ' CLAIMING...' : ' CLAIM YOUR WINNER REWARD'}
-                                    </button>
-                                );
-                            } else {
+                            if (progress >= 100) {
+                                const isWinner = leaderboard[0]?.uid === user?.uid;
+                                if (isWinner) {
+                                    return (
+                                        <button
+                                            className={styles.btnUnlock}
+                                            style={{ width: '100%', flex: 1, padding: '1.2rem', justifyContent: 'center', gap: '0.8rem', background: 'var(--primary)', color: '#000', fontWeight: 900 }}
+                                            onClick={handleWinnerClaim}
+                                            disabled={isClaiming}
+                                        >
+                                            {isClaiming ? <RefreshCw className="spin" size={16} /> : <ShoppingCart size={16} />}
+                                            {isClaiming ? ' CLAIMING...' : ' CLAIM YOUR WINNER REWARD'}
+                                        </button>
+                                    );
+                                } else {
 
-                                return (
-                                    <button className="btnSolid" disabled style={{ flex: 1, padding: '1rem', opacity: 0.5, cursor: 'not-allowed' }}>
-                                        <CheckCircle2 size={16} /> GOAL REACHED
-                                    </button>
-                                );
+                                    return (
+                                        <button className="btnSolid" disabled style={{ flex: 1, padding: '1rem', opacity: 0.5, cursor: 'not-allowed' }}>
+                                            <CheckCircle2 size={16} /> GOAL REACHED
+                                        </button>
+                                    );
+                                }
                             }
-                        }
 
-                        return (
-                            <button onClick={() => handleInvestClick(game)} className="btnSolid" style={{ flex: 1, padding: '1rem' }}>
-                                <TrendingUp size={16} /> Invest XP
-                            </button>
-                        );
-                    })()}
-                </div>
+                            return (
+                                <button onClick={() => handleInvestClick(game)} className="btnSolid" style={{ flex: 1, padding: '1rem' }}>
+                                    <TrendingUp size={16} /> Invest XP
+                                </button>
+                            );
+                        })()}
+                    </div>
                 </div>
 
             </div>
 
             {/* Right: Top Contributors */}
-            <div style={{ 
-                padding: '3rem', 
-                position: 'relative', 
+            <div style={{
+                padding: '3rem',
+                position: 'relative',
                 overflow: 'hidden',
                 background: 'linear-gradient(145deg, rgba(var(--primary-rgb), 0.03) 0%, transparent 100%)'
             }} className={styles.leaderboardRight}>
-                <motion.div 
-                    style={{ position: 'absolute', inset: -50, opacity: 0.5, backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(var(--primary-rgb), 0.1) 0%, transparent 50%)', pointerEvents: 'none' }} 
+                <motion.div
+                    style={{ position: 'absolute', inset: -50, opacity: 0.5, backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(var(--primary-rgb), 0.1) 0%, transparent 50%)', pointerEvents: 'none' }}
                     animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
                     transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
                 />
@@ -700,9 +700,9 @@ function GiveawayLeaderboard({
                         leaderboard.map((u, i) => {
                             const isMe = u.uid === user?.uid;
                             return (
-                                <div key={i} style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
+                                <div key={i} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
                                     justifyContent: 'space-between',
                                     padding: '0.8rem 1.2rem',
                                     background: i === 0 ? 'rgba(var(--primary-rgb), 0.15)' : (isMe ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent'),
@@ -711,7 +711,7 @@ function GiveawayLeaderboard({
                                     transition: 'all 0.3s ease'
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <span style={{ fontWeight: 900, color: i === 0 ? 'var(--primary)' : 'inherit', fontSize: '1.1rem', minWidth: '24px' }}>#{i+1}</span>
+                                        <span style={{ fontWeight: 900, color: i === 0 ? 'var(--primary)' : 'inherit', fontSize: '1.1rem', minWidth: '24px' }}>#{i + 1}</span>
                                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                                             {u.photoURL ? <img src={u.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={16} />}
                                         </div>
@@ -737,240 +737,185 @@ function GiveawayLeaderboard({
 }
 
 export default function SteamMarketplace({ showAll = false }: { showAll?: boolean }) {
-  const { user, affiliateId, xp, refreshStatus } = useAuth();
-  const { setIsAuthModalOpen } = useModals();
-  const { showToast } = useToast();
-  const [isInvesting, setIsInvesting] = useState(false);
-  const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
-  const [investXPAmount, setInvestXPAmount] = useState(1);
+    const { user, affiliateId, xp, refreshStatus } = useAuth();
+    const { setIsAuthModalOpen } = useModals();
+    const { showToast } = useToast();
+    const [isInvesting, setIsInvesting] = useState(false);
+    const [isInvestModalOpen, setIsInvestModalOpen] = useState(false);
+    const [investXPAmount, setInvestXPAmount] = useState(1);
 
-  const [currentInvestedXP, setCurrentInvestedXP] = useState(0);
+    const [currentInvestedXP, setCurrentInvestedXP] = useState(0);
 
-  const handleInvestClick = async (game: any) => {
-    if (!user) {
-        setIsAuthModalOpen(true);
-        return;
-    }
-    if (xp <= 0) {
-        showToast("You don't have any XP to invest!", "error");
-        return;
-    }
-    setSelectedSteamGame(game);
-    setInvestXPAmount(1);
-    setIsInvestModalOpen(true);
-
-    // Fetch initial progress
-    try {
-        if (game.offerScope === 'global') {
-            const res = await getGiveawayLeaderboard(game.targetXP || 50, game.listed, game.id);
-            if (res.success) setCurrentInvestedXP(res.totalFilled || 0);
-        } else {
-            const res = await getAffiliateProgress(user.uid, game.listed, game.id);
-            if (res.success) setCurrentInvestedXP(res.count || 0);
+    const handleInvestClick = async (game: any) => {
+        if (!user) {
+            setIsAuthModalOpen(true);
+            return;
         }
-    } catch (e) {}
-  };
-
-
-  const handleInvest = async () => {
-    if (!user || !selectedSteamGame) return;
-    
-    // Strict validation: Prevent negative XP
-    if (investXPAmount <= 0) {
-        showToast("Investment amount must be at least 1 XP.", "error");
-        return;
-    }
-    if (xp < investXPAmount) {
-        showToast("Insufficient XP! You cannot have a negative balance.", "error");
-        return;
-    }
-
-    setIsInvesting(true);
-    try {
-        const res = await investXP(user.uid, selectedSteamGame.id, investXPAmount);
-        if (res.success) {
-            showToast(`Successfully invested ${investXPAmount} XP!`, "success");
-            setIsInvestModalOpen(false);
-            refreshStatus();
-        } else {
-            showToast(res.error || "Investment failed.", "error");
+        if (xp <= 0) {
+            showToast("You don't have any XP to invest!", "error");
+            return;
         }
-    } catch (e) {
-        showToast("An error occurred during investment.", "error");
-    } finally {
-        setIsInvesting(false);
-    }
-  };
+        setSelectedSteamGame(game);
+        setInvestXPAmount(1);
+        setIsInvestModalOpen(true);
 
-
-
-
-
-
-  
-  const [steamGames, setSteamGames] = useState<any[]>([]);
-  const [selectedSteamGame, setSelectedSteamGame] = useState<any | null>(null);
-  const [modalState, setModalState] = useState<'closed' | 'idle' | 'success'>('closed');
-  const [purchasedOffers, setPurchasedOffers] = useState<{ [key: string]: any }>({});
-  const [showKeys, setShowKeys] = useState<{ [key: string]: boolean }>({});
-  const [decryptedKeys, setDecryptedKeys] = useState<{ [key: string]: string }>({});
-  const [isFetchingKey, setIsFetchingKey] = useState<{ [key: string]: boolean }>({});
-  const [isLoadingOffers, setIsLoadingOffers] = useState(true);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [offerPayLock, setOfferPayLock] = useState<'none' | 'paypal' | 'xp'>('none');
-
-
-  useEffect(() => {
-    if (modalState === 'closed' || modalState === 'success') {
-      setOfferPayLock('none');
-    }
-  }, [modalState]);
-
-
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('crack_origins_offers_cache');
-      if (cached) {
+        // Fetch initial progress
         try {
-          setSteamGames(JSON.parse(cached));
-          setIsLoadingOffers(false);
+            if (game.offerScope === 'global') {
+                const res = await getGiveawayLeaderboard(game.targetXP || 50, game.listed, game.id);
+                if (res.success) setCurrentInvestedXP(res.totalFilled || 0);
+            } else {
+                const res = await getAffiliateProgress(user.uid, game.listed, game.id);
+                if (res.success) setCurrentInvestedXP(res.count || 0);
+            }
         } catch (e) { }
-      }
-    }
-
-    const fetchOffers = async () => {
-        const offers = await getGlobalOffers();
-        setSteamGames(offers || []);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('crack_origins_offers_cache', JSON.stringify(offers || []));
-        }
-        setIsLoadingOffers(false);
     };
 
-    fetchOffers();
-    const interval = setInterval(fetchOffers, 60000); // Poll every minute
-    return () => clearInterval(interval);
-  }, []);
 
-  const fetchUserOffers = useCallback(async () => {
-    if (!user) {
-        setPurchasedOffers({});
-        return;
-    }
-    const res = await getUserPurchasedOffers(user.uid);
-    if (res.success && res.purchasedOffers) {
-        setPurchasedOffers(res.purchasedOffers);
-    }
-  }, [user]);
+    const handleInvest = async () => {
+        if (!user || !selectedSteamGame) return;
 
-  useEffect(() => {
-    fetchUserOffers();
-    const interval = setInterval(fetchUserOffers, 10000); // Poll user offers every 10s
-    return () => clearInterval(interval);
-  }, [fetchUserOffers]);
+        // Strict validation: Prevent negative XP
+        if (investXPAmount <= 0) {
+            showToast("Investment amount must be at least 1 XP.", "error");
+            return;
+        }
+        if (xp < investXPAmount) {
+            showToast("Insufficient XP! You cannot have a negative balance.", "error");
+            return;
+        }
 
-  const handleShowKey = async (offerId: string) => {
-    if (!user) return;
-    if (showKeys[offerId]) {
-      setShowKeys(prev => ({ ...prev, [offerId]: false }));
-      return;
-    }
-    if (decryptedKeys[offerId]) {
-      setShowKeys(prev => ({ ...prev, [offerId]: true }));
-      return;
-    }
-    setIsFetchingKey(prev => ({ ...prev, [offerId]: true }));
-    try {
-      const res = await getUserKey(user.uid, offerId);
-      if (res.success && res.steamKey) {
-        setDecryptedKeys(prev => ({ ...prev, [offerId]: res.steamKey! }));
-        setShowKeys(prev => ({ ...prev, [offerId]: true }));
-      } else {
-        showToast(res.error || "Failed to retrieve key.", "error");
-      }
-    } catch (e) {
-      showToast("Verification failed.", "error");
-    } finally {
-      setIsFetchingKey(prev => ({ ...prev, [offerId]: false }));
-    }
-  };
+        setIsInvesting(true);
+        try {
+            const res = await investXP(user.uid, selectedSteamGame.id, investXPAmount);
+            if (res.success) {
+                showToast(`Successfully invested ${investXPAmount} XP!`, "success");
+                setIsInvestModalOpen(false);
+                refreshStatus();
+            } else {
+                showToast(res.error || "Investment failed.", "error");
+            }
+        } catch (e) {
+            showToast("An error occurred during investment.", "error");
+        } finally {
+            setIsInvesting(false);
+        }
+    };
 
-  return (
-    <motion.section
-      className={styles.section}
-      id="keys"
-      initial="hidden"
-      animate="visible"
-      variants={revealVariants}
-    >
-      <motion.span className="sectionLabel">Limited Offers</motion.span>
-      <h2 className={styles.sectionTitle}>Curated Steam Deals</h2>
-      <p className={styles.sectionSubtext}>
-        Grab official Steam keys at exclusive studio prices. These offers expire soon.
-      </p>
 
-      <motion.div className={styles.steamGrid} variants={staggerContainer}>
-        {steamGames.filter(g => g.offerScope === 'global').map(game => (
-            <GiveawayLeaderboard 
-              key={game.id} 
-              game={game} 
-              user={user} 
-              affiliateId={affiliateId} 
-              purchasedOffers={purchasedOffers}
-              showKeys={showKeys}
-              decryptedKeys={decryptedKeys}
-              isFetchingKey={isFetchingKey}
-              handleShowKey={handleShowKey}
-              setSelectedSteamGame={setSelectedSteamGame}
-              setModalState={setModalState}
-              setOfferPayLock={setOfferPayLock}
-              handleInvestClick={handleInvestClick}
-              onClaimSuccess={fetchUserOffers}
-            />
-        ))}
 
-        {isLoadingOffers && steamGames.length === 0 ? (
-          [1, 2, 3].map((i) => (
-             <div key={i} className={`${styles.steamCard} ${styles.skeletonCard} skeletonPremium`}>
-                <div className="scanline" />
-                <div className={styles.skeletonPlatformRow}>
-                  <div className={styles.skeletonRow}></div>
-                </div>
-             </div>
-          ))
-        ) : steamGames.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
-        ) : (
-          (() => {
-            const remainingGames = steamGames.filter(game => game.offerScope !== 'global');
-            return (showAll ? remainingGames : remainingGames.slice(0, 3))
-              .map((game) => {
-                if (game.offerScope === 'global') {
-                    return (
-                        <GlobalSteamCard 
-                            key={game.id} 
-                            game={game} 
-                            user={user} 
-                            affiliateId={affiliateId}
-                            purchasedOffers={purchasedOffers}
-                            showKeys={showKeys}
-                            decryptedKeys={decryptedKeys}
-                            isFetchingKey={isFetchingKey}
-                            handleShowKey={handleShowKey}
-                            setSelectedSteamGame={setSelectedSteamGame}
-                            setModalState={setModalState}
-                            setOfferPayLock={setOfferPayLock}
-                            handleInvestClick={handleInvestClick}
-                            onClaimSuccess={fetchUserOffers}
-                        />
-                    );
-                }
-                return (
-                    <SteamCard 
-                        key={game.id} 
-                        game={game} 
-                        user={user} 
+
+
+
+
+    const [steamGames, setSteamGames] = useState<any[]>([]);
+    const [selectedSteamGame, setSelectedSteamGame] = useState<any | null>(null);
+    const [modalState, setModalState] = useState<'closed' | 'idle' | 'success'>('closed');
+    const [purchasedOffers, setPurchasedOffers] = useState<{ [key: string]: any }>({});
+    const [showKeys, setShowKeys] = useState<{ [key: string]: boolean }>({});
+    const [decryptedKeys, setDecryptedKeys] = useState<{ [key: string]: string }>({});
+    const [isFetchingKey, setIsFetchingKey] = useState<{ [key: string]: boolean }>({});
+    const [isLoadingOffers, setIsLoadingOffers] = useState(true);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [offerPayLock, setOfferPayLock] = useState<'none' | 'paypal' | 'xp'>('none');
+
+
+    useEffect(() => {
+        if (modalState === 'closed' || modalState === 'success') {
+            setOfferPayLock('none');
+        }
+    }, [modalState]);
+
+
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const cached = localStorage.getItem('crack_origins_offers_cache');
+            if (cached) {
+                try {
+                    setSteamGames(JSON.parse(cached));
+                    setIsLoadingOffers(false);
+                } catch (e) { }
+            }
+        }
+
+        const fetchOffers = async () => {
+            const offers = await getGlobalOffers();
+            setSteamGames(offers || []);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('crack_origins_offers_cache', JSON.stringify(offers || []));
+            }
+            setIsLoadingOffers(false);
+        };
+
+        fetchOffers();
+        const interval = setInterval(fetchOffers, 60000); // Poll every minute
+        return () => clearInterval(interval);
+    }, []);
+
+    const fetchUserOffers = useCallback(async () => {
+        if (!user) {
+            setPurchasedOffers({});
+            return;
+        }
+        const res = await getUserPurchasedOffers(user.uid);
+        if (res.success && res.purchasedOffers) {
+            setPurchasedOffers(res.purchasedOffers);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchUserOffers();
+        const interval = setInterval(fetchUserOffers, 10000); // Poll user offers every 10s
+        return () => clearInterval(interval);
+    }, [fetchUserOffers]);
+
+    const handleShowKey = async (offerId: string) => {
+        if (!user) return;
+        if (showKeys[offerId]) {
+            setShowKeys(prev => ({ ...prev, [offerId]: false }));
+            return;
+        }
+        if (decryptedKeys[offerId]) {
+            setShowKeys(prev => ({ ...prev, [offerId]: true }));
+            return;
+        }
+        setIsFetchingKey(prev => ({ ...prev, [offerId]: true }));
+        try {
+            const res = await getUserKey(user.uid, offerId);
+            if (res.success && res.steamKey) {
+                setDecryptedKeys(prev => ({ ...prev, [offerId]: res.steamKey! }));
+                setShowKeys(prev => ({ ...prev, [offerId]: true }));
+            } else {
+                showToast(res.error || "Failed to retrieve key.", "error");
+            }
+        } catch (e) {
+            showToast("Verification failed.", "error");
+        } finally {
+            setIsFetchingKey(prev => ({ ...prev, [offerId]: false }));
+        }
+    };
+
+    return (
+        <motion.section
+            className={styles.section}
+            id="keys"
+            initial="hidden"
+            animate="visible"
+            variants={revealVariants}
+        >
+            <motion.span className="sectionLabel">Limited Offers</motion.span>
+            <h2 className={styles.sectionTitle}>Curated Steam Deals</h2>
+            <p className={styles.sectionSubtext}>
+                Grab official Steam keys at exclusive studio prices. These offers expire soon.
+            </p>
+
+            <motion.div className={styles.steamGrid} variants={staggerContainer}>
+                {steamGames.filter(g => g.offerScope === 'global').map(game => (
+                    <GiveawayLeaderboard
+                        key={game.id}
+                        game={game}
+                        user={user}
                         affiliateId={affiliateId}
                         purchasedOffers={purchasedOffers}
                         showKeys={showKeys}
@@ -983,282 +928,337 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
                         handleInvestClick={handleInvestClick}
                         onClaimSuccess={fetchUserOffers}
                     />
-                );
-              });
-          })()
-        )}
-      </motion.div>
+                ))}
+
+                {isLoadingOffers && steamGames.length === 0 ? (
+                    [1, 2, 3].map((i) => (
+                        <div key={i} className={`${styles.steamCard} ${styles.skeletonCard} skeletonPremium`}>
+                            <div className="scanline" />
+                            <div className={styles.skeletonPlatformRow}>
+                                <div className={styles.skeletonRow}></div>
+                            </div>
+                        </div>
+                    ))
+                ) : steamGames.length === 0 ? (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
+                ) : (
+                    (() => {
+                        const remainingGames = steamGames.filter(game => game.offerScope !== 'global');
+                        return (showAll ? remainingGames : remainingGames.slice(0, 3))
+                            .map((game) => {
+                                if (game.offerScope === 'global') {
+                                    return (
+                                        <GlobalSteamCard
+                                            key={game.id}
+                                            game={game}
+                                            user={user}
+                                            affiliateId={affiliateId}
+                                            purchasedOffers={purchasedOffers}
+                                            showKeys={showKeys}
+                                            decryptedKeys={decryptedKeys}
+                                            isFetchingKey={isFetchingKey}
+                                            handleShowKey={handleShowKey}
+                                            setSelectedSteamGame={setSelectedSteamGame}
+                                            setModalState={setModalState}
+                                            setOfferPayLock={setOfferPayLock}
+                                            handleInvestClick={handleInvestClick}
+                                            onClaimSuccess={fetchUserOffers}
+                                        />
+                                    );
+                                }
+                                return (
+                                    <SteamCard
+                                        key={game.id}
+                                        game={game}
+                                        user={user}
+                                        affiliateId={affiliateId}
+                                        purchasedOffers={purchasedOffers}
+                                        showKeys={showKeys}
+                                        decryptedKeys={decryptedKeys}
+                                        isFetchingKey={isFetchingKey}
+                                        handleShowKey={handleShowKey}
+                                        setSelectedSteamGame={setSelectedSteamGame}
+                                        setModalState={setModalState}
+                                        setOfferPayLock={setOfferPayLock}
+                                        handleInvestClick={handleInvestClick}
+                                        onClaimSuccess={fetchUserOffers}
+                                    />
+                                );
+                            });
+                    })()
+                )}
+            </motion.div>
 
 
-      {!showAll && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}>
-          <Link href="/offers" className="btnSolid" style={{ padding: '1rem 3rem', fontSize: '0.9rem', letterSpacing: '2px' }}>
-            SEE MORE OFFERS
-          </Link>
-        </div>
-      )}
-
-
-      <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">
-        {modalState === 'idle' && selectedSteamGame ? (
-          <div className={carouselStyles.checkoutModal} style={{ paddingTop: 0 }}>
-            <div className={carouselStyles.modalHeader}>
-              <Image src={selectedSteamGame.image} className={carouselStyles.modalPreviewImg} alt="preview" width={80} height={80} quality={75} style={{ objectFit: 'cover' }} />
-              <div className={carouselStyles.modalHeaderInfo}>
-                <span className={carouselStyles.gameTitle}>{selectedSteamGame.title}</span>
-                <span className={carouselStyles.gamePrice}>{selectedSteamGame.discountPrice}</span>
-              </div>
-            </div>
-
-            <div className={carouselStyles.requirementsSection}>
-              <div className={carouselStyles.reqBlock}>
-                <span className={carouselStyles.reqLabel}>Promotion Details</span>
-                <p className={carouselStyles.reqText}>Original Price: {selectedSteamGame.originalPrice}</p>
-              </div>
-              <div className={carouselStyles.reqBlock}>
-                <span className={carouselStyles.reqLabel}>Platform</span>
-                <p className={carouselStyles.reqText}>Steam Key ({selectedSteamGame.platforms.join(', ')})</p>
-              </div>
-            </div>
-
-            <div className={styles.importantNotice}>
-              <div className={styles.noticeIcon}><Shield size={18} /></div>
-              <div className={styles.noticeContent}>
-                <h4 className={styles.noticeTitle}>Important Note</h4>
-                <p className={styles.noticeText}>
-                  After purchasing this game key, our team will verify your payment several times to ensure security. Once the verification process is completed, the key will appear on this game card. Click the Show Key button to reveal your key.
-                </p>
-              </div>
-            </div>
-
-            <div className={carouselStyles.modalFooter}>
-              {user ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                  <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{ 
-                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem', 
-                    border: acceptedTerms ? '1px solid var(--primary)' : '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)', 
-                    background: acceptedTerms ? 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)' : 'transparent',
-                    textAlign: 'left' 
-                  }}>
-                    <CheckCircle checked={acceptedTerms} />
-                    <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
-                      I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.
-                    </span>
-                  </div>
-                  {acceptedTerms ? (
-                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
-                         {/* Money Section - Only show if not 100% free */}
-                         {parseFloat(selectedSteamGame.discountPrice.replace(/[^0-9.]/g, '')) > 0 ? (
-                           <div style={{ 
-                             background: 'rgba(var(--primary-rgb, 254, 182, 12), 0.03)', 
-                             padding: '1.25rem', 
-                             borderRadius: '12px', 
-                             border: '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.15)',
-                             display: 'flex',
-                             flexDirection: 'column',
-                             gap: '1rem'
-                           }}>
-                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                               <div style={{ width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-                               <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Secure Card / PayPal</h4>
-                             </div>
- 
-                               <PayPalCheckout
-                                 amount={selectedSteamGame.discountPrice.replace(/[^0-9.]/g, '')}
-                                 game={selectedSteamGame.title}
-                                 gameId={Number(selectedSteamGame.id)}
-                                 offerId={selectedSteamGame.id}
-                                 onSuccess={async () => { setModalState('success'); }}
-                                 onPaymentActivityChange={(active) => {
-                                   setOfferPayLock(active ? 'paypal' : 'none');
-                                 }}
-                               />
-                           </div>
-                         ) : (
-                            <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '12px', border: '1px dashed var(--primary)' }}>
-                                 <TrendingUp size={32} color="var(--primary)" style={{ marginBottom: '1rem' }} />
-                                 <h4 style={{ marginBottom: '0.5rem' }}>Invest XP</h4>
-                                 <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '0.5rem' }}>This game is 100% free! Invest XP to unlock your key.</p>
-                                 
-                                 <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--outline-color)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
-                                        <span>Your Balance:</span>
-                                        <span style={{ color: 'var(--primary)', fontWeight: 900 }}>{xp} XP</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
-                                        <span>Goal:</span>
-                                        <span>{selectedSteamGame.targetXP || 50} XP</span>
-                                    </div>
-                                 </div>
-
-                                 <button 
-                                    className="btnSolid" 
-                                    onClick={() => { setModalState('closed'); handleInvestClick(selectedSteamGame); }} 
-                                    disabled={xp <= 0}
-                                    style={{ width: '100%', padding: '0.75rem' }}
-                                 >
-                                    OPEN INVESTMENT CONSOLE
-                                 </button>
-
-                                 <p style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '1rem' }}>
-                                    Each XP invested brings you closer to claiming your Steam key.
-                                 </p>
-
-                             </div>
-                         )}
-                       </div>
-                  ) : (
-                    <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>Accept Terms to Buy</button>
-                  )}
+            {!showAll && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}>
+                    <Link href="/offers" className="btnSolid" style={{ padding: '1rem 3rem', fontSize: '0.9rem', letterSpacing: '2px' }}>
+                        SEE MORE OFFERS
+                    </Link>
                 </div>
-              ) : (
-                <button className="btnSolid" onClick={() => setIsAuthModalOpen(true)} style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%", justifyContent: 'center' }}>
-                  <UserIcon size={14} /> <span className={carouselStyles.connectText}>Connect Google</span>
-                </button>
-              )}
-            </div>
-          </div>
+            )}
 
-        ) : modalState === 'success' ? (
-          <div className={carouselStyles.successState}>
-            <div className={carouselStyles.successIcon}><CheckCircle2 size={32} /></div>
-            <h2 className={carouselStyles.modalTitle}>Purchase Confirmed</h2>
-            <p className={carouselStyles.modalText}>After purchasing this game key, our team will verify your payment several times to ensure security. Once the verification process is completed, the key will appear on this game card. Click the Show Key button to reveal your key.</p>
-            <button className="btnSolid" style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }} onClick={() => setModalState('closed')}>Return to Store</button>
-          </div>
-        ) : null}
-      </Modal>
 
-      {/* Dedicated Investment Alert Modal */}
-      <Modal isOpen={isInvestModalOpen} onClose={() => setIsInvestModalOpen(false)} maxWidth="420px">
-        <div style={{ padding: '0.5rem', textAlign: 'center' }}>
-            <div style={{ 
-                width: '50px', 
-                height: '50px', 
-                background: 'rgba(var(--primary-rgb), 0.1)', 
-                borderRadius: '12px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                margin: '0 auto 1rem',
-                border: '1px solid rgba(var(--primary-rgb), 0.2)'
-            }}>
-                <TrendingUp size={24} color="var(--primary)" />
-            </div>
-            
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.25rem', color: 'var(--foreground)' }}>
-                Investment <span style={{ color: 'var(--primary)' }}>Console</span>
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--foreground)', opacity: 0.8, marginBottom: '1.5rem', maxWidth: '280px', margin: '0 auto 1.5rem' }}>
-                Allocate XP for <strong>{selectedSteamGame?.title}</strong>.
-            </p>
-
-            {(() => {
-                const target = selectedSteamGame?.targetXP || 50;
-                const remaining = Math.max(0, target - currentInvestedXP);
-                const maxAllowed = Math.min(xp, remaining);
-                
-                return (
-                    <div style={{ 
-                        background: 'rgba(var(--primary-rgb), 0.03)', 
-                        padding: '1.5rem 1.25rem', 
-                        borderRadius: '16px', 
-                        marginBottom: '1.5rem',
-                        border: '1px solid rgba(var(--primary-rgb), 0.15)',
-                        position: 'relative'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
-                            <div style={{ textAlign: 'left' }}>
-                                <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 900 }}>Amount</span>
-                                <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--foreground)', lineHeight: 1 }}>
-                                    {investXPAmount.toLocaleString()} <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>XP</span>
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--foreground)', opacity: 0.5, fontWeight: 900 }}>Max Cap</span>
-                                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--foreground)' }}>
-                                    {remaining.toLocaleString()}
-                                </div>
+            <Modal isOpen={modalState !== 'closed'} onClose={() => setModalState('closed')} maxWidth="500px">
+                {modalState === 'idle' && selectedSteamGame ? (
+                    <div className={carouselStyles.checkoutModal} style={{ paddingTop: 0 }}>
+                        <div className={carouselStyles.modalHeader}>
+                            <Image src={selectedSteamGame.image} className={carouselStyles.modalPreviewImg} alt="preview" width={80} height={80} quality={75} style={{ objectFit: 'cover' }} />
+                            <div className={carouselStyles.modalHeaderInfo}>
+                                <span className={carouselStyles.gameTitle}>{selectedSteamGame.title}</span>
+                                <span className={carouselStyles.gamePrice}>{selectedSteamGame.discountPrice}</span>
                             </div>
                         </div>
 
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max={maxAllowed > 0 ? maxAllowed : 1} 
-                                value={investXPAmount} 
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    setInvestXPAmount(Math.min(maxAllowed, Math.max(1, val)));
-                                }}
-                                disabled={maxAllowed <= 0}
-                                style={{ 
-                                    flex: 1,
-                                    accentColor: 'var(--primary)',
-                                    height: '6px',
-                                    borderRadius: '10px',
-                                    cursor: maxAllowed > 0 ? 'pointer' : 'not-allowed'
-                                }}
-                            />
-                            <button 
-                                onClick={() => setInvestXPAmount(maxAllowed)}
-                                disabled={maxAllowed <= 0}
-                                style={{
-                                    background: 'rgba(var(--primary-rgb), 0.1)',
-                                    border: '1px solid rgba(var(--primary-rgb), 0.2)',
-                                    color: 'var(--primary)',
-                                    padding: '0.3rem 0.6rem',
-                                    borderRadius: '4px',
-                                    fontSize: '0.65rem',
-                                    fontWeight: 900,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                MAX
-                            </button>
+                        <div className={carouselStyles.requirementsSection}>
+                            <div className={carouselStyles.reqBlock}>
+                                <span className={carouselStyles.reqLabel}>Promotion Details</span>
+                                <p className={carouselStyles.reqText}>Original Price: {selectedSteamGame.originalPrice}</p>
+                            </div>
+                            <div className={carouselStyles.reqBlock}>
+                                <span className={carouselStyles.reqLabel}>Platform</span>
+                                <p className={carouselStyles.reqText}>Steam Key ({selectedSteamGame.platforms.join(', ')})</p>
+                            </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.7rem', fontWeight: 800, color: 'var(--foreground)', opacity: 0.5 }}>
-                            <span>Personal: {xp.toLocaleString()} XP</span>
-                            <span>Remaining Goal: {remaining.toLocaleString()} XP</span>
+                        <div className={styles.importantNotice}>
+                            <div className={styles.noticeIcon}><Shield size={18} /></div>
+                            <div className={styles.noticeContent}>
+                                <h4 className={styles.noticeTitle}>Important Note</h4>
+                                <p className={styles.noticeText}>
+                                    After purchasing this game key, our team will verify your payment several times to ensure security. Once the verification process is completed, the key will appear on this game card. Click the Show Key button to reveal your key.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className={carouselStyles.modalFooter}>
+                            {user ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+                                    <div onClick={() => setAcceptedTerms(!acceptedTerms)} style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', width: '100%', padding: '0.75rem',
+                                        border: acceptedTerms ? '1px solid var(--primary)' : '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.2)',
+                                        background: acceptedTerms ? 'rgba(var(--primary-rgb, 254, 182, 12), 0.05)' : 'transparent',
+                                        textAlign: 'left'
+                                    }}>
+                                        <CheckCircle checked={acceptedTerms} />
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--foreground)' }}>
+                                            I agree to the <Link href="/terms" target="_blank" style={{ color: 'var(--primary)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>Terms of Service</Link> for this purchase.
+                                        </span>
+                                    </div>
+                                    {acceptedTerms ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+                                            {/* Money Section - Only show if not 100% free */}
+                                            {parseFloat(selectedSteamGame.discountPrice.replace(/[^0-9.]/g, '')) > 0 ? (
+                                                <div style={{
+                                                    background: 'rgba(var(--primary-rgb, 254, 182, 12), 0.03)',
+                                                    padding: '1.25rem',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid rgba(var(--primary-rgb, 254, 182, 12), 0.15)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '1rem'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                                        <div style={{ width: '4px', height: '16px', background: 'var(--primary)', borderRadius: '2px' }}></div>
+                                                        <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--foreground)' }}>Secure Card / PayPal</h4>
+                                                    </div>
+
+                                                    <PayPalCheckout
+                                                        amount={selectedSteamGame.discountPrice.replace(/[^0-9.]/g, '')}
+                                                        game={selectedSteamGame.title}
+                                                        gameId={Number(selectedSteamGame.id)}
+                                                        offerId={selectedSteamGame.id}
+                                                        onSuccess={async () => { setModalState('success'); }}
+                                                        onPaymentActivityChange={(active) => {
+                                                            setOfferPayLock(active ? 'paypal' : 'none');
+                                                        }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '12px', border: '1px dashed var(--primary)' }}>
+                                                    <TrendingUp size={32} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+                                                    <h4 style={{ marginBottom: '0.5rem' }}>Invest XP</h4>
+                                                    <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '0.5rem' }}>This game is 100% free! Invest XP to unlock your key.</p>
+
+                                                    <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--outline-color)' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+                                                            <span>Your Balance:</span>
+                                                            <span style={{ color: 'var(--primary)', fontWeight: 900 }}>{xp} XP</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                                            <span>Goal:</span>
+                                                            <span>{selectedSteamGame.targetXP || 50} XP</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        className="btnSolid"
+                                                        onClick={() => { setModalState('closed'); handleInvestClick(selectedSteamGame); }}
+                                                        disabled={xp <= 0}
+                                                        style={{ width: '100%', padding: '0.75rem' }}
+                                                    >
+                                                        OPEN INVESTMENT CONSOLE
+                                                    </button>
+
+                                                    <p style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '1rem' }}>
+                                                        Each XP invested brings you closer to claiming your Steam key.
+                                                    </p>
+
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <button className="btnSolid" disabled style={{ width: '100%', opacity: 0.5, cursor: 'not-allowed' }}>Accept Terms to Buy</button>
+                                    )}
+                                </div>
+                            ) : (
+                                <button className="btnSolid" onClick={() => setIsAuthModalOpen(true)} style={{ gap: '0.4rem', border: '1px solid var(--outline-color)', width: "100%", justifyContent: 'center' }}>
+                                    <UserIcon size={14} /> <span className={carouselStyles.connectText}>Connect Google</span>
+                                </button>
+                            )}
                         </div>
                     </div>
-                );
-            })()}
 
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button 
-                    className="btnOutline" 
-                    onClick={() => setIsInvestModalOpen(false)}
-                    style={{ flex: 1, padding: '0.9rem', borderRadius: '10px', fontWeight: 800, fontSize: '0.85rem' }}
-                >
-                    CANCEL
-                </button>
-                <button 
-                    className="btnSolid" 
-                    onClick={handleInvest}
-                    disabled={isInvesting || xp <= 0 || investXPAmount > xp}
-                    style={{ 
-                        flex: 2, 
-                        padding: '0.9rem', 
-                        borderRadius: '10px',
-                        background: 'var(--primary)', 
-                        color: '#000', 
-                        fontWeight: 900,
-                        fontSize: '0.85rem',
-                        opacity: (isInvesting || xp <= 0 || investXPAmount > xp) ? 0.5 : 1 
-                    }}
-                >
-                    {isInvesting ? 'WAIT...' : `CONFIRM`}
-                </button>
-            </div>
-        </div>
-      </Modal>
+                ) : modalState === 'success' ? (
+                    <div className={carouselStyles.successState}>
+                        <div className={carouselStyles.successIcon}><CheckCircle2 size={32} /></div>
+                        <h2 className={carouselStyles.modalTitle}>Purchase Confirmed</h2>
+                        <p className={carouselStyles.modalText}>After purchasing this game key, our team will verify your payment several times to ensure security. Once the verification process is completed, the key will appear on this game card. Click the Show Key button to reveal your key.</p>
+                        <button className="btnSolid" style={{ width: '100%', marginTop: '1rem', justifyContent: 'center' }} onClick={() => setModalState('closed')}>Return to Store</button>
+                    </div>
+                ) : null}
+            </Modal>
+
+            {/* Dedicated Investment Alert Modal */}
+            <Modal isOpen={isInvestModalOpen} onClose={() => setIsInvestModalOpen(false)} maxWidth="420px">
+                <div style={{ padding: '0.5rem', textAlign: 'center' }}>
+                    <div style={{
+                        width: '50px',
+                        height: '50px',
+                        background: 'rgba(var(--primary-rgb), 0.1)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1rem',
+                        border: '1px solid rgba(var(--primary-rgb), 0.2)'
+                    }}>
+                        <TrendingUp size={24} color="var(--primary)" />
+                    </div>
+
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.25rem', color: 'var(--foreground)' }}>
+                        Investment <span style={{ color: 'var(--primary)' }}>Console</span>
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--foreground)', opacity: 0.8, marginBottom: '1.5rem', maxWidth: '280px', margin: '0 auto 1.5rem' }}>
+                        Allocate XP for <strong>{selectedSteamGame?.title}</strong>.
+                    </p>
+
+                    {(() => {
+                        const target = selectedSteamGame?.targetXP || 50;
+                        const remaining = Math.max(0, target - currentInvestedXP);
+                        const maxAllowed = Math.min(xp, remaining);
+
+                        return (
+                            <div style={{
+                                background: 'rgba(var(--primary-rgb), 0.03)',
+                                padding: '1.5rem 1.25rem',
+                                borderRadius: '16px',
+                                marginBottom: '1.5rem',
+                                border: '1px solid rgba(var(--primary-rgb), 0.15)',
+                                position: 'relative'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
+                                    <div style={{ textAlign: 'left' }}>
+                                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 900 }}>Amount</span>
+                                        <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--foreground)', lineHeight: 1 }}>
+                                            {investXPAmount.toLocaleString()} <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>XP</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--foreground)', opacity: 0.5, fontWeight: 900 }}>Max Cap</span>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--foreground)' }}>
+                                            {remaining.toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <input
+                                        type="range"
+                                        min="1"
+                                        max={maxAllowed > 0 ? maxAllowed : 1}
+                                        value={investXPAmount}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            setInvestXPAmount(Math.min(maxAllowed, Math.max(1, val)));
+                                        }}
+                                        disabled={maxAllowed <= 0}
+                                        style={{
+                                            flex: 1,
+                                            accentColor: 'var(--primary)',
+                                            height: '6px',
+                                            borderRadius: '10px',
+                                            cursor: maxAllowed > 0 ? 'pointer' : 'not-allowed'
+                                        }}
+                                    />
+                                    <button
+                                        onClick={() => setInvestXPAmount(maxAllowed)}
+                                        disabled={maxAllowed <= 0}
+                                        style={{
+                                            background: 'rgba(var(--primary-rgb), 0.1)',
+                                            border: '1px solid rgba(var(--primary-rgb), 0.2)',
+                                            color: 'var(--primary)',
+                                            padding: '0.3rem 0.6rem',
+                                            borderRadius: '4px',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 900,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        MAX
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.7rem', fontWeight: 800, color: 'var(--foreground)', opacity: 0.5 }}>
+                                    <span>Personal: {xp.toLocaleString()} XP</span>
+                                    <span>Remaining Goal: {remaining.toLocaleString()} XP</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button
+                            className="btnOutline"
+                            onClick={() => setIsInvestModalOpen(false)}
+                            style={{ flex: 1, padding: '0.9rem', borderRadius: '10px', fontWeight: 800, fontSize: '0.85rem' }}
+                        >
+                            CANCEL
+                        </button>
+                        <button
+                            className="btnSolid"
+                            onClick={handleInvest}
+                            disabled={isInvesting || xp <= 0 || investXPAmount > xp}
+                            style={{
+                                flex: 2,
+                                padding: '0.9rem',
+                                borderRadius: '10px',
+                                background: 'var(--primary)',
+                                color: '#000',
+                                fontWeight: 900,
+                                fontSize: '0.85rem',
+                                opacity: (isInvesting || xp <= 0 || investXPAmount > xp) ? 0.5 : 1
+                            }}
+                        >
+                            {isInvesting ? 'WAIT...' : `CONFIRM`}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
 
 
-    </motion.section>
+        </motion.section>
 
-  );
+    );
 }

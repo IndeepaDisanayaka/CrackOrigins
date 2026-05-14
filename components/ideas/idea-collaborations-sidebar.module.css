@@ -560,6 +560,11 @@
   opacity: 0.5;
 }
 
+.indicatorNew {
+    background: #22c55e;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
 .sectionHeader label {
   font-size: 0.65rem;
   font-weight: 900;
@@ -625,17 +630,36 @@
 }
 
 .proposedContent, .parentContent {
-  font-size: 0.95rem;
-  line-height: 1.8;
+  font-size: 1.05rem;
+  line-height: 1.9;
   color: var(--foreground);
+  font-family: 'Inter', sans-serif;
 }
 
 .proposedContent p, .parentContent p {
-  margin: 0 0 0.75rem;
+  margin: 0 0 1.25rem;
 }
 
 .proposedContent p:last-child, .parentContent p:last-child {
   margin: 0;
+}
+
+.proposedContent b, .proposedContent strong,
+.parentContent b, .parentContent strong {
+    font-weight: 800;
+    color: var(--foreground);
+}
+
+.proposedContent i, .proposedContent em,
+.parentContent i, .parentContent em {
+    font-style: italic;
+    opacity: 0.9;
+}
+
+.proposedContent u, .parentContent u {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: var(--primary);
 }
 
 .proposedContent {
@@ -644,6 +668,7 @@
 
 .parentContent {
   color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 /* ─── Modal Footer ───────────────────────────────────────── */

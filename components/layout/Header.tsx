@@ -60,7 +60,10 @@ export default function Header({
             <Link href="/blog?category=news" className={styles.dropdownItem}>Latest News</Link>
           </div>
         </div>
-        <Link href="/ideas" className={styles.link}>Ideas</Link>
+        <Link href="/ideas" className={`${styles.link} ${styles.specialLink}`}>
+          <BadgeCheck size={14} />
+          Ideas
+        </Link>
         <Link href="/#about" className={styles.link}>About</Link>
         <Link href="/#community" className={styles.link}>Community</Link>
       </div>

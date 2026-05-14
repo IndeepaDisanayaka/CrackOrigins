@@ -50,8 +50,8 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isSaving, setIsSaving] = useState(false);
   const [isCollabSidebarOpen, setIsCollabSidebarOpen] = useState(false);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
+  const { setIsIdeaSidebarOpen, isLicenseModalOpen: isModalLicenseOpen, setIsLicenseModalOpen: setModalLicenseOpen } = useModals();
   const [licenseData, setLicenseData] = useState<any>(null);
-  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
   const [pendingSaveParams, setPendingSaveParams] = useState<{ content: any[] } | null>(null);
   const [isSavingConfirmed, setIsSavingConfirmed] = useState(false);
   const [isMetaEditModalOpen, setIsMetaEditModalOpen] = useState(false);
@@ -62,6 +62,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   });
   const [isUpdatingMeta, setIsUpdatingMeta] = useState(false);
   const [isVoteTutorialOpen, setIsVoteTutorialOpen] = useState(false);
+  const [lastCloudContent, setLastCloudContent] = useState<string>('');
   const [isVoteTutorialAgreed, setIsVoteTutorialAgreed] = useState(false);
   const [pendingVote, setPendingVote] = useState<'up' | 'down' | null>(null);
 
@@ -113,6 +114,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
             ...data,
             sections: sectionsData
           });
+          setLastCloudContent(JSON.stringify(sectionsData));
 
           if (data.licenseCode) {
             const licRes = await getLicenseByCode(data.licenseCode);
@@ -157,6 +159,35 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     fetchUserStatus();
   }, [user, id]);
 
+  const slugify = (text: string) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')     // Replace spaces with -
+      .replace(/[^\w-]+/g, '')  // Remove all non-word chars
+      .replace(/--+/g, '-');    // Replace multiple - with single -
+  };
+
+  useEffect(() => {
+    if (!loading && idea?.sections) {
+      const hash = window.location.hash;
+      if (hash) {
+        const targetId = hash.replace('#', '');
+        setTimeout(() => {
+          const element = document.getElementById(targetId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 800);
+      }
+    }
+  }, [loading, idea?.sections]);
+
+  useEffect(() => {
+    setIsIdeaSidebarOpen(isCollabSidebarOpen || isChatSidebarOpen);
+  }, [isCollabSidebarOpen, isChatSidebarOpen, setIsIdeaSidebarOpen]);
+
   const handleUpdateMeta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !idea) return;
@@ -200,14 +231,19 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   }
 
   const handleSaveContent = async (content: any[], toCloud?: boolean, bypassAgreement = false) => {
-    const isSame = JSON.stringify(content) === JSON.stringify(idea.sections);
+    const isSavingSameAsCurrent = JSON.stringify(content) === JSON.stringify(idea.sections);
+    const isSameAsCloud = JSON.stringify(content) === lastCloudContent;
 
-    if (toCloud && isSame) {
-      showToast("No Changes Detected", "info", { subtitle: "You haven't made any modifications to publish yet." });
+    if (isSaving) return;
+
+    if (toCloud && isSameAsCloud) {
+      showToast("No Changes Detected", "info", { subtitle: "You haven't made any modifications since your last cloud sync." });
       return;
     }
 
-    setIdea((prev: any) => ({ ...prev, sections: content }));
+    if (!isSavingSameAsCurrent) {
+        setIdea((prev: any) => ({ ...prev, sections: content }));
+    }
 
     if (toCloud) {
       if (!user) {
@@ -218,7 +254,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
       if (!isSavingConfirmed && !bypassAgreement) {
         setPendingSaveParams({ content });
-        setIsLicenseModalOpen(true);
+        setModalLicenseOpen(true);
         return;
       }
 
@@ -243,6 +279,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
           );
           setIsSavingConfirmed(false);
           setPendingSaveParams(null);
+          setLastCloudContent(JSON.stringify(content));
         } else {
           showToast("Save Failed", "error", { subtitle: res.error });
         }
@@ -260,7 +297,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     if (pendingSaveParams) {
       handleSaveContent(pendingSaveParams.content, true, true);
     }
-    setIsLicenseModalOpen(false);
+    setModalLicenseOpen(false);
   };
 
   const handleEditCollaboration = (collab: any) => {
@@ -441,7 +478,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                   </div>
                 </div>
 
-                <div className={styles.licenseBadgeRow} onClick={() => setIsLicenseModalOpen(true)} style={{ cursor: 'pointer' }}>
+                <div className={styles.licenseBadgeRow} onClick={() => setModalLicenseOpen(true)} style={{ cursor: 'pointer' }}>
                   <div className={styles.licenseLabel}><BadgeCheck size={14} color="var(--primary)" /><span>LICENSE</span></div>
                   <div className={styles.licenseValue}>{idea.licenseCode || "COMMUNITY"}</div>
                 </div>
@@ -488,33 +525,46 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
             <div className={blogPostStyles.mainContent}>
               {mode === 'reader' ? (
                 <div className={`blog-content ${styles.readerContent}`}>
-                  {idea.sections && idea.sections.map((section: any, index: number) => (
-                    <section key={section.id || index} className={styles.blogSection}>
-                      <div className={styles.sectionHeaderReader}>
-                        <button className={styles.inlineEditBtn} onClick={() => { setTargetSectionId(section.id); setMode('editor'); }} title="Edit Section"><Pencil size={14} /><span>Edit Section</span></button>
-                        <h1 className={styles.blogSectionTitle}>{section.title}</h1>
-                      </div>
-                      {section.paragraphs.map((para: any, pIndex: number) => (
-                        <p key={pIndex} dangerouslySetInnerHTML={{ __html: typeof para === 'string' ? para : structuredToHtml(para) }} />
-                      ))}
-                      {section.collaborators && section.collaborators.length > 0 && (
-                        <div className={styles.sectionCollaborators}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem' }}>
-                            <Users size={12} style={{ color: 'var(--primary)' }} /><span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.6 }}>Contributors</span>
+                  {idea.sections && idea.sections.map((section: any, index: number) => {
+                    const sectionSlug = section.slug || slugify(section.subtitle || section.title || `section-${index}`);
+                    return (
+                      <section key={section.id || index} id={sectionSlug} className={styles.blogSection} style={{ scrollMarginTop: '100px' }}>
+                        <div className={styles.sectionHeaderReader}>
+                            <div className={styles.sectionActionsGroup}>
+                                <button className={styles.inlineEditBtn} onClick={() => { setTargetSectionId(section.id); setMode('editor'); }} title="Edit Section"><Pencil size={14} /><span>Edit Section</span></button>
+                                <div className={styles.sectionIdBadge}>ID: {section.id}</div>
+                            </div>
+                          <div className={styles.sectionTitleRow}>
+                            <Link href={`#${sectionSlug}`} className={styles.subtitleLink}>
+                              <h2 className={styles.blogSectionTitle}>{section.subtitle || section.title}</h2>
+                            </Link>
                           </div>
-                          <div className={styles.collaboratorAvatars}>
-                            {section.collaborators.slice(0, 3).map((collab: any) => (
-                              <div key={collab.uid} className={styles.collabAvatarWrapper} title={collab.name}>
-                                <img src={collab.photo || `https://i.pravatar.cc/150?u=${collab.uid}`} alt={collab.name} className={styles.collabAvatar} />
-                                <div className={styles.collabTooltip}>{collab.name}</div>
+                          
+                          {section.collaborators && section.collaborators.length > 0 && (
+                            <div className={styles.sectionCollaboratorsCompact}>
+                              <div className={styles.collaboratorAvatars}>
+                                {section.collaborators.map((collab: any) => (
+                                  <div key={collab.uid} className={styles.collabAvatarWrapper}>
+                                    <img src={collab.photo || `https://i.pravatar.cc/150?u=${collab.uid}`} alt={collab.name} className={styles.collabAvatar} />
+                                    <div className={styles.collabTooltip}>
+                                        <div style={{ fontWeight: 900, color: 'var(--primary)' }}>{collab.name}</div>
+                                        <div style={{ fontSize: '0.6rem', opacity: 0.7, textTransform: 'uppercase' }}>{collab.rank || 'starter'}</div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                            {section.collaborators.length > 3 && <div className={styles.moreCollabs}>+{section.collaborators.length - 3}</div>}
-                          </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </section>
-                  ))}
+
+                        <div className={styles.sectionBody}>
+                          {section.paragraphs.map((para: any, pIndex: number) => (
+                            <p key={pIndex} dangerouslySetInnerHTML={{ __html: typeof para === 'string' ? para : structuredToHtml(para) }} />
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className={styles.editorModeContent}>
@@ -538,7 +588,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
       <IdeaChatSidebar isOpen={isChatSidebarOpen} onClose={() => setIsChatSidebarOpen(false)} ideaTitle={idea.title} ideaId={id} isMobile={isMobile} />
 
-      <Modal isOpen={isLicenseModalOpen} onClose={() => { setIsLicenseModalOpen(false); setPendingSaveParams(null); }} title="Chronicle License Information" maxWidth="600px">
+      <Modal isOpen={isModalLicenseOpen} onClose={() => { setModalLicenseOpen(false); setPendingSaveParams(null); }} title="Chronicle License Information" maxWidth="600px">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid var(--primary)', borderRadius: '8px' }}>
             <BadgeCheck size={32} color="var(--primary)" />
@@ -547,9 +597,22 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
               <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.7 }}>{licenseData?.name || "Standard Agency Agreement"}</p>
             </div>
           </div>
-          <div style={{ padding: '0 0.5rem' }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem', color: 'var(--primary)' }}>Usage Details</h4>
-            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, opacity: 0.9 }}>{licenseData?.description || "Shared collective intelligence agreement."}</p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', padding: '0 0.5rem' }}>
+            <div>
+                <h4 style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.4rem', color: 'var(--primary)', letterSpacing: '1px' }}>Usage Description</h4>
+                <p style={{ fontSize: '0.85rem', lineHeight: 1.6, opacity: 0.85 }}>{licenseData?.description || "Shared collective intelligence agreement."}</p>
+            </div>
+
+            {(licenseData?.terms || licenseData?.limitations) && (
+                <div style={{ padding: '1rem', background: 'rgba(var(--foreground-rgb), 0.03)', borderRadius: '8px', border: '1px solid var(--outline-color)' }}>
+                    <h4 style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', marginBottom: '0.6rem', opacity: 0.6 }}>Terms & Limitations</h4>
+                    <div style={{ fontSize: '0.8rem', lineHeight: 1.6, opacity: 0.9 }}>
+                        {licenseData?.terms && <div style={{ marginBottom: '0.8rem' }}>{licenseData.terms}</div>}
+                        {licenseData?.limitations && <div>{licenseData.limitations}</div>}
+                    </div>
+                </div>
+            )}
           </div>
           {pendingSaveParams && (
             <div style={{ marginTop: '1rem', padding: '1.25rem', border: '2px solid var(--primary)', borderRadius: '12px', background: 'rgba(var(--primary-rgb), 0.03)' }}>
@@ -557,7 +620,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
               <p style={{ fontSize: '0.8rem', lineHeight: 1.5, marginBottom: '1.5rem' }}>Push changes to the cloud under this license?</p>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button className="btnSolid" style={{ flex: 1, padding: '0.8rem' }} onClick={handleConfirmAgreement}>I AGREE & PUBLISH</button>
-                <button className="btnOutline" style={{ flex: 1, padding: '0.8rem' }} onClick={() => { setIsLicenseModalOpen(false); setPendingSaveParams(null); }}>CANCEL</button>
+                <button className="btnOutline" style={{ flex: 1, padding: '0.8rem' }} onClick={() => { setModalLicenseOpen(false); setPendingSaveParams(null); }}>CANCEL</button>
               </div>
             </div>
           )}

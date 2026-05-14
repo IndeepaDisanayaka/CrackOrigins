@@ -10,7 +10,7 @@ import { usePathname } from 'next/navigation';
 export default function FloatingControls() {
   const [isScrollVisible, setIsScrollVisible] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const { isBlogChatOpen } = useModals();
+  const { isBlogChatOpen, isIdeaSidebarOpen } = useModals();
   const pathname = usePathname();
   const isBlogPage = pathname?.startsWith('/blog');
 
@@ -53,7 +53,7 @@ export default function FloatingControls() {
     <div style={{
       position: 'fixed',
       bottom: '5.5rem',
-      right: isBlogChatOpen && isBlogPage ? 'calc(25% + 2rem)' : '2rem',
+      right: (isBlogChatOpen && isBlogPage) || isIdeaSidebarOpen ? 'calc(25% + 2rem)' : '2rem',
       zIndex: 5000,
       display: 'flex',
       flexDirection: 'row-reverse',

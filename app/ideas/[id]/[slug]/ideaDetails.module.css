@@ -378,21 +378,83 @@
   margin-right: auto;
 }
 
+.collabTooltip div {
+  white-space: nowrap;
+}
+
+.subtitleLink {
+  text-decoration: none;
+  color: var(--primary); /* Primary is yellow in this theme */
+  transition: all 0.2s ease;
+}
+
+.subtitleLink:hover {
+  filter: brightness(1.2);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.sectionIdBadge {
+  font-size: 0.52rem;
+  font-weight: 950;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: opacity 0.3s ease;
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  width: fit-content;
+}
+
 .blogSection {
   margin-bottom: 4rem;
 }
 
+.sectionHeaderReader {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem; /* Reduced from 0.5rem */
+  position: relative;
+}
+
+.sectionTitleRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.sectionActionsGroup {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
 .blogSectionTitle {
-  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-size: 1.8rem;
   font-weight: 900;
-  color: var(--foreground);
-  text-wrap: balance;
-  margin-bottom: 1.5rem;
-  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--primary) !important; /* Force yellow color */
+  text-shadow: 0 0 15px rgba(var(--primary-rgb), 0.2);
   text-transform: uppercase;
-  letter-spacing: -0.01em;
-  text-align: left;
-  max-width: 1000px;
+  line-height: 1.1;
+}
+
+@media (max-width: 768px) {
+  .sectionHeaderReader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .blogSectionTitle {
+    font-size: 1.4rem;
+  }
 }
 
 .readerContent p {
@@ -575,4 +637,97 @@
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--foreground);
+}
+
+.sectionCollaboratorsCompact {
+  margin-top: -2rem; /* Reduced from 1.2rem */
+  padding: 0;
+}
+
+.collaboratorAvatars {
+  display: flex;
+  align-items: center;
+  gap: -10px;
+}
+
+.collabAvatarWrapper {
+  position: relative;
+  cursor: pointer;
+  margin-right: -10px;
+  transition: transform 0.2s ease, margin 0.2s ease;
+  z-index: 1;
+}
+
+.collabAvatarWrapper:hover {
+  transform: translateY(-5px);
+  margin-right: 2px;
+  z-index: 10;
+}
+
+.collabAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  background: var(--outline-color);
+  object-fit: cover;
+  box-shadow: none; /* Removed as requested */
+}
+
+.collabTooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  background: var(--background); /* Theme-adaptive */
+  color: var(--foreground); /* Theme-adaptive */
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  box-shadow: none; /* Removed as requested */
+  border: 1px solid var(--outline-color); /* Subtle border for visibility without shadow */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+:global(.light-theme) .collabTooltip {
+    background: #ffffff;
+    border-color: #e0e0e0;
+}
+
+:global(.dark-theme) .collabTooltip {
+    background: #0a0a0a;
+    border-color: #2a2a2a;
+}
+
+.collabAvatarWrapper:hover .collabTooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-12px);
+}
+
+.collabTooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--outline-color) transparent transparent transparent;
+}
+
+:global(.light-theme) .collabTooltip::after {
+    border-top-color: #e0e0e0;
+}
+
+:global(.dark-theme) .collabTooltip::after {
+    border-top-color: #2a2a2a;
 }

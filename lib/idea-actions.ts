@@ -116,7 +116,8 @@ export async function saveCollaborationContent(
                     ideaId,
                     sectionId: section.id,
                     authorId: editorData.uid,
-                    subtitle: section.title || '',
+                    subtitle: section.title || section.subtitle || '',
+                    slug: (section.title || section.subtitle || '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-'),
                     paragraph: section.paragraphs.map((p: any) => ({
                         text: typeof p === 'string' ? p : (p.text || ''),
                         Typography: p.Typography || []
@@ -256,36 +257,54 @@ export const getIdeaSections = cache(
                 {
                     $group: {
                         _id: "$sectionId",
-                        title: { $first: "$subtitle" },
-                        paragraph: { $first: "$paragraph" },
-                        orderid: { $first: "$orderid" },
-                        dbId: { $first: "$_id" },
-                        authorId: { $first: "$authorId" },
-                        updated_time: { $first: "$updated_time" },
-                        contributorIds: { $addToSet: "$authorId" }
+                        latestDoc: { $first: "$$ROOT" },
+                        allAuthorIds: { $push: "$authorId" },
+                        allParentIds: { $push: "$parentId" }
                     }
                 },
-                {
-                    $lookup: {
-                        from: "accounts",
-                        localField: "contributorIds",
-                        foreignField: "uid",
-                        as: "collaborators"
-                    }
-                },
-                { $sort: { orderid: 1 } }
+                { $sort: { "latestDoc.orderid": 1 } }
             ]).toArray();
 
-            const mappedSections = sections.map(doc => ({
-                id: doc._id,
-                title: doc.title || '',
-                paragraphs: doc.paragraph || [],
-                collaborators: doc.collaborators?.map((c: any) => ({
-                    uid: c.uid,
-                    name: c.name || c.displayName || 'Anonymous',
-                    photo: c.photoURL || c.photo || ''
-                })) || [],
-                updated_time: doc.updated_time
+            // Resolve full contributor chain for each section
+            const mappedSections = await Promise.all(sections.map(async (doc: any) => {
+                const latest = doc.latestDoc;
+                
+                // Collect unique author IDs from history
+                const uniqueAuthors = new Set<string>();
+                
+                // Start with the latest author
+                if (latest.authorId) uniqueAuthors.add(latest.authorId);
+
+                // Recursively fetch parents to find all contributors in the chain
+                let currentParentId = latest.parentId;
+                while (currentParentId) {
+                    const parentDoc: any = await db.collection("idea_collaborations").findOne({ _id: currentParentId }) || 
+                                          await db.collection("idea_authors").findOne({ _id: currentParentId });
+                    
+                    if (parentDoc) {
+                        if (parentDoc.authorId) uniqueAuthors.add(parentDoc.authorId);
+                        currentParentId = parentDoc.parentId;
+                    } else {
+                        break;
+                    }
+                }
+
+                // Fetch account details for all identified contributors
+                const contributors = await db.collection("accounts").find({ uid: { $in: Array.from(uniqueAuthors) } }).toArray();
+
+                return {
+                    id: doc._id,
+                    title: latest.subtitle || '',
+                    slug: latest.slug || '',
+                    paragraphs: latest.paragraph || [],
+                    collaborators: contributors.map((c: any) => ({
+                        uid: c.uid,
+                        name: c.name || c.displayName || 'Anonymous',
+                        photo: c.photoURL || c.photo || '',
+                        rank: c.affiliateLevel || 'starter'
+                    })),
+                    updated_time: latest.updated_time
+                };
             }));
 
             return { success: true, sections: mappedSections };
@@ -340,6 +359,7 @@ export async function getPendingCollaborations(ideaId: string) {
             subtitle: c.subtitle,
             paragraph: c.paragraph,
             sectionId: c.sectionId,
+            parentId: c.parentId?.toString(),
             time: c.time,
             isApproved: false
         }));
@@ -373,6 +393,7 @@ export async function getAllCollaborations(ideaId: string) {
             subtitle: c.subtitle,
             paragraph: c.paragraph,
             sectionId: c.sectionId,
+            parentId: c.parentId?.toString(),
             time: c.time,
             isApproved: c.isApproved || false
         }));
@@ -380,6 +401,45 @@ export async function getAllCollaborations(ideaId: string) {
         return { success: true, collaborations: results };
     } catch (error: any) {
         console.error("Error fetching all collaborations:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Fetch a specific collaboration or section by ID
+ */
+export async function getCollaborationById(id: string) {
+    try {
+        const db = await getMongoDb();
+        const { ObjectId } = await import('mongodb');
+
+        // Check collaborations first
+        let doc = await db.collection("idea_collaborations").findOne({ _id: new ObjectId(id) });
+        
+        // If not found, check sections (idea_authors)
+        if (!doc) {
+            doc = await db.collection("idea_authors").findOne({ _id: new ObjectId(id) });
+        }
+
+        if (!doc) {
+            return { success: false, error: 'Content not found' };
+        }
+
+        return {
+            success: true,
+            collaboration: {
+                id: doc._id.toString(),
+                authorId: doc.authorId,
+                subtitle: doc.subtitle,
+                paragraph: doc.paragraph,
+                sectionId: doc.sectionId,
+                parentId: doc.parentId?.toString(),
+                time: doc.time,
+                isApproved: doc.isApproved
+            }
+        };
+    } catch (error: any) {
+        console.error("Error fetching collaboration:", error);
         return { success: false, error: error.message };
     }
 }

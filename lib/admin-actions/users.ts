@@ -627,23 +627,52 @@ export async function getSupportChats(adminUid: string) {
     try {
         const db = await getMongoDb();
         const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
-        const canRead = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'READ'));
+        const canRead = adminDoc?.isOwner || (adminDoc?.ruleId && (await hasPermission(adminUid, 'account', 'READ') || await hasPermission(adminUid, 'support', 'READ')));
         if (!adminDoc || !canRead) return { success: false, error: "Unauthorized." };
 
-        const chats = await db.collection("support_chats")
-            .find({})
-            .sort({ updatedAt: -1 })
-            .toArray();
+        // Group messages by user to identify inquiries
+        // We look for any message where either 'from' or 'to' is a user (not admin)
+        const inquiries = await db.collection("support_messages").aggregate([
+            {
+                $match: {
+                    $or: [
+                        { from: { $ne: "admin" } },
+                        { to: { $ne: "admin" } }
+                    ]
+                }
+            },
+            { $sort: { timestamp: -1 } },
+            {
+                $group: {
+                    _id: {
+                        $cond: [
+                            { $eq: ["$from", "admin"] },
+                            "$to",
+                            "$from"
+                        ]
+                    },
+                    lastMessage: { $first: "$text" },
+                    updatedAt: { $first: "$timestamp" },
+                    senderName: { $first: "$senderName" }
+                }
+            },
+            { $sort: { updatedAt: -1 } }
+        ]).toArray();
+
+        // Fetch user details for these inquiries
+        const userUids = inquiries.map(i => i._id);
+        const users = await db.collection("accounts").find({ uid: { $in: userUids } }).toArray();
+        const userMap = Object.fromEntries(users.map(u => [u.uid, u]));
 
         return {
             success: true,
-            chats: chats.map((c: any) => ({
-                id: c._id.toString(),
-                name: c.name || "Unknown Operative",
-                lastMessage: c.lastMessage || "",
-                updatedAt: c.updatedAt ? new Date(c.updatedAt).getTime() : Date.now(),
-                ownerId: c.ownerId || null,
-                ownerName: c.ownerName || null,
+            chats: inquiries.map((i: any) => ({
+                id: i._id, // User UID acts as the chat ID
+                name: userMap[i._id]?.displayName || i.senderName || "Unknown Operative",
+                lastMessage: i.lastMessage || "",
+                updatedAt: i.updatedAt ? new Date(i.updatedAt).getTime() : Date.now(),
+                ownerId: null, // Ownership logic can be added later if needed
+                ownerName: null,
             }))
         };
     } catch (error: any) {
@@ -651,11 +680,17 @@ export async function getSupportChats(adminUid: string) {
     }
 }
 
-export async function getSupportMessages(chatId: string) {
+export async function getSupportMessages(userUid: string) {
     try {
         const db = await getMongoDb();
+        // Fetch messages where either from or to is the user
         const messages = await db.collection("support_messages")
-            .find({ chatId })
+            .find({
+                $or: [
+                    { from: userUid },
+                    { to: userUid }
+                ]
+            })
             .sort({ timestamp: 1 })
             .toArray();
 
@@ -664,8 +699,10 @@ export async function getSupportMessages(chatId: string) {
             messages: messages.map((m: any) => ({
                 id: m._id.toString(),
                 text: m.text || "",
-                senderId: m.senderId || "",
+                senderId: m.senderId || m.from || "",
                 senderName: m.senderName || "Unknown",
+                from: m.from,
+                to: m.to,
                 timestamp: m.timestamp ? new Date(m.timestamp).getTime() : Date.now(),
             }))
         };
@@ -674,23 +711,24 @@ export async function getSupportMessages(chatId: string) {
     }
 }
 
-export async function sendSupportMessage(chatId: string, message: { text: string; senderId: string; senderName: string }) {
+export async function sendSupportMessage(recipientUid: string, message: { text: string; senderId: string; senderName: string }) {
     try {
         const db = await getMongoDb();
         const now = new Date();
 
+        // If sender is admin, 'from' is admin, 'to' is recipient (user)
+        // If sender is user, 'from' is sender, 'to' is admin
+        const adminDoc = await db.collection("accounts").findOne({ uid: message.senderId });
+        const isAdmin = message.senderId === "admin" || adminDoc?.role === "admin" || adminDoc?.role === "owner" || adminDoc?.isOwner;
+        
         await db.collection("support_messages").insertOne({
-            chatId,
+            from: isAdmin ? "admin" : message.senderId,
+            to: isAdmin ? recipientUid : "admin",
             text: message.text,
             senderId: message.senderId,
             senderName: message.senderName,
             timestamp: now,
         });
-
-        await db.collection("support_chats").updateOne(
-            { _id: chatId as any },
-            { $set: { lastMessage: message.text, updatedAt: now } }
-        );
 
         return { success: true };
     } catch (error: any) {
@@ -705,6 +743,27 @@ export async function assignChat(adminUid: string, adminName: string, chatId: st
             { _id: chatId as any },
             { $set: { ownerId: adminUid, ownerName: adminName, assignedAt: new Date() } }
         );
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteSupportChat(adminUid: string, userUid: string) {
+    try {
+        const db = await getMongoDb();
+        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        
+        const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && (await hasPermission(adminUid, 'account', 'DELETE') || await hasPermission(adminUid, 'support', 'DELETE')));
+        if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };
+
+        await db.collection("support_messages").deleteMany({
+            $or: [
+                { from: userUid },
+                { to: userUid }
+            ]
+        });
+
         return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
