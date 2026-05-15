@@ -100,7 +100,7 @@ export async function syncUserRecord(uid: string, data: {
             updatedAt: new Date(),
             affiliateId,
             xp: existing?.xp ?? existing?.discount ?? 0,
-            country: data.country || "Unknown",
+            country: (data.country && data.country !== "Unknown") ? data.country : (existing?.country || "Unknown"),
             emailVerified: data.emailVerified ?? false,
         };
 
@@ -175,6 +175,7 @@ export async function checkAdminStatus(uid: string) {
                 nextLevelGoal: nextLevel ? nextLevel.min_xp : null
             },
             affiliateCount,
+            country: data?.country || "Unknown",
             metadata: {
                 creationTime: data?.created ? new Date(data.created).toISOString() : null,
                 lastSignInTime: data?.last ? new Date(data.last).toISOString() : null

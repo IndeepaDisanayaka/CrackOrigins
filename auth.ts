@@ -27,11 +27,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           console.log("Syncing Google user to MongoDB:", user.email);
           
           let referralId = null;
+          let detectedCountry = "Unknown";
           try {
-            const { cookies } = await import("next/headers");
-            referralId = (await cookies()).get("referralId")?.value || null;
+            const { cookies, headers } = await import("next/headers");
+            const cookieStore = await cookies();
+            const headerList = await headers();
+            
+            referralId = cookieStore.get("referralId")?.value || null;
+            
+            // 1. Try to get country from cookie (set by client-side AuthContext)
+            detectedCountry = cookieStore.get("userCountry")?.value || "Unknown";
+            
+            // 2. If no cookie, try platform-specific headers
+            if (detectedCountry === "Unknown") {
+              detectedCountry = headerList.get("x-vercel-ip-country") || 
+                                headerList.get("cf-ipcountry") || 
+                                "Unknown";
+            }
+            
+            // 3. Fallback: IP-based detection if still unknown and not generic local IP
+            if (detectedCountry === "Unknown") {
+              const ip = headerList.get("x-forwarded-for")?.split(',')[0] || headerList.get("x-real-ip");
+              if (ip && ip !== "::1" && ip !== "127.0.0.1" && !ip.startsWith("192.168.") && !ip.startsWith("10.")) {
+                try {
+                  const geoRes = await fetch(`https://ipwho.is/${ip}`, { next: { revalidate: 3600 } });
+                  if (geoRes.ok) {
+                    const geoData = await geoRes.json();
+                    if (geoData.success && geoData.country) {
+                      detectedCountry = geoData.country;
+                    }
+                  }
+                } catch (e) {
+                  console.warn("Server-side IP geo-lookup failed:", e);
+                }
+              }
+            }
           } catch (e) {
-            console.warn("Could not read referral cookie:", e);
+            console.warn("Could not read cookies/headers for country detection:", e);
           }
 
           const syncRes = await syncUserRecord(user.id!, {
@@ -41,7 +73,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             photoURL: user.image || null,
             created: new Date().toISOString(),
             last: new Date().toISOString(),
-            country: "Unknown",
+            country: detectedCountry,
             emailVerified: true,
             referralId: referralId
           });

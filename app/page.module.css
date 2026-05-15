@@ -189,10 +189,10 @@
   color: var(--primary) !important;
   font-weight: 950 !important;
   text-shadow: 0 0 15px rgba(var(--primary-rgb), 0.4);
-  background: rgba(var(--primary-rgb), 0.08);
+  background: transparent;
   padding: 0.5rem 1rem !important;
   border-radius: 8px;
-  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -201,6 +201,14 @@
   position: relative;
   overflow: hidden;
 }
+
+:global(.light-theme) .specialLink {
+  color: #000 !important;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+
 
 .specialLink::before {
   content: '';

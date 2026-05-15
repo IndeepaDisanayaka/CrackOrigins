@@ -269,7 +269,8 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
           uid: user.uid,
           name: user.displayName || 'Anonymous',
           photo: user.photoURL || ''
-        }, structuredSections);
+        }, structuredSections, !targetSectionId);
+
 
         if (res.success) {
           showToast(
@@ -568,7 +569,16 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 </div>
               ) : (
                 <div className={styles.editorModeContent}>
-                  <IdeaEditor id={id} initialContent={idea.sections || []} onSave={handleSaveContent} isSaving={isSaving} targetSectionId={targetSectionId} isAuthor={isAuthor} />
+                  <IdeaEditor 
+                    id={id} 
+                    initialContent={idea.sections || []} 
+                    onSave={handleSaveContent} 
+                    isSaving={isSaving} 
+                    targetSectionId={targetSectionId} 
+                    isAuthor={isAuthor} 
+                    onResetMode={() => setTargetSectionId(null)}
+                  />
+
                 </div>
               )}
               <footer className={blogPostStyles.postFooter}>

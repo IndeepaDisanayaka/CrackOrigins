@@ -48,55 +48,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [affiliateCount, setAffiliateCount] = useState(0);
   const [country, setCountry] = useState('Unknown');
   const [permissions, setPermissions] = useState<Record<string, string[]>>({});
-  const [metadata, setMetadata] = useState<{creationTime: string | null, lastSignInTime: string | null}>({ creationTime: null, lastSignInTime: null });
+  const [metadata, setMetadata] = useState<{ creationTime: string | null, lastSignInTime: string | null }>({ creationTime: null, lastSignInTime: null });
   const [isOwner, setIsOwner] = useState(false);
 
   const isAuthLoading = status === 'loading';
 
   const fetchCountry = async () => {
+    let detectedCountry = 'Unknown';
     try {
       // Primary: ipwho.is
       const res = await fetch("https://ipwho.is/");
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.country) {
-          setCountry(data.country);
-          return data.country;
+          detectedCountry = data.country;
         }
       }
     } catch (e) {
       console.warn("ipwho.is failed, trying fallback...");
     }
 
-    try {
-      // Fallback: ipapi.co
-      const res = await fetch("https://ipapi.co/json/");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.country_name) {
-          setCountry(data.country_name);
-          return data.country_name;
+    if (detectedCountry === 'Unknown') {
+      try {
+        // Fallback: ipapi.co
+        const res = await fetch("https://ipapi.co/json/");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.country_name) {
+            detectedCountry = data.country_name;
+          }
         }
+      } catch (e) {
+        console.warn("ipapi.co failed, trying db-ip...");
       }
-    } catch (e) {
-      console.warn("ipapi.co failed, trying db-ip...");
     }
 
-    try {
-      // Tertiary: db-ip
-      const res = await fetch("https://api.db-ip.com/v2/free/self");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.countryName) {
-          setCountry(data.countryName);
-          return data.countryName;
+    if (detectedCountry === 'Unknown') {
+      try {
+        // Tertiary: db-ip
+        const res = await fetch("https://api.db-ip.com/v2/free/self");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.countryName) {
+            detectedCountry = data.countryName;
+          }
         }
+      } catch (e) {
+        // All failed, silence the error
       }
-    } catch (e) {
-      // All failed, silence the error
     }
-    
-    return 'Unknown';
+
+    setCountry(detectedCountry);
+    if (detectedCountry !== 'Unknown') {
+      // Set a cookie for the server to read during auth (expires in 24 hours)
+      document.cookie = `userCountry=${encodeURIComponent(detectedCountry)}; path=/; max-age=86400; SameSite=Lax`;
+    }
+    return detectedCountry;
   };
 
   const refreshStatus = async () => {
@@ -105,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkAdminStatus(session.user.id),
         getMyPermissions(session.user.id)
       ]);
-      
+
       if (res.success) {
         setIsAdmin(res.isAdmin || res.isOwner || false);
         setIsOwner(res.isOwner || false);
@@ -115,9 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAffiliateLevelDetails(res.affiliateLevelDetails || null);
         setAffiliateCount(res.affiliateCount || 0);
         setMetadata(res.metadata || { creationTime: null, lastSignInTime: null });
-        // if (res.country && res.country !== 'Unknown') {
-        //   setCountry(res.country);
-        // }
+        if (res.country && res.country !== 'Unknown') {
+          setCountry(res.country);
+        }
       }
 
       if (permRes.success) {
@@ -144,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         image: u.image || null,
         metadata: metadata
       });
-      
+
       // Only refresh status once when session is first established
       if (status === 'authenticated' && !isAdmin && !user) {
         refreshStatus();

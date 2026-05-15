@@ -70,8 +70,10 @@ export async function saveCollaborationContent(
         name: string;
         photo?: string;
     },
-    sections: any[]
+    sections: any[],
+    isFullEditor?: boolean
 ) {
+
     try {
         const db = await getMongoDb();
         const ideaDoc = await db.collection<any>("ideas").findOne({ _id: ideaId });
@@ -81,12 +83,21 @@ export async function saveCollaborationContent(
         }
 
         const isAuthor = ideaDoc.authorUid === editorData.uid;
+        
+        // Find current max orderId to handle new sections correctly
+        const authorLatestOrder = await db.collection("idea_authors")
+            .find({ ideaId })
+            .sort({ orderid: -1 })
+            .limit(1)
+            .next();
+        let maxOrder = authorLatestOrder?.orderid || 0;
 
         // Process sections and form the version chain
         if (sections.length > 0) {
             const docsToInsert = await Promise.all(sections.map(async (section, index) => {
                 // Find all approved versions from both collections
                 const [creatorLatest, collabLatest] = await Promise.all([
+
                     db.collection("idea_authors").findOne(
                         { ideaId, sectionId: section.id, isApproved: true },
                         { sort: { updated_time: -1, time: -1 } }
@@ -97,6 +108,7 @@ export async function saveCollaborationContent(
                     )
                 ]);
 
+
                 // Determine the absolute latest approved version across both collections
                 const getDocTime = (doc: any) => {
                     if (!doc) return 0;
@@ -105,11 +117,24 @@ export async function saveCollaborationContent(
                 };
 
                 let lastApproved = null;
+                let orderid = 0;
+
                 if (creatorLatest && collabLatest) {
                     lastApproved = getDocTime(creatorLatest) >= getDocTime(collabLatest) ? creatorLatest : collabLatest;
                 } else {
                     lastApproved = creatorLatest || collabLatest;
                 }
+
+                if (isFullEditor) {
+                    orderid = index + 1;
+                } else if (lastApproved) {
+                    orderid = lastApproved.orderid;
+                } else {
+                    // New section in single mode
+                    maxOrder += 1;
+                    orderid = maxOrder;
+                }
+
 
                 return {
                     _id: new ObjectId(),
@@ -122,13 +147,14 @@ export async function saveCollaborationContent(
                         text: typeof p === 'string' ? p : (p.text || ''),
                         Typography: p.Typography || []
                     })),
-                    orderid: index + 1,
+                    orderid: orderid,
                     isApproved: isAuthor, // Only authors are auto-approved
                     parentId: lastApproved ? lastApproved._id : null,
                     time: new Date(),
                     updated_time: new Date()
                 };
             }));
+
 
             const collectionName = isAuthor ? "idea_authors" : "idea_collaborations";
             await db.collection(collectionName).insertMany(docsToInsert as any[]);

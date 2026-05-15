@@ -26,7 +26,9 @@ interface IdeaEditorProps {
   onSave?: (content: ContentSection[], toCloud?: boolean) => void;
   targetSectionId?: string | null;
   isAuthor?: boolean;
+  onResetMode?: () => void;
 }
+
 
 const ConfirmModal = ({
   isOpen,
@@ -99,7 +101,9 @@ const SectionItem = ({
   removeParagraph,
   addParagraph,
   sectionsLength,
-  isAuthor
+  isAuthor,
+  isSingleMode,
+  targetSectionId
 }: {
   section: ContentSection,
   activeSectionId: string | null,
@@ -110,8 +114,11 @@ const SectionItem = ({
   removeParagraph: (sectionId: string, pIndex: number) => void,
   addParagraph: (sectionId: string) => void,
   sectionsLength: number,
-  isAuthor: boolean
+  isAuthor: boolean,
+  isSingleMode?: boolean,
+  targetSectionId?: string | null
 }) => {
+
   const controls = useDragControls();
 
   return (
@@ -146,14 +153,17 @@ const SectionItem = ({
             placeholder="Enter section title..."
           />
         </div>
-        <button
-          onClick={() => removeSection(section.id)}
-          className={styles.removeBtn}
-          title="Remove Section"
-        >
-          <Trash2 size={16} />
-        </button>
+        {(!isSingleMode || section.id !== targetSectionId) && (
+          <button
+            onClick={() => removeSection(section.id)}
+            className={styles.removeBtn}
+            title="Remove Section"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
+
 
       <div className={styles.paragraphsContainer}>
         {section.paragraphs.map((para, pIndex) => (
@@ -196,12 +206,16 @@ export default function IdeaEditor({
   isSaving, 
   onSave, 
   targetSectionId,
-  isAuthor = false
+  isAuthor = false,
+  onResetMode
 }: IdeaEditorProps) {
+
   const [sections, setSections] = useState<ContentSection[]>([]);
   const initialized = useRef(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [focusType, setFocusType] = useState<'title' | 'paragraph' | null>(null);
+  const [addedSectionIds, setAddedSectionIds] = useState<string[]>([]);
+
 
   // Ref to track and scroll to target section
   useEffect(() => {
@@ -214,8 +228,8 @@ export default function IdeaEditor({
     }
   }, [targetSectionId, initialized.current]);
   const [isLocalSaving, setIsLocalSaving] = useState(false);
-  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
   const [isSingleMode, setIsSingleMode] = useState(false);
+
   const { showToast } = useToast();
   const [activeStyles, setActiveStyles] = useState<{ [key: string]: boolean }>({
     bold: false,
@@ -340,21 +354,9 @@ export default function IdeaEditor({
     }
   }, [id, initialContent, targetSectionId, sections.length]);
 
-  const loadLiveContent = () => {
-    const processInitialContent = (content: ContentSection[]) => {
-      return content.map(section => ({
-        ...section,
-        paragraphs: section.paragraphs.map((p: any) =>
-          typeof p === 'string' ? p : structuredToHtml(p)
-        )
-      }));
-    };
-    setSections(processInitialContent(initialContent));
-    setIsSingleMode(false); // Reset single mode to show all synced content
-    showToast("Live Content Loaded", "success", { subtitle: "Your local editor has been synced with the database." });
-  };
 
   const loadLocalDraft = () => {
+
     const savedDraft = localStorage.getItem(`idea_draft_${id}`);
     if (savedDraft) {
       try {
@@ -402,7 +404,9 @@ export default function IdeaEditor({
     } else {
       setSections([...sections, newSection]);
     }
+    setAddedSectionIds(prev => [...prev, newSection.id]);
   };
+
 
   const removeSection = (id: string) => {
     setSections(sections.filter(s => s.id !== id));
@@ -525,10 +529,8 @@ export default function IdeaEditor({
           <button onClick={loadLocalDraft} className={styles.toolBtn} title="Load Local Draft">
             <History size={18} />
           </button>
-          <button onClick={() => setShowSyncConfirm(true)} className={styles.toolBtn} title="Sync from Live Database">
-            <RotateCw size={18} />
-          </button>
         </div>
+
 
         <div className={styles.toolbarGroup} style={{ marginLeft: 'auto', gap: '12px' }}>
           <button
@@ -559,10 +561,36 @@ export default function IdeaEditor({
       </div>
 
       <div className={styles.contentArea}>
+        {isSingleMode ? (
+          <div className={`${styles.modeIndicator} ${styles.newVersionLabel}`}>
+            <History size={16} />
+            <span>Editing Existing Content (New Version)</span>
+            <button 
+                onClick={() => {
+                    setSections([{ id: Date.now().toString(), title: 'New Story Segment', paragraphs: [''] }]);
+                    setIsSingleMode(false);
+                    onResetMode?.();
+                    showToast("Editor Cleared", "success", { subtitle: "You are now creating new story content." });
+                }}
+                className={styles.miniResetBtn}
+                title="Clear and start new story"
+            >
+                <X size={14} />
+                <span>CLEAR</span>
+            </button>
+          </div>
+        ) : (
+
+          <div className={styles.modeIndicator}>
+            <Sparkles size={16} />
+            <span>Creating New Story Content</span>
+          </div>
+        )}
         <Reorder.Group axis="y" values={sections} onReorder={setSections} className={styles.sectionList}>
+
           <AnimatePresence>
             {sections
-              .filter(s => !isSingleMode || s.id === targetSectionId)
+              .filter(s => !isSingleMode || s.id === targetSectionId || addedSectionIds.includes(s.id))
               .map((section, index) => (
                 <React.Fragment key={section.id}>
                   <SectionItem
@@ -579,7 +607,10 @@ export default function IdeaEditor({
                     addParagraph={addParagraph}
                     sectionsLength={sections.length}
                     isAuthor={isAuthor}
+                    isSingleMode={isSingleMode}
+                    targetSectionId={targetSectionId}
                   />
+
 
                   {/* Insert between sections */}
                   <div className={styles.insertDivider}>
@@ -608,14 +639,8 @@ export default function IdeaEditor({
           </div>
         )}
       </div>
-
-      <ConfirmModal
-        isOpen={showSyncConfirm}
-        onClose={() => setShowSyncConfirm(false)}
-        onConfirm={loadLiveContent}
-        title="Sync from Database"
-        message="This will replace your current local changes with the live content from the database. Any unsaved local edits will be lost. Are you sure you want to proceed?"
-      />
     </div>
   );
 }
+
+

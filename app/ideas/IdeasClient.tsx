@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   TrendingUp, Bookmark, Heart, ArrowRight, Zap, 
   FileText, Search, Plus, User, Clock, 
-  ChevronRight, Sparkles, Globe, Shield, BadgeCheck, ArrowBigUp
+  ChevronRight, Sparkles, Globe, Shield, BadgeCheck, ArrowBigUp, ArrowBigDown
 } from 'lucide-react';
 import Header from '../../components/layout/Header';
 import MobileNav from '../../components/layout/MobileNav';
@@ -371,10 +371,16 @@ export default function IdeasClient() {
                              <span style={{ fontSize: '0.6rem', opacity: 0.5 }}>{formatDate(idea.time)}</span>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)' }}>
-                               <ArrowBigUp size={18} strokeWidth={1.5} />
-                               <span style={{ fontSize: '0.75rem', fontWeight: 900 }}>{idea.status?.upvotes || 0}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary)' }}>
+                                   <ArrowBigUp size={18} strokeWidth={1.5} />
+                                   <span style={{ fontSize: '0.75rem', fontWeight: 900 }}>{idea.status?.upvotes || 0}</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', color: '#ff4b4b' }}>
+                                   <ArrowBigDown size={18} strokeWidth={1.5} />
+                                   <span style={{ fontSize: '0.75rem', fontWeight: 900 }}>{idea.status?.downvotes || 0}</span>
+                                </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', opacity: 0.8, color: 'var(--foreground)' }}>
                                <ArrowRight size={14} />
