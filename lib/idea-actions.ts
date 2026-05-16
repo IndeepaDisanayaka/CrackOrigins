@@ -22,6 +22,13 @@ export async function publishIdea(uid: string, ideaData: {
     isPrivate: boolean;
     authorPhoto?: string;
     licenseCode?: string;
+    tags?: string[];
+    characters?: { name: string, type: string }[];
+    environmentType?: string;
+    storyType?: string;
+    targetAudience?: string;
+    goal?: string;
+    endingType?: string;
 }) {
     try {
         const db = await getMongoDb();
@@ -51,6 +58,13 @@ export async function publishIdea(uid: string, ideaData: {
             isPrivate: ideaData.isPrivate,
             authorPhoto: ideaData.authorPhoto || '',
             licenseCode: ideaData.licenseCode || '',
+            tags: ideaData.tags || [],
+            characters: ideaData.characters || [],
+            environmentType: ideaData.environmentType || 'Modern',
+            storyType: ideaData.storyType || 'Action',
+            targetAudience: ideaData.targetAudience || '',
+            goal: ideaData.goal || '',
+            endingType: ideaData.endingType || 'Happy',
             time: new Date(),
             status: { views: 0, likes: 0, upvotes: 0, downvotes: 0 },
             lastUpdated: new Date()
@@ -84,20 +98,19 @@ export async function saveCollaborationContent(
 
         const isAuthor = ideaDoc.authorUid === editorData.uid;
         
-        // Find current max orderId to handle new sections correctly
-        const authorLatestOrder = await db.collection("idea_authors")
-            .find({ ideaId })
-            .sort({ orderid: -1 })
-            .limit(1)
-            .next();
-        let maxOrder = authorLatestOrder?.orderid || 0;
+        // Find current max orderId across both approved source collections
+        const [authorMax, collabMax] = await Promise.all([
+            db.collection("idea_authors").find({ ideaId }).sort({ orderid: -1 }).limit(1).next(),
+            db.collection("idea_collaborations").find({ ideaId, isApproved: true }).sort({ orderid: -1 }).limit(1).next()
+        ]);
+        
+        let maxOrder = Math.max(authorMax?.orderid || 0, collabMax?.orderid || 0);
 
         // Process sections and form the version chain
         if (sections.length > 0) {
             const docsToInsert = await Promise.all(sections.map(async (section, index) => {
                 // Find all approved versions from both collections
                 const [creatorLatest, collabLatest] = await Promise.all([
-
                     db.collection("idea_authors").findOne(
                         { ideaId, sectionId: section.id, isApproved: true },
                         { sort: { updated_time: -1, time: -1 } }
@@ -108,8 +121,6 @@ export async function saveCollaborationContent(
                     )
                 ]);
 
-
-                // Determine the absolute latest approved version across both collections
                 const getDocTime = (doc: any) => {
                     if (!doc) return 0;
                     const t = doc.updated_time || doc.time || 0;
@@ -117,20 +128,18 @@ export async function saveCollaborationContent(
                 };
 
                 let lastApproved = null;
-                let orderid = 0;
-
                 if (creatorLatest && collabLatest) {
                     lastApproved = getDocTime(creatorLatest) >= getDocTime(collabLatest) ? creatorLatest : collabLatest;
                 } else {
                     lastApproved = creatorLatest || collabLatest;
                 }
 
-                if (isFullEditor) {
-                    orderid = index + 1;
-                } else if (lastApproved) {
+                let orderid = 0;
+                if (lastApproved) {
+                    // This section already exists in the chronicle
                     orderid = lastApproved.orderid;
                 } else {
-                    // New section in single mode
+                    // This is a BRAND NEW section - append to the end
                     maxOrder += 1;
                     orderid = maxOrder;
                 }
@@ -767,7 +776,18 @@ export async function deleteIdea(ideaId: string, uid: string) {
     }
 }
 
-export async function updateIdeaMetadata(ideaId: string, uid: string, data: { description?: string, image?: string, isPrivate?: boolean }) {
+export async function updateIdeaMetadata(ideaId: string, uid: string, data: { 
+    description?: string;
+    image?: string; 
+    isPrivate?: boolean;
+    tags?: string[];
+    characters?: { name: string, type: string }[];
+    environmentType?: string;
+    storyType?: string;
+    targetAudience?: string;
+    goal?: string;
+    endingType?: string;
+}) {
     try {
         const db = await getMongoDb();
         const idea = await db.collection<any>("ideas").findOne({ _id: ideaId });
@@ -779,16 +799,22 @@ export async function updateIdeaMetadata(ideaId: string, uid: string, data: { de
             return { success: false, error: "Unauthorized. Access Denied." };
         }
 
+        const updateDoc: any = { lastUpdated: new Date() };
+
+        if (data.description !== undefined) updateDoc.description = data.description;
+        if (data.image !== undefined) updateDoc.image = data.image;
+        if (data.isPrivate !== undefined) updateDoc.isPrivate = data.isPrivate;
+        if (data.tags !== undefined) updateDoc.tags = data.tags;
+        if (data.characters !== undefined) updateDoc.characters = data.characters;
+        if (data.environmentType !== undefined) updateDoc.environmentType = data.environmentType;
+        if (data.storyType !== undefined) updateDoc.storyType = data.storyType;
+        if (data.targetAudience !== undefined) updateDoc.targetAudience = data.targetAudience;
+        if (data.goal !== undefined) updateDoc.goal = data.goal;
+        if (data.endingType !== undefined) updateDoc.endingType = data.endingType;
+
         await db.collection("ideas").updateOne(
             { _id: ideaId as any },
-            { 
-                $set: { 
-                    ...(data.description !== undefined && { description: data.description }),
-                    ...(data.image !== undefined && { image: data.image }),
-                    ...(data.isPrivate !== undefined && { isPrivate: data.isPrivate }),
-                    lastUpdated: new Date()
-                } 
-            }
+            { $set: updateDoc }
         );
 
         return { success: true };

@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Type, AlignLeft, ImageIcon, Plus, Sparkles, Loader2, CheckSquare, Square, BadgeCheck, ShieldAlert } from 'lucide-react';
+import { 
+  FileText, Type, AlignLeft, ImageIcon, Plus, Sparkles, Loader2, CheckSquare, 
+  Square, BadgeCheck, ShieldAlert, Tag, UserPlus, Target, Flag, Info, X 
+} from 'lucide-react';
 import Modal from '../Modal';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useToast } from '../Toast';
@@ -25,7 +28,18 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
     title: '',
     description: '',
     image: '',
+    tags: [] as string[],
+    characters: [] as { name: string, type: string }[],
+    environmentType: 'Modern',
+    storyType: 'Action',
+    targetAudience: '',
+    goal: '',
+    endingType: 'Happy'
   });
+  const [newTag, setNewTag] = useState('');
+  const [newChar, setNewChar] = useState({ name: '', type: 'Normal' });
+
+  const getWordCount = (str: string) => str.trim() ? str.trim().split(/\s+/).length : 0;
 
   React.useEffect(() => {
     if (isOpen && user) {
@@ -64,11 +78,21 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
         author: user.displayName || user.email || 'Anonymous',
         authorPhoto: user.photoURL || '',
         licenseCode: selectedLicense,
+        tags: formData.tags,
+        characters: formData.characters,
+        environmentType: formData.environmentType,
+        storyType: formData.storyType,
+        targetAudience: formData.targetAudience,
+        goal: formData.goal,
+        endingType: formData.endingType
       });
 
       if (result.success) {
         showToast("Idea shared successfully!", "success");
-        setFormData({ title: '', description: '', image: '' });
+        setFormData({ 
+          title: '', description: '', image: '', tags: [], characters: [], 
+          environmentType: 'Modern', storyType: 'Action', targetAudience: '', goal: '', endingType: 'Happy' 
+        });
         setIsPrivate(false);
         onClose();
       } else {
@@ -83,7 +107,7 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Publish New Story" maxWidth="550px">
+    <Modal isOpen={isOpen} onClose={onClose} title="Publish New Story" maxWidth="800px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
         <div style={{
           background: 'rgba(255, 107, 107, 0.08)',
@@ -125,8 +149,8 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               <Type size={14} className="text-primary" /> Story Title
             </label>
@@ -140,18 +164,28 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               <AlignLeft size={14} className="text-primary" /> Short Description / Excerpt
             </label>
             <textarea
               placeholder="Give a brief overview of your story..."
               className={styles.adminInput}
-              style={{ minHeight: '120px', resize: 'vertical', paddingTop: '0.8rem' }}
+              style={{ minHeight: '80px', resize: 'vertical', paddingTop: '0.8rem' }}
               value={formData.description}
-              onChange={e => setFormData({ ...formData, description: e.target.value })}
+              onChange={e => {
+                const words = getWordCount(e.target.value);
+                if (words <= 200 || e.target.value.length < formData.description.length) {
+                    setFormData({ ...formData, description: e.target.value });
+                }
+              }}
               required
             />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '0.65rem', opacity: 0.5, color: getWordCount(formData.description) >= 200 ? 'var(--primary)' : 'inherit' }}>
+                    {getWordCount(formData.description)} / 200 words
+                </span>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -165,12 +199,12 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
               value={formData.image}
               onChange={e => setFormData({ ...formData, image: e.target.value })}
             />
-            <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>Recommended: 16:9 aspect ratio high-quality visuals.</span>
+            <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>Recommended: 16:9 aspect ratio.</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              <BadgeCheck size={14} className="text-primary" /> Apply License (Verification)
+              <BadgeCheck size={14} className="text-primary" /> Apply License
             </label>
             <select
               className={styles.adminInput}
@@ -186,10 +220,126 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
                 </option>
               ))}
             </select>
-            <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>Official studio-verified licenses only. Select "No License" for fan-made stories.</span>
+          </div>
+
+          {/* New Metadata Fields */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase' }}>
+              <Tag size={14} className="text-primary" /> Tags (Max 10)
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                    type="text" 
+                    className={styles.adminInput} 
+                    placeholder="Add tag..." 
+                    style={{ flex: 1 }} 
+                    value={newTag} 
+                    onChange={e => setNewTag(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newTag && formData.tags.length < 10) {
+                                setFormData({ ...formData, tags: [...formData.tags, newTag] });
+                                setNewTag('');
+                            }
+                        }
+                    }}
+                />
+                <button type="button" className="btnSolid" style={{ padding: '0 1rem' }} onClick={() => {
+                    if (newTag && formData.tags.length < 10) {
+                        setFormData({ ...formData, tags: [...formData.tags, newTag] });
+                        setNewTag('');
+                    }
+                }}>+</button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.2rem' }}>
+                {formData.tags.map((tag, i) => (
+                    <span key={i} style={{ background: 'var(--primary)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        #{tag} <X size={10} cursor="pointer" onClick={() => setFormData({ ...formData, tags: formData.tags.filter((_, idx) => idx !== i) })} />
+                    </span>
+                ))}
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase' }}>
+              <UserPlus size={14} className="text-primary" /> Characters
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input type="text" className={styles.adminInput} placeholder="Name" style={{ flex: 1 }} value={newChar.name} onChange={e => setNewChar({ ...newChar, name: e.target.value })} />
+                <select className={styles.adminInput} value={newChar.type} onChange={e => setNewChar({ ...newChar, type: e.target.value })} style={{ width: '100px', padding: '0 0.5rem' }}>
+                    <option>Main</option>
+                    <option>Supporter</option>
+                    <option>Enemy</option>
+                    <option>Normal</option>
+                </select>
+                <button type="button" className="btnSolid" style={{ padding: '0 1rem' }} onClick={() => {
+                    if (newChar.name) {
+                        setFormData({ ...formData, characters: [...formData.characters, newChar] });
+                        setNewChar({ name: '', type: 'Normal' });
+                    }
+                }}>+</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Environment Type</label>
+            <select className={styles.adminInput} value={formData.environmentType} onChange={e => setFormData({ ...formData, environmentType: e.target.value })}>
+                <option>Legacy</option>
+                <option>Futuristic</option>
+                <option>Modern</option>
+                <option>Universal</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Story Type</label>
+            <select className={styles.adminInput} value={formData.storyType} onChange={e => setFormData({ ...formData, storyType: e.target.value })}>
+                <option>Puzzle</option>
+                <option>Horror</option>
+                <option>Action</option>
+                <option>Drama</option>
+                <option>Syfy</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Target Audience</label>
+            <input type="text" className={styles.adminInput} placeholder="e.g. All Ages" value={formData.targetAudience} onChange={e => setFormData({ ...formData, targetAudience: e.target.value })} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Ending Type</label>
+            <select className={styles.adminInput} value={formData.endingType} onChange={e => setFormData({ ...formData, endingType: e.target.value })}>
+                <option>Happy</option>
+                <option>Sad</option>
+                <option>Cliffhanger</option>
+                <option>Mysterious</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Goal / Objective (Optional)</label>
+            <input 
+                type="text" 
+                className={styles.adminInput} 
+                placeholder="What is the mission? (Max 5 words)" 
+                value={formData.goal} 
+                onChange={e => {
+                    const words = getWordCount(e.target.value);
+                    if (words <= 5 || e.target.value.length < formData.goal.length) {
+                        setFormData({ ...formData, goal: e.target.value });
+                    }
+                }} 
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '0.65rem', opacity: 0.5, color: getWordCount(formData.goal) >= 5 ? 'var(--primary)' : 'inherit' }}>
+                    {getWordCount(formData.goal)} / 5 words
+                </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
             <div 
               onClick={() => setIsPrivate(!isPrivate)}
           style={{ 
@@ -213,7 +363,8 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
             paddingTop: '1rem',
             borderTop: '1px solid var(--outline-color)',
             display: 'flex',
-            justifyContent: 'flex-end'
+            justifyContent: 'flex-end',
+            gridColumn: '1 / -1'
           }}>
             <button
               type="submit"

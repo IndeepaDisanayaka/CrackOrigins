@@ -6,7 +6,7 @@ import { UserPlus, Share2, Ticket, TrendingUp, Gift, ChevronRight, Copy, Check, 
 import { useToast } from './Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { generateAffiliateCoupon, getUserCoupons, getRewardLevels, getUserActivity } from '@/lib/admin-actions';
+import { generateAffiliateCoupon, getUserCoupons, getRewardLevels, getUserActivity, getUserAffiliates } from '@/lib/admin-actions';
 
 
 import Modal from './Modal';
@@ -18,8 +18,8 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
   const [isCopied, setIsCopied] = useState(false);
   const [levels, setLevels] = useState<any[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [activity, setActivity] = useState<any[]>([]);
-  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [affiliates, setAffiliates] = useState<any[]>([]);
+  const [isLoadingAffiliates, setIsLoadingAffiliates] = useState(false);
 
   const { showToast } = useToast();
 
@@ -72,18 +72,18 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
     }
     
     setIsHistoryOpen(true);
-    setIsLoadingActivity(true);
+    setIsLoadingAffiliates(true);
     try {
-        const res = await getUserActivity(user.uid);
-        if (res.success && res.activity) {
-            setActivity(res.activity);
+        const res = await getUserAffiliates(user.uid);
+        if (res.success && res.affiliates) {
+            setAffiliates(res.affiliates);
         } else {
-            showToast(res.error || "Failed to load activity", "error");
+            showToast(res.error || "Failed to load affiliates", "error");
         }
     } catch (err) {
-        showToast("Error loading activity history", "error");
+        showToast("Error loading affiliate history", "error");
     } finally {
-        setIsLoadingActivity(false);
+        setIsLoadingAffiliates(false);
     }
 
   };
@@ -248,17 +248,17 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
       <Modal 
         isOpen={isHistoryOpen} 
         onClose={() => setIsHistoryOpen(false)} 
-        title="Account Activity"
+        title="My Recruits"
         maxWidth="500px"
       >
         <div className={styles.recruitsList}>
-            {isLoadingActivity ? (
+            {isLoadingAffiliates ? (
                 <div className={styles.emptyState}>
                     <div className="premiumLoader"><div className="glitchLoader">SYNCING...</div></div>
-                    <p>Fetching your activity records...</p>
+                    <p>Fetching your recruits...</p>
                 </div>
-            ) : activity.length > 0 ? (
-                activity.map((item, i) => (
+            ) : affiliates.length > 0 ? (
+                affiliates.map((item, i) => (
                     <motion.div 
                         key={i} 
                         className={styles.recruitItem}
@@ -266,29 +266,29 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.05 }}
                     >
-                        <div className={styles.recruitAvatar} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--outline-color)' }}>
-                            {item.type === 'spent' ? (
-                                <TrendingUp size={20} color="#ff4d4d" />
+                        <div className={styles.recruitAvatar} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--outline-color)', borderRadius: '50%', overflow: 'hidden' }}>
+                            {item.logo ? (
+                                <img src={item.logo} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                                <Gift size={20} color="var(--primary)" />
+                                <Users size={20} color="var(--primary)" />
                             )}
                         </div>
                         <div className={styles.recruitInfo}>
-                            <span className={styles.recruitName}>{item.title}</span>
-                            <span className={styles.recruitType}>{item.details} • {item.date}</span>
+                            <span className={styles.recruitName}>{item.name}</span>
+                            <span className={styles.recruitType}>Joined: {item.joinedAt ? new Date(item.joinedAt).toLocaleDateString('en-GB') : 'N/A'}</span>
                         </div>
                         <div className={styles.recruitXP}>
-                            <span className={styles.earnedXP} style={{ color: item.xp < 0 ? '#ff4d4d' : 'var(--primary)' }}>
-                                {item.xp > 0 ? '+' : ''}{item.xp}
+                            <span className={styles.earnedXP} style={{ color: 'var(--primary)' }}>
+                                +{item.rewardXP}
                             </span>
-                            <span className={styles.earnedLabel}>XP</span>
+                            <span className={styles.earnedLabel}>XP earned</span>
                         </div>
                     </motion.div>
                 ))
             ) : (
                 <div className={styles.emptyState}>
-                    <Activity size={48} className={styles.emptyIcon} />
-                    <p>No activity found yet. Start earning and investing XP!</p>
+                    <Users size={48} className={styles.emptyIcon} />
+                    <p>No recruits found yet. Start sharing your referral link!</p>
                 </div>
             )}
         </div>

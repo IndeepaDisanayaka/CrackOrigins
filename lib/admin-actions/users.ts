@@ -122,7 +122,7 @@ export async function syncUserRecord(uid: string, data: {
             );
             // Reward the inviter based on their current level
             try {
-                await addAffiliateReward(inviterUid, 0, 'onetime');
+                await addAffiliateReward(inviterUid, 0, 'onetime', uid);
             } catch (e) { console.warn('Could not reward inviter:', e); }
         }
 
@@ -557,37 +557,59 @@ export async function getMyPermissions(uid: string) {
     }
 }
 
-export async function getUserActivity(uid: string) {
+export async function getUserActivity(uid: string, page: number = 1, limit: number = 10) {
     try {
         const db = await getMongoDb();
+        const skip = (page - 1) * limit;
         
-        // Fetch from unified activity collection
-        const activityDocs = await db.collection('user_activity')
+        // 1. Fetch from offer_investments
+        const investments = await db.collection('offer_investments')
             .find({ uid })
-            .sort({ date: -1 })
-            .limit(50)
             .toArray();
+            
+        // 2. Fetch from reward_history
+        const rewards = await db.collection('reward_history')
+            .find({ uid })
+            .toArray();
+            
+        // 3. Merge and map to activity format
+        const merged: any[] = [
+            ...investments.map((d: any) => ({
+                id: d._id.toString(),
+                type: 'spent',
+                subType: d.isRefunded ? 'refund' : 'investment',
+                xp: d.isRefunded ? d.xp : -d.xp,
+                date: d.datetime ? new Date(d.datetime).toISOString() : new Date().toISOString(),
+                title: d.isRefunded ? `Refund: ${d.offerTitle || 'Offer'}` : `Invested in ${d.offerTitle || 'Offer'}`,
+                details: d.isRefunded ? `XP returned for unreached goal or lost challenge.` : `Committed XP to help reach the giveaway goal.`
+            })),
+            ...rewards.map((d: any) => ({
+                id: d._id.toString(),
+                type: 'gain',
+                subType: d.type === 'onetime' ? 'referral' : 'commission',
+                xp: d.rewardXP || 0,
+                date: d.timestamp ? new Date(d.timestamp).toISOString() : new Date().toISOString(),
+                title: d.type === 'onetime' ? 'New Recruit Reward' : 'Mission Commission',
+                details: d.type === 'onetime' ? 'Successfully recruited a new agent.' : `Earned commission from a recruit's purchase.`
+            }))
+        ];
         
-        const activity: any[] = activityDocs.map((d: any) => ({
-            id: d._id.toString(),
-            type: d.type || 'account',
-            subType: d.subType,
-            xp: d.xp || 0,
-            date: d.date ? new Date(d.date).toISOString() : new Date().toISOString(),
-            title: d.title || 'Activity',
-            details: d.details || ''
-        }));
+        // Sort by date DESC
+        merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        const totalCount = merged.length;
+        const pagedActivity = merged.slice(skip, skip + limit);
 
-        // Fallback: also read payments from accounts collection
-        if (activity.length === 0) {
+        // Fallback: also read payments from accounts collection (only if combined activity is empty and page is 1)
+        if (pagedActivity.length === 0 && page === 1) {
             const payments = await db.collection('payments')
                 .find({ userId: uid })
                 .sort({ purchaseDate: -1 })
-                .limit(20)
+                .limit(limit)
                 .toArray();
             
             for (const p of payments) {
-                activity.push({
+                pagedActivity.push({
                     id: p._id.toString(),
                     type: 'purchase',
                     title: `Game Purchase: ${p.game || 'Unknown'}`,
@@ -597,10 +619,57 @@ export async function getUserActivity(uid: string) {
             }
         }
 
-        return { success: true, activity };
+        return { success: true, activity: pagedActivity, hasMore: (skip + pagedActivity.length) < totalCount, totalCount };
     } catch (err: any) {
         console.error("Error fetching user activity:", err);
         return { success: false, error: err.message };
+    }
+}
+
+export async function getUserAffiliates(uid: string) {
+    try {
+        const db = await getMongoDb();
+        
+        // 1. Get all recruits for this user
+        const affiliates = await db.collection('account_affiliates')
+            .find({ referredBy: uid })
+            .sort({ date: -1 })
+            .toArray();
+            
+        if (affiliates.length === 0) return { success: true, affiliates: [] };
+        
+        // 2. Get user details for recruits
+        const recruitUids = affiliates.map(a => a.referredUid);
+        const recruitUsers = await db.collection('accounts')
+            .find({ uid: { $in: recruitUids } })
+            .toArray();
+            
+        const userMap = Object.fromEntries(recruitUsers.map(u => [u.uid, u]));
+        
+        // 3. Get reward history for these recruits if possible
+        const rewards = await db.collection('reward_history')
+            .find({ uid: uid, recruitUid: { $in: recruitUids } })
+            .toArray();
+            
+        const rewardMap = Object.fromEntries(rewards.map(r => [r.recruitUid, r]));
+        
+        const result = affiliates.map(a => {
+            const user = userMap[a.referredUid];
+            const reward = rewardMap[a.referredUid];
+            
+            return {
+                uid: a.referredUid,
+                name: user?.name || "Unknown Operative",
+                logo: user?.photoURL || null,
+                joinedAt: a.date ? new Date(a.date).toISOString() : null,
+                rewardXP: reward?.rewardXP || 5 // Fallback to 5 if not found (legacy data)
+            };
+        });
+        
+        return { success: true, affiliates: result };
+    } catch (error: any) {
+        console.error("Error fetching user affiliates:", error);
+        return { success: false, error: error.message };
     }
 }
 

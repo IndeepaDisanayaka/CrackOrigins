@@ -200,23 +200,13 @@ export async function investXP(uid: string, offerId: string, xp: number) {
         await db.collection("offer_investments").insertOne({
             uid: uid,
             offerId,
+            offerTitle: offerData.title,
             xp: xp,
             datetime: new Date(),
             email: userDoc.email,
             name: userDoc.name,
-            photoURL: userDoc.photoURL
-        });
-
-        // Log to unified activity
-        await db.collection("user_activity").insertOne({
-            uid,
-            type: 'spent',
-            subType: 'investment',
-            xp: -xp,
-            title: `Invested in ${offerData.title}`,
-            details: `Committed XP to help reach the giveaway goal.`,
-            date: new Date(),
-            offerId: offerId
+            photoURL: userDoc.photoURL,
+            isRefunded: false
         });
 
         // Update level after spending points
@@ -237,7 +227,7 @@ export async function returnGameXP(adminUid: string, offerId: string) {
             return { success: false, error: "Unauthorized." };
         }
 
-        const investments = await db.collection("offer_investments").find({ offerId, isReturned: { $ne: true } }).toArray();
+        const investments = await db.collection("offer_investments").find({ offerId, isRefunded: { $ne: true } }).toArray();
         if (investments.length === 0) return { success: true, message: "No investments to return." };
 
         const userXPMap: { [uid: string]: number } = {};
@@ -282,20 +272,9 @@ export async function returnGameXP(adminUid: string, offerId: string) {
                     { $inc: { xp: xpToReturn, discount: xpToReturn } }
                 );
                 
-                await db.collection("user_activity").insertOne({
-                    uid: data.uid,
-                    type: 'gain',
-                    subType: 'refund',
-                    xp: xpToReturn,
-                    title: `XP Returned`,
-                    details: `Refunded XP for unreached goal or lost challenge.`,
-                    date: new Date(),
-                    offerId: offerId
-                });
-
                 await db.collection("offer_investments").updateOne(
                     { _id: data._id },
-                    { $set: { isReturned: true } }
+                    { $set: { isRefunded: true } }
                 );
                 returnCount++;
             } catch (uErr) {
@@ -310,7 +289,7 @@ export async function returnGameXP(adminUid: string, offerId: string) {
     }
 }
 
-export async function addAffiliateReward(inviterUid: string, amount: number, type: 'onetime' | 'commission') {
+export async function addAffiliateReward(inviterUid: string, amount: number, type: 'onetime' | 'commission', recruitUid?: string) {
     try {
         const db = await getMongoDb();
         const userDoc = await db.collection("accounts").findOne({ uid: inviterUid });
@@ -336,25 +315,16 @@ export async function addAffiliateReward(inviterUid: string, amount: number, typ
  
             await db.collection("reward_history").insertOne({
                 uid: inviterUid,
+                recruitUid: recruitUid || null,
                 type: type,
                 rewardXP: rewardXP,
                 amount: amount,
                 timestamp: new Date()
             });
  
-            await db.collection("user_activity").insertOne({
-                uid: inviterUid,
-                type: 'gain',
-                subType: type === 'onetime' ? 'referral' : 'commission',
-                xp: rewardXP,
-                title: type === 'onetime' ? 'New Recruit Reward' : 'Mission Commission',
-                details: type === 'onetime' ? 'Successfully recruited a new agent.' : `Earned commission from a recruit's purchase.`,
-                date: new Date()
-            });
- 
             await updateUserLevel(inviterUid);
         }
- 
+
         return { success: true };
     } catch (err: any) {
         console.error("Error adding affiliate reward:", err);

@@ -16,6 +16,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { getOwnedGames, getUserActivity } from '@/lib/admin-actions';
 import { getUserIdeas, deleteIdea, getSavedIdeas } from '@/lib/idea-actions';
+import { getUserAffiliates } from '@/lib/admin-actions';
 
 import { useModals } from '@/lib/contexts/ModalContext';
 import Header from '@/components/layout/Header';
@@ -45,13 +46,18 @@ export default function AccountPage() {
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [userIdeas, setUserIdeas] = useState<any[]>([]);
     const [savedIdeas, setSavedIdeas] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'activity' | 'library' | 'rewards' | 'ideas'>('activity');
+    const [activeTab, setActiveTab] = useState<'activity' | 'library' | 'rewards' | 'ideas' | 'affiliates'>('activity');
+    const [affiliates, setAffiliates] = useState<any[]>([]);
+    const [isLoadingAffiliates, setIsLoadingAffiliates] = useState(false);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
     const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
     const [isLoadingSaved, setIsLoadingSaved] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [ideaToDelete, setIdeaToDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     
     const { 
         isAuthModalOpen, setIsAuthModalOpen, 
@@ -70,12 +76,15 @@ export default function AccountPage() {
 
     useEffect(() => {
         if (user) {
-            const fetchActivities = async () => {
+            const fetchActivities = async (pageNum: number = 1) => {
+                if (pageNum === 1) setIsLoadingActivities(true);
+                else setIsLoadingMore(true);
+                
                 try {
                     const mapped: ActivityItem[] = [];
 
-                    // 1. Fetch unified activity
-                    const actRes = await getUserActivity(user.uid);
+                    // 1. Fetch unified activity with pagination
+                    const actRes = await getUserActivity(user.uid, pageNum, 10);
                     if (actRes.success && actRes.activity) {
                         actRes.activity.forEach((act: any) => {
                             mapped.push({
@@ -86,41 +95,52 @@ export default function AccountPage() {
                                 date: act.date
                             });
                         });
+                        setHasMore(actRes.hasMore || false);
                     }
                     
-                    // 2. Fetch owned games (legacy/standard purchases)
-                    const res = await getOwnedGames(user.uid);
-                    if (res.success && res.details) {
-                        Object.entries(res.details).forEach(([title, detail]: any) => {
-                            // Avoid duplicates if already in activity
-                            if (!mapped.find(m => m.title.includes(title))) {
-                                mapped.push({
-                                    id: detail.activationKey || title,
-                                    type: 'purchase',
-                                    title: `Game Purchase: ${title}`,
-                                    extra: `Status: Verified. Key assigned.`,
-                                    date: detail.purchaseDate
-                                });
-                            }
+                    if (pageNum === 1) {
+                        // 2. Fetch owned games (only on first page for now, or unified if possible)
+                        const res = await getOwnedGames(user.uid);
+                        if (res.success && res.details) {
+                            Object.entries(res.details).forEach(([title, detail]: any) => {
+                                // Avoid duplicates if already in activity
+                                if (!mapped.find(m => m.title.includes(title))) {
+                                    mapped.push({
+                                        id: detail.activationKey || title,
+                                        type: 'purchase',
+                                        title: `Game Purchase: ${title}`,
+                                        extra: `Status: Verified. Key assigned.`,
+                                        date: detail.purchaseDate
+                                    });
+                                }
+                            });
+                        }
+
+                        // 3. Genesis event
+                        mapped.push({
+                            id: 'genesis',
+                            type: 'account',
+                            title: 'Joined Crack Origins',
+                            extra: 'Account successfully registered and verified on the platform.',
+                            date: user.metadata.creationTime || new Date().toISOString()
                         });
                     }
 
-                    // 3. Genesis event
-                    mapped.push({
-                        id: 'genesis',
-                        type: 'account',
-                        title: 'Joined Crack Origins',
-                        extra: 'Account successfully registered and verified on the platform.',
-                        date: user.metadata.creationTime || new Date().toISOString()
-                    });
-
-                    mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                    setActivities(mapped);
+                    if (pageNum === 1) {
+                        mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                        setActivities(mapped);
+                    } else {
+                        setActivities(prev => {
+                            const newArr = [...prev, ...mapped];
+                            // Sorting everything might be expensive but ensures correct timeline
+                            return newArr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                        });
+                    }
                 } catch (err) {
                     console.error("Failed to load activities", err);
-
                 } finally {
                     setIsLoadingActivities(false);
+                    setIsLoadingMore(false);
                 }
             };
             
@@ -152,11 +172,30 @@ export default function AccountPage() {
                 }
             };
 
-            fetchActivities();
-            fetchIdeas();
-            fetchSaved();
+            const fetchAffiliates = async () => {
+                setIsLoadingAffiliates(true);
+                try {
+                    const res = await getUserAffiliates(user.uid);
+                    if (res.success) {
+                        setAffiliates(res.affiliates || []);
+                    }
+                } catch (err) {
+                    console.error("Failed to load affiliates", err);
+                } finally {
+                    setIsLoadingAffiliates(false);
+                }
+            };
+
+            if (page === 1) {
+                fetchActivities(1);
+                fetchIdeas();
+                fetchSaved();
+                fetchAffiliates();
+            } else {
+                fetchActivities(page);
+            }
         }
-    }, [user, affiliateCount, xp]);
+    }, [user, affiliateCount, xp, page]);
 
     const handleDeleteIdea = async (ideaId: string) => {
         if (!user) return;
@@ -354,7 +393,10 @@ export default function AccountPage() {
                                 </div>
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><Users size={16} /> Recruits</span>
-                                    <span className={acct.detailValue}>{affiliateCount || 0} Members</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <span className={acct.detailValue}>{affiliateCount || 0} Members</span>
+                                        <button onClick={() => setActiveTab('affiliates')} className="btnOutline" style={{ fontSize: '0.6rem', padding: '2px 8px', borderRadius: '4px', borderColor: 'rgba(var(--primary-rgb), 0.3)', color: 'var(--primary)' }}>MY REWARD HISTORY</button>
+                                    </div>
                                 </div>
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><Activity size={16} /> Affiliate Level</span>
@@ -381,6 +423,7 @@ export default function AccountPage() {
                             <div className={acct.activityTabs}>
                                 <div onClick={() => setActiveTab('activity')} className={`${acct.activityTab} ${activeTab === 'activity' ? acct.active : ''}`}>Activity</div>
                                 <div onClick={() => setActiveTab('library')} className={`${acct.activityTab} ${activeTab === 'library' ? acct.active : ''}`}>Library</div>
+                                <div onClick={() => setActiveTab('affiliates')} className={`${acct.activityTab} ${activeTab === 'affiliates' ? acct.active : ''}`}>Recruits</div>
                                 <div onClick={() => setActiveTab('rewards')} className={`${acct.activityTab} ${activeTab === 'rewards' ? acct.active : ''}`} style={activeTab !== 'rewards' ? { opacity: 0.5 } : {}}>Rewards</div>
                                 <div onClick={() => setActiveTab('ideas')} className={`${acct.activityTab} ${activeTab === 'ideas' ? acct.active : ''}`}>Ideas</div>
                             </div>
@@ -391,22 +434,36 @@ export default function AccountPage() {
                                         {isLoadingActivities ? (
                                             <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Loading activity logs...</div>
                                         ) : activities.length > 0 ? (
-                                            activities.map(activity => (
-                                                <div key={activity.id} className={acct.timelineItem}>
-                                                    <div className={acct.timelineIcon}>
-                                                        {activity.type === 'purchase' ? <ShoppingBag size={18} /> : 
-                                                         activity.type === 'reward' ? <CheckCircle size={18} /> : 
-                                                         <Activity size={18} />}
-                                                    </div>
-                                                    <div className={acct.timelineDetails}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                                            <h4 className={acct.timelineTitle}>{activity.title}</h4>
-                                                            <span className={acct.timelineMeta}>{formatDate(activity.date)}</span>
+                                            <>
+                                                {activities.map(activity => (
+                                                    <div key={activity.id} className={acct.timelineItem}>
+                                                        <div className={acct.timelineIcon}>
+                                                            {activity.type === 'purchase' ? <ShoppingBag size={18} /> : 
+                                                            activity.type === 'reward' ? <CheckCircle size={18} /> : 
+                                                            <Activity size={18} />}
                                                         </div>
-                                                        <p className={acct.timelineExtra}>{activity.extra}</p>
+                                                        <div className={acct.timelineDetails}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                                <h4 className={acct.timelineTitle}>{activity.title}</h4>
+                                                                <span className={acct.timelineMeta}>{formatDate(activity.date)}</span>
+                                                            </div>
+                                                            <p className={acct.timelineExtra}>{activity.extra}</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))
+                                                ))}
+                                                {hasMore && (
+                                                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+                                                        <button 
+                                                            onClick={() => setPage(p => p + 1)} 
+                                                            className={acct.viewIdeaBtn}
+                                                            style={{ padding: '0.6rem 2rem', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid var(--primary)' }}
+                                                            disabled={isLoadingMore}
+                                                        >
+                                                            {isLoadingMore ? 'Loading...' : 'Load More Records'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
                                         ) : (
                                             <div style={{ color: 'var(--text-muted)' }}>No recent activity to display.</div>
                                         )}
@@ -492,6 +549,49 @@ export default function AccountPage() {
                                     <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>
                                         <Activity size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
                                         <p>This module is currently under maintenance. Estimated completion: Q3 2026.</p>
+                                    </div>
+                                )}
+
+                                {activeTab === 'affiliates' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                        {isLoadingAffiliates ? (
+                                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Scanning recruitment logs...</div>
+                                        ) : affiliates.length > 0 ? (
+                                            <>
+                                                <div style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid var(--outline-color)', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '1px', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>Agent Unit</span>
+                                                    <span>Reward Captured</span>
+                                                </div>
+                                                {affiliates.map((aff, i) => (
+                                                    <div key={i} className={acct.timelineItem} style={{ border: '1px solid var(--outline-color)', borderRadius: '12px', padding: '1rem', background: 'rgba(255,255,255,0.01)' }}>
+                                                        <div className={acct.timelineIcon} style={{ background: 'var(--outline-color)' }}>
+                                                            {aff.logo ? (
+                                                                <Image src={aff.logo} alt={aff.name} width={36} height={36} style={{ borderRadius: '6px', objectFit: 'cover' }} unoptimized />
+                                                            ) : (
+                                                                <User size={18} />
+                                                            )}
+                                                        </div>
+                                                        <div className={acct.timelineDetails}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div>
+                                                                    <h4 className={acct.timelineTitle} style={{ fontSize: '0.95rem' }}>{aff.name}</h4>
+                                                                    <span className={acct.timelineMeta}>Joined: {formatDate(aff.joinedAt)}</span>
+                                                                </div>
+                                                                <div style={{ textAlign: 'right' }}>
+                                                                    <div style={{ color: 'var(--primary)', fontWeight: 950, fontSize: '1.1rem' }}>+{aff.rewardXP} XP</div>
+                                                                    <div style={{ fontSize: '0.6rem', opacity: 0.5, fontWeight: 700 }}>RECRUITMENT REWARD</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>
+                                                <Users size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                                                <p>No recruits found. Share your Affiliate ID to start building your squad!</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

@@ -385,13 +385,7 @@
 .subtitleLink {
   text-decoration: none;
   color: var(--primary); /* Primary is yellow in this theme */
-  transition: all 0.2s ease;
-}
-
-.subtitleLink:hover {
-  filter: brightness(1.2);
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  cursor: pointer;
 }
 
 .sectionIdBadge {
@@ -730,4 +724,159 @@
 
 :global(.dark-theme) .collabTooltip::after {
     border-top-color: #2a2a2a;
+}
+
+.sectionReaderWrapper {
+  display: flex;
+  gap: 2rem;
+  position: relative;
+  width: 100%;
+}
+
+.sectionMainContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.sectionStatusBar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 0.5rem;
+  border-left: 2px solid var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+  min-width: 60px;
+  max-width: 60px;
+  position: sticky;
+  top: 150px;
+  height: fit-content;
+  border-radius: 0 12px 12px 0;
+  backdrop-filter: blur(8px);
+}
+
+.statusItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.statusIcon {
+  color: var(--foreground);
+  transition: transform 0.2s;
+}
+
+.statusItem:hover .statusIcon {
+  transform: scale(1.2);
+  color: var(--primary);
+}
+
+.statusValue {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statusCollabs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+
+.verticalAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--primary);
+  margin-bottom: -15px;
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+
+.verticalAvatar:hover {
+  transform: translateX(-5px);
+  z-index: 10;
+}
+
+.verticalEditBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(var(--primary-rgb), 0.1);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: auto;
+}
+
+.verticalEditBtn:hover {
+  background: var(--primary);
+  color: #000;
+  transform: rotate(15deg);
+}
+
+@media (max-width: 1000px) {
+  .sectionStatusBar {
+    display: none;
+  }
+}
+
+.verticalTooltip {
+  position: absolute;
+  right: 130%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-15px);
+  background: #000;
+  color: var(--primary);
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--primary);
+  box-shadow: none !important;
+  z-index: 100;
+}
+
+:global(.light-theme) .verticalTooltip {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.statusItem:hover .verticalTooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.collabAvatarWrapper:hover .verticalTooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.verticalTooltip::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent transparent #000;
+}
+
+:global(.light-theme) .verticalTooltip::after {
+  border-left-color: #fff;
 }

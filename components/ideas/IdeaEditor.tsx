@@ -402,7 +402,8 @@ export default function IdeaEditor({
       newSections.splice(index, 0, newSection);
       setSections(newSections);
     } else {
-      setSections([...sections, newSection]);
+      // Force append to the very end
+      setSections(prev => [...prev, newSection]);
     }
     setAddedSectionIds(prev => [...prev, newSection.id]);
   };
@@ -543,7 +544,7 @@ export default function IdeaEditor({
             ) : (
               <Save size={18} />
             )} */}
-            <span className={isLocalSaving ? "glitchLoader": "" } style={{color:"black"}}>{isLocalSaving ? 'SAVING...' : 'SAVE DRAFT'}</span>
+            <span className={isLocalSaving ? "glitchLoader": "" }>{isLocalSaving ? 'SAVING...' : 'SAVE DRAFT'}</span>
           </button>
           <button
             onClick={() => onSave?.(sections, true)}
@@ -555,7 +556,7 @@ export default function IdeaEditor({
             ) : (
               <Sparkles size={18} />
             )} */}
-            <span className={isSaving ? "glitchLoader": ""} style={{color:"black"}}>{isSaving ? 'PROCESSING...' : 'SAVE TO CLOUD'}</span>
+            <span className={isSaving ? "glitchLoader": ""}>{isSaving ? 'PROCESSING...' : 'SAVE TO CLOUD'}</span>
           </button>
         </div>
       </div>

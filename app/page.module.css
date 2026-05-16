@@ -146,8 +146,10 @@
 
 .navLinks {
   display: flex;
+  align-items: center;
   gap: 2.5rem;
 }
+
 
 @media (max-width: 1024px) {
   .navLinks {
@@ -164,7 +166,11 @@
   transition: all 0.3s ease;
   text-decoration: none;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
+
 
 .link::after {
   content: '';
@@ -186,13 +192,13 @@
 }
 
 .specialLink {
-  color: var(--primary) !important;
+  color: #000 !important;
   font-weight: 950 !important;
-  text-shadow: 0 0 15px rgba(var(--primary-rgb), 0.4);
-  background: transparent;
+  text-shadow: none;
+  background: var(--primary) !important;
   padding: 0.5rem 1rem !important;
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--primary);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -202,11 +208,14 @@
   overflow: hidden;
 }
 
+
 :global(.light-theme) .specialLink {
   color: #000 !important;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: var(--primary) !important;
+  text-shadow: none;
+  border-color: var(--primary);
 }
+
 
 
 
