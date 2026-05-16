@@ -314,6 +314,12 @@ button:hover {
   }
 }
 
+@keyframes musicWave {
+  0% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1.0); }
+  100% { transform: scaleY(0.2); }
+}
+
 /* --- Premium Loading Indicators --- */
 @keyframes glitch {
   0% {

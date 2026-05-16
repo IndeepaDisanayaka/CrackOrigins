@@ -29,6 +29,7 @@ export async function publishIdea(uid: string, ideaData: {
     targetAudience?: string;
     goal?: string;
     endingType?: string;
+    soundtracks?: string[];
 }) {
     try {
         const db = await getMongoDb();
@@ -65,6 +66,7 @@ export async function publishIdea(uid: string, ideaData: {
             targetAudience: ideaData.targetAudience || '',
             goal: ideaData.goal || '',
             endingType: ideaData.endingType || 'Happy',
+            soundtracks: ideaData.soundtracks || [],
             time: new Date(),
             status: { views: 0, likes: 0, upvotes: 0, downvotes: 0 },
             lastUpdated: new Date()
@@ -787,6 +789,7 @@ export async function updateIdeaMetadata(ideaId: string, uid: string, data: {
     targetAudience?: string;
     goal?: string;
     endingType?: string;
+    soundtracks?: string[];
 }) {
     try {
         const db = await getMongoDb();
@@ -808,9 +811,9 @@ export async function updateIdeaMetadata(ideaId: string, uid: string, data: {
         if (data.characters !== undefined) updateDoc.characters = data.characters;
         if (data.environmentType !== undefined) updateDoc.environmentType = data.environmentType;
         if (data.storyType !== undefined) updateDoc.storyType = data.storyType;
-        if (data.targetAudience !== undefined) updateDoc.targetAudience = data.targetAudience;
         if (data.goal !== undefined) updateDoc.goal = data.goal;
         if (data.endingType !== undefined) updateDoc.endingType = data.endingType;
+        if (data.soundtracks !== undefined) updateDoc.soundtracks = data.soundtracks;
 
         await db.collection("ideas").updateOne(
             { _id: ideaId as any },

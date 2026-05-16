@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  FileText, Type, AlignLeft, ImageIcon, Plus, Sparkles, Loader2, CheckSquare, 
-  Square, BadgeCheck, ShieldAlert, Tag, UserPlus, Target, Flag, Info, X 
+import {
+  FileText, Type, AlignLeft, ImageIcon, Plus, Sparkles, Loader2, CheckSquare,
+  Square, BadgeCheck, ShieldAlert, Tag, UserPlus, Target, Flag, Info, X, Music, Trash
 } from 'lucide-react';
 import Modal from '../Modal';
 import { useAuth } from '../../lib/contexts/AuthContext';
@@ -34,10 +34,13 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
     storyType: 'Action',
     targetAudience: '',
     goal: '',
-    endingType: 'Happy'
+    endingType: 'Happy',
+    soundtracks: [] as string[]
   });
   const [newTag, setNewTag] = useState('');
   const [newChar, setNewChar] = useState({ name: '', type: 'Normal' });
+  const [newTrack, setNewTrack] = useState('');
+  const [isDisclaimerAgreed, setIsDisclaimerAgreed] = useState(false);
 
   const getWordCount = (str: string) => str.trim() ? str.trim().split(/\s+/).length : 0;
 
@@ -83,15 +86,15 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
         environmentType: formData.environmentType,
         storyType: formData.storyType,
         targetAudience: formData.targetAudience,
-        goal: formData.goal,
-        endingType: formData.endingType
+        endingType: formData.endingType,
+        soundtracks: formData.soundtracks
       });
 
       if (result.success) {
         showToast("Idea shared successfully!", "success");
-        setFormData({ 
-          title: '', description: '', image: '', tags: [], characters: [], 
-          environmentType: 'Modern', storyType: 'Action', targetAudience: '', goal: '', endingType: 'Happy' 
+        setFormData({
+          title: '', description: '', image: '', tags: [], characters: [],
+          environmentType: 'Modern', storyType: 'Action', targetAudience: '', goal: '', endingType: 'Happy', soundtracks: []
         });
         setIsPrivate(false);
         onClose();
@@ -118,10 +121,10 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
           gap: '0.8rem',
           alignItems: 'center'
         }}>
-           <ShieldAlert size={20} color="#ff6b6b" />
-           <p style={{ margin: 0, fontSize: '0.75rem', color: '#ff6b6b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-             Warning: Title and License terms are permanent once synchronized with the cloud.
-           </p>
+          <ShieldAlert size={20} color="#ff6b6b" />
+          <p style={{ margin: 0, fontSize: '0.75rem', color: '#ff6b6b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Warning: Title and License terms are permanent once synchronized with the cloud.
+          </p>
         </div>
         <div style={{
           background: 'linear-gradient(135deg, rgba(254, 182, 12, 0.1) 0%, rgba(254, 182, 12, 0.05) 100%)',
@@ -176,15 +179,15 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
               onChange={e => {
                 const words = getWordCount(e.target.value);
                 if (words <= 200 || e.target.value.length < formData.description.length) {
-                    setFormData({ ...formData, description: e.target.value });
+                  setFormData({ ...formData, description: e.target.value });
                 }
               }}
               required
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: '0.65rem', opacity: 0.5, color: getWordCount(formData.description) >= 200 ? 'var(--primary)' : 'inherit' }}>
-                    {getWordCount(formData.description)} / 200 words
-                </span>
+              <span style={{ fontSize: '0.65rem', opacity: 0.5, color: getWordCount(formData.description) >= 200 ? 'var(--primary)' : 'inherit' }}>
+                {getWordCount(formData.description)} / 200 words
+              </span>
             </div>
           </div>
 
@@ -228,36 +231,36 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
               <Tag size={14} className="text-primary" /> Tags (Max 10)
             </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                    type="text" 
-                    className={styles.adminInput} 
-                    placeholder="Add tag..." 
-                    style={{ flex: 1 }} 
-                    value={newTag} 
-                    onChange={e => setNewTag(e.target.value)}
-                    onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (newTag && formData.tags.length < 10) {
-                                setFormData({ ...formData, tags: [...formData.tags, newTag] });
-                                setNewTag('');
-                            }
-                        }
-                    }}
-                />
-                <button type="button" className="btnSolid" style={{ padding: '0 1rem' }} onClick={() => {
+              <input
+                type="text"
+                className={styles.adminInput}
+                placeholder="Add tag..."
+                style={{ flex: 1 }}
+                value={newTag}
+                onChange={e => setNewTag(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
                     if (newTag && formData.tags.length < 10) {
-                        setFormData({ ...formData, tags: [...formData.tags, newTag] });
-                        setNewTag('');
+                      setFormData({ ...formData, tags: [...formData.tags, newTag] });
+                      setNewTag('');
                     }
-                }}>+</button>
+                  }
+                }}
+              />
+              <button type="button" className="btnSolid" style={{ padding: '0 1rem' }} onClick={() => {
+                if (newTag && formData.tags.length < 10) {
+                  setFormData({ ...formData, tags: [...formData.tags, newTag] });
+                  setNewTag('');
+                }
+              }}>+</button>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.2rem' }}>
-                {formData.tags.map((tag, i) => (
-                    <span key={i} style={{ background: 'var(--primary)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        #{tag} <X size={10} cursor="pointer" onClick={() => setFormData({ ...formData, tags: formData.tags.filter((_, idx) => idx !== i) })} />
-                    </span>
-                ))}
+              {formData.tags.map((tag, i) => (
+                <span key={i} style={{ background: 'var(--primary)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  #{tag} <X size={10} cursor="pointer" onClick={() => setFormData({ ...formData, tags: formData.tags.filter((_, idx) => idx !== i) })} />
+                </span>
+              ))}
             </div>
           </div>
 
@@ -266,40 +269,40 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
               <UserPlus size={14} className="text-primary" /> Characters
             </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input type="text" className={styles.adminInput} placeholder="Name" style={{ flex: 1 }} value={newChar.name} onChange={e => setNewChar({ ...newChar, name: e.target.value })} />
-                <select className={styles.adminInput} value={newChar.type} onChange={e => setNewChar({ ...newChar, type: e.target.value })} style={{ width: '100px', padding: '0 0.5rem' }}>
-                    <option>Main</option>
-                    <option>Supporter</option>
-                    <option>Enemy</option>
-                    <option>Normal</option>
-                </select>
-                <button type="button" className="btnSolid" style={{ padding: '0 1rem' }} onClick={() => {
-                    if (newChar.name) {
-                        setFormData({ ...formData, characters: [...formData.characters, newChar] });
-                        setNewChar({ name: '', type: 'Normal' });
-                    }
-                }}>+</button>
+              <input type="text" className={styles.adminInput} placeholder="Name" style={{ flex: 1 }} value={newChar.name} onChange={e => setNewChar({ ...newChar, name: e.target.value })} />
+              <select className={styles.adminInput} value={newChar.type} onChange={e => setNewChar({ ...newChar, type: e.target.value })} style={{ width: '100px', padding: '0 0.5rem' }}>
+                <option>Main</option>
+                <option>Supporter</option>
+                <option>Enemy</option>
+                <option>Normal</option>
+              </select>
+              <button type="button" className="btnSolid" style={{ padding: '0 1rem' }} onClick={() => {
+                if (newChar.name) {
+                  setFormData({ ...formData, characters: [...formData.characters, newChar] });
+                  setNewChar({ name: '', type: 'Normal' });
+                }
+              }}>+</button>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Environment Type</label>
             <select className={styles.adminInput} value={formData.environmentType} onChange={e => setFormData({ ...formData, environmentType: e.target.value })}>
-                <option>Legacy</option>
-                <option>Futuristic</option>
-                <option>Modern</option>
-                <option>Universal</option>
+              <option>Legacy</option>
+              <option>Futuristic</option>
+              <option>Modern</option>
+              <option>Universal</option>
             </select>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Story Type</label>
             <select className={styles.adminInput} value={formData.storyType} onChange={e => setFormData({ ...formData, storyType: e.target.value })}>
-                <option>Puzzle</option>
-                <option>Horror</option>
-                <option>Action</option>
-                <option>Drama</option>
-                <option>Syfy</option>
+              <option>Puzzle</option>
+              <option>Horror</option>
+              <option>Action</option>
+              <option>Drama</option>
+              <option>Syfy</option>
             </select>
           </div>
 
@@ -311,51 +314,117 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Ending Type</label>
             <select className={styles.adminInput} value={formData.endingType} onChange={e => setFormData({ ...formData, endingType: e.target.value })}>
-                <option>Happy</option>
-                <option>Sad</option>
-                <option>Cliffhanger</option>
-                <option>Mysterious</option>
+              <option>Happy</option>
+              <option>Sad</option>
+              <option>Cliffhanger</option>
+              <option>Mysterious</option>
             </select>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, textTransform: 'uppercase' }}>Goal / Objective (Optional)</label>
-            <input 
-                type="text" 
-                className={styles.adminInput} 
-                placeholder="What is the mission? (Max 5 words)" 
-                value={formData.goal} 
-                onChange={e => {
-                    const words = getWordCount(e.target.value);
-                    if (words <= 5 || e.target.value.length < formData.goal.length) {
-                        setFormData({ ...formData, goal: e.target.value });
-                    }
-                }} 
+            <input
+              type="text"
+              className={styles.adminInput}
+              placeholder="What is the mission? (Max 5 words)"
+              value={formData.goal}
+              onChange={e => {
+                const words = getWordCount(e.target.value);
+                if (words <= 5 || e.target.value.length < formData.goal.length) {
+                  setFormData({ ...formData, goal: e.target.value });
+                }
+              }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: '0.65rem', opacity: 0.5, color: getWordCount(formData.goal) >= 5 ? 'var(--primary)' : 'inherit' }}>
-                    {getWordCount(formData.goal)} / 5 words
-                </span>
+              <span style={{ fontSize: '0.65rem', opacity: 0.5, color: getWordCount(formData.goal) >= 5 ? 'var(--primary)' : 'inherit' }}>
+                {getWordCount(formData.goal)} / 5 words
+              </span>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
-            <div 
-              onClick={() => setIsPrivate(!isPrivate)}
-          style={{ 
-            display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', 
-            width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)',
-            transition: 'border-color 0.2s ease', borderRadius: '8px',
-            borderColor: isPrivate ? 'var(--primary)' : 'var(--outline-color)'
-          }}
-        >
-          <div style={{ marginTop: '0.1rem', color: isPrivate ? 'var(--primary)' : 'var(--text-muted)' }}>
-            {isPrivate ? <CheckSquare size={18} /> : <Square size={18} />}
+            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <Music size={14} className="text-primary" /> Atmospheric Soundtrack Playlist (YouTube URLs)
+            </label>
+            
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="url"
+                className={styles.adminInput}
+                placeholder="Paste YouTube URL..."
+                style={{ flex: 1 }}
+                value={newTrack}
+                onChange={e => setNewTrack(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newTrack && isDisclaimerAgreed) {
+                      setFormData({ ...formData, soundtracks: [...formData.soundtracks, newTrack] });
+                      setNewTrack('');
+                    }
+                  }
+                }}
+              />
+              <button 
+                type="button" 
+                className="btnSolid" 
+                style={{ padding: '0 1.2rem' }} 
+                disabled={!newTrack || !isDisclaimerAgreed}
+                onClick={() => {
+                  if (newTrack && isDisclaimerAgreed) {
+                    setFormData({ ...formData, soundtracks: [...formData.soundtracks, newTrack] });
+                    setNewTrack('');
+                  }
+                }}
+              >
+                ADD
+              </button>
+            </div>
+
+            {formData.soundtracks.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.4rem' }}>
+                {formData.soundtracks.map((url, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(var(--primary-rgb), 0.05)', border: '1px solid var(--outline-color)', borderRadius: '6px', fontSize: '0.7rem' }}>
+                    <span style={{ opacity: 0.8, wordBreak: 'break-all' }}>{url}</span>
+                    <Trash size={12} cursor="pointer" onClick={() => setFormData({ ...formData, soundtracks: formData.soundtracks.filter((_, idx) => idx !== i) })} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(newTrack || formData.soundtracks.length > 0) && (
+              <div style={{ marginTop: '0.8rem', padding: '1rem', background: 'rgba(255, 100, 100, 0.05)', border: '1px solid rgba(255, 100, 100, 0.2)', borderRadius: '8px' }}>
+                <p style={{ fontSize: '0.7rem', color: '#ff6666', lineHeight: 1.4, margin: 0, fontWeight: 700 }}>
+                  ⚠️ LEGAL DISCLOSURE: None of these sounds belong to Crack Origins; they are obtained from third-party platforms. All responsibility for these sounds rests with the person who added them.
+                </p>
+                <div 
+                  onClick={() => setIsDisclaimerAgreed(!isDisclaimerAgreed)} 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.8rem', cursor: 'pointer' }}
+                >
+                  {isDisclaimerAgreed ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} />}
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800 }}>I AGREE & UNDERSTAND</span>
+                </div>
+              </div>
+            )}
           </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', textAlign: 'left', lineHeight: 1.4, fontWeight: 500 }}>
-            This Is Private (Only visible to you in your profile & you can edite and collaborate using this url) 
-          </span>
-        </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>
+            <div
+              onClick={() => setIsPrivate(!isPrivate)}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer',
+                width: '100%', padding: '0.75rem', border: '1px solid var(--outline-color)',
+                transition: 'border-color 0.2s ease', borderRadius: '8px',
+                borderColor: isPrivate ? 'var(--primary)' : 'var(--outline-color)'
+              }}
+            >
+              <div style={{ marginTop: '0.1rem', color: isPrivate ? 'var(--primary)' : 'var(--text-muted)' }}>
+                {isPrivate ? <CheckSquare size={18} /> : <Square size={18} />}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', textAlign: 'left', lineHeight: 1.4, fontWeight: 500 }}>
+                This Is Private (Only visible to you in your profile & you can edite and collaborate using this url)
+              </span>
+            </div>
           </div>
 
           <div style={{

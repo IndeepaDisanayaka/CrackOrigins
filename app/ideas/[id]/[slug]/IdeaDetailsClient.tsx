@@ -6,8 +6,17 @@ import { useRouter } from 'next/navigation';
 import { 
   Maximize2, Minimize2, Tag, UserPlus, Globe, Target, Flag, Info, X,
   ArrowBigUp, ArrowBigDown, Bookmark, Share2, MessageSquare, Pencil, Eye, 
-  ArrowLeft, Users, BadgeCheck, ShieldAlert, Settings, Square, CheckSquare, FileText 
+  ArrowLeft, Users, BadgeCheck, ShieldAlert, Settings, Square, CheckSquare, FileText,
+  Music, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, Trash
 } from 'lucide-react';
+import IdeaSoundtrackSidebar from '@/components/ideas/IdeaSoundtrackSidebar';
+
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
 import { motion } from 'framer-motion';
 import MobileNav from '@/components/layout/MobileNav';
 import Header from '@/components/layout/Header';
@@ -85,17 +94,177 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     storyType: 'Horror',
     targetAudience: '',
     goal: '',
-    endingType: 'Happy'
+    endingType: 'Happy',
+    soundtracks: [] as string[]
   });
+  const [isSoundtrackDisclaimerAgreed, setIsSoundtrackDisclaimerAgreed] = useState(false);
+  const [newTrack, setNewTrack] = useState('');
+  const [isSoundSidebarOpen, setIsSoundSidebarOpen] = useState(false);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(50);
   const [isUpdatingMeta, setIsUpdatingMeta] = useState(false);
   const [isVoteTutorialOpen, setIsVoteTutorialOpen] = useState(false);
   const [lastCloudContent, setLastCloudContent] = useState<string>('');
   const [isVoteTutorialAgreed, setIsVoteTutorialAgreed] = useState(false);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [pendingVote, setPendingVote] = useState<'up' | 'down' | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [newChar, setNewChar] = useState({ name: '', type: 'Normal' });
   const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [isGlobalMuted, setIsGlobalMuted] = useState<boolean>(true); // Start muted by default to satisfy browser policies
+  
+  useEffect(() => {
+    // Sync with localStorage on mount
+    const savedMute = localStorage.getItem('global_music_muted');
+    if (savedMute !== null) {
+      const isMuted = savedMute === 'true';
+      setIsGlobalMuted(isMuted);
+      setIsMusicPlaying(!isMuted);
+    }
+  }, []);
+
+  const handleNextTrack = () => {
+    if (!idea?.soundtracks?.length) return;
+    setCurrentTrackIndex((prev) => (prev + 1) % idea.soundtracks.length);
+  };
+
+  const handlePrevTrack = () => {
+    if (!idea?.soundtracks?.length) return;
+    setCurrentTrackIndex((prev) => (prev - 1 + idea.soundtracks.length) % idea.soundtracks.length);
+  };
+
+  const handlePlayPause = () => {
+    const newState = !isMusicPlaying;
+    setIsMusicPlaying(newState);
+    setIsGlobalMuted(!newState);
+    localStorage.setItem('global_music_muted', String(!newState));
+  };
+
+  const playerRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const loadAPI = () => {
+      if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      }
+    };
+
+    loadAPI();
+
+    window.onYouTubeIframeAPIReady = () => {
+        initPlayer();
+    };
+
+    const initPlayer = () => {
+      if (!idea?.soundtracks?.length || playerRef.current) return;
+      
+      // Find the first valid video ID instead of just using the first one
+      let startIdx = 0;
+      let vidId = null;
+      
+      for (let i = 0; i < idea.soundtracks.length; i++) {
+          const foundId = getYouTubeId(idea.soundtracks[i]);
+          if (foundId) {
+              vidId = foundId;
+              startIdx = i;
+              break;
+          }
+      }
+
+      if (!vidId) return;
+      setCurrentTrackIndex(startIdx);
+
+      const playerDiv = document.getElementById('atmosphere-player');
+      if (!playerDiv) return;
+
+      playerRef.current = new window.YT.Player('atmosphere-player', {
+        height: '1',
+        width: '1',
+        videoId: vidId,
+        playerVars: {
+          autoplay: isMusicPlaying ? 1 : 0,
+          mute: isGlobalMuted ? 1 : 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          rel: 0,
+          iv_load_policy: 3
+        },
+        events: {
+          onReady: (event: any) => {
+            setIsPlayerReady(true);
+            event.target.setVolume(musicVolume);
+            if (isMusicPlaying) event.target.playVideo();
+          },
+          onStateChange: (event: any) => {
+            if (event.data === 0) { // State 0 is ENDED
+              handleNextTrack();
+            }
+          },
+          onError: (e: any) => {
+              console.error("YouTube Player Error:", e.data);
+              // If current track fails, try next one
+              handleNextTrack();
+          }
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player && !playerRef.current) {
+        initPlayer();
+    }
+
+    return () => {};
+  }, [id, idea?.soundtracks]);
+
+  // Handle cleanup separately
+  React.useEffect(() => {
+    return () => {
+        if (playerRef.current && playerRef.current.destroy) {
+            playerRef.current.destroy();
+            playerRef.current = null;
+            setIsPlayerReady(false);
+        }
+    };
+  }, [id]);
+
+  React.useEffect(() => {
+    if (isPlayerReady && playerRef.current?.setVolume) {
+      playerRef.current.setVolume(musicVolume);
+    }
+  }, [musicVolume, isPlayerReady]);
+
+  React.useEffect(() => {
+    if (isPlayerReady && playerRef.current?.loadVideoById && idea?.soundtracks) {
+      const vidId = getYouTubeId(idea.soundtracks[currentTrackIndex]);
+      if (vidId) {
+        playerRef.current.loadVideoById(vidId);
+        if (isMusicPlaying) playerRef.current.playVideo();
+      }
+    }
+  }, [currentTrackIndex, isPlayerReady]);
+
+  React.useEffect(() => {
+    if (isPlayerReady && playerRef.current) {
+        try {
+            if (isMusicPlaying) playerRef.current.playVideo();
+            else playerRef.current.pauseVideo();
+            
+            if (isGlobalMuted) playerRef.current.mute();
+            else playerRef.current.unMute();
+        } catch (e) {
+            console.warn("Player control error:", e);
+        }
+    }
+  }, [isMusicPlaying, isGlobalMuted, isPlayerReady]);
 
   const getWordCount = (str: string) => str.trim() ? str.trim().split(/\s+/).length : 0;
 
@@ -162,11 +331,14 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
             // @ts-ignore
             storyType: data.storyType || 'Horror',
             // @ts-ignore
+            // @ts-ignore
             targetAudience: data.targetAudience || '',
             // @ts-ignore
             goal: data.goal || '',
             // @ts-ignore
-            endingType: data.endingType || 'Happy'
+            endingType: data.endingType || 'Happy',
+            // @ts-ignore
+            soundtracks: data.soundtracks || []
           });
 
           if (data.licenseCode) {
@@ -236,11 +408,11 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   useEffect(() => {
     // Only update sidebar state if NOT in full screen
     if (!isFullScreen) {
-      setIsIdeaSidebarOpen(isCollabSidebarOpen || isChatSidebarOpen);
+      setIsIdeaSidebarOpen(isCollabSidebarOpen || isChatSidebarOpen || isSoundSidebarOpen);
     } else {
       setIsIdeaSidebarOpen(false);
     }
-  }, [isCollabSidebarOpen, isChatSidebarOpen, setIsIdeaSidebarOpen, isFullScreen]);
+  }, [isCollabSidebarOpen, isChatSidebarOpen, isSoundSidebarOpen, setIsIdeaSidebarOpen, isFullScreen]);
 
   const handleUpdateMeta = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -490,7 +662,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     }}>
       <motion.div
         style={{ display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', zIndex: 1, width: '100%' }}
-        animate={{ width: ((isCollabSidebarOpen || isChatSidebarOpen) && !isMobile && !isFullScreen) ? '75%' : '100%' }}
+        animate={{ width: ((isCollabSidebarOpen || isChatSidebarOpen || isSoundSidebarOpen) && !isMobile && !isFullScreen) ? '75%' : '100%' }}
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       >
         {!isFullScreen && (
@@ -518,11 +690,14 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
             margin: isFullScreen ? '0 auto' : undefined
         }}>
           {isFullScreen && (
-            <div style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 10001 }}>
+            <motion.div 
+              style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 10001 }}
+              animate={{ right: (isCollabSidebarOpen || isChatSidebarOpen || isSoundSidebarOpen) ? 'calc(25% + 2rem)' : '2rem' }}
+            >
                 <button onClick={() => setIsFullScreen(false)} className={styles.actionBtn}>
                     <Minimize2 size={18} />
                 </button>
-            </div>
+            </motion.div>
           )}
           <article className={blogPostStyles.blogPostWrapper} style={{ 
               border: 'none', 
@@ -730,8 +905,35 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                       navigator.clipboard.writeText(window.location.href.split('#')[0]); 
                       showToast('Link copied!', 'success'); 
                     }} title="Share"><Share2 size={18} /></button>
-                    <button className={`${styles.actionBtn} ${isChatSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsChatSidebarOpen(!isChatSidebarOpen); if (!isChatSidebarOpen) setIsCollabSidebarOpen(false); }} title="Comments"><MessageSquare size={18} /></button>
-                    <button className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsCollabSidebarOpen(!isCollabSidebarOpen); if (!isCollabSidebarOpen) setIsChatSidebarOpen(false); }} title="Collaborations" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}><Users size={18} /></button>
+
+                    {idea?.soundtracks && idea.soundtracks.length > 0 && (
+                         <button 
+                             className={`${styles.actionBtn} ${isSoundSidebarOpen ? styles.actionBtnActive : ''}`} 
+                             onClick={() => {
+                                 const nextState = !isSoundSidebarOpen;
+                                 setIsSoundSidebarOpen(nextState);
+                                 if (nextState) {
+                                     setIsChatSidebarOpen(false);
+                                     setIsCollabSidebarOpen(false);
+                                     // Auto-play when opening
+                                     if (isGlobalMuted || !isMusicPlaying) {
+                                         setIsGlobalMuted(false);
+                                         setIsMusicPlaying(true);
+                                         localStorage.setItem('global_music_muted', 'false');
+                                     }
+                                 }
+                             }} 
+                             title="Sound Center"
+                             style={{ 
+                                 color: isMusicPlaying ? 'var(--primary)' : undefined, 
+                                 borderColor: isMusicPlaying ? 'var(--primary)' : undefined 
+                             }}
+                         >
+                            {isMusicPlaying ? <Volume2 size={18} className="animate-pulse" /> : <Music size={18} />}
+                        </button>
+                    )}
+                    <button className={`${styles.actionBtn} ${isChatSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsChatSidebarOpen(!isChatSidebarOpen); if (!isChatSidebarOpen) { setIsCollabSidebarOpen(false); setIsSoundSidebarOpen(false); } }} title="Comments"><MessageSquare size={18} /></button>
+                    <button className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsCollabSidebarOpen(!isCollabSidebarOpen); if (!isCollabSidebarOpen) { setIsChatSidebarOpen(false); setIsSoundSidebarOpen(false); } }} title="Collaborations" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}><Users size={18} /></button>
                     <button className={styles.actionBtn} onClick={() => setIsFullScreen(true)} title="Full Screen Mode"><Maximize2 size={18} /></button>
                     </div>
                 </div>
@@ -866,6 +1068,20 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
             ideaTitle={idea.title} 
             ideaId={id} 
             isMobile={isMobile} 
+          />
+          <IdeaSoundtrackSidebar 
+            isOpen={isSoundSidebarOpen}
+            onClose={() => setIsSoundSidebarOpen(false)}
+            tracks={idea?.soundtracks || []}
+            currentIndex={currentTrackIndex}
+            isPlaying={isMusicPlaying}
+            onPlayPause={handlePlayPause}
+            onNext={handleNextTrack}
+            onPrev={handlePrevTrack}
+            onSelectTrack={(i) => setCurrentTrackIndex(i)}
+            volume={musicVolume}
+            onVolumeChange={(v) => setMusicVolume(v)}
+            isMobile={isMobile}
           />
         </>
       )}
@@ -1066,6 +1282,58 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                 </select>
             </div>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.8 }}><Music size={14} style={{ marginRight: 6 }} /> SOUNDTRACK PLAYLIST (YOUTUBE URLS)</label>
+                
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input 
+                        type="url" 
+                        className={pageStyles.adminInput} 
+                        value={newTrack} 
+                        onChange={e => setNewTrack(e.target.value)} 
+                        placeholder="Paste YouTube URL..." 
+                        style={{ flex: 1 }}
+                    />
+                    <button 
+                        type="button" 
+                        className="btnSolid" 
+                        disabled={!newTrack || !isSoundtrackDisclaimerAgreed}
+                        onClick={() => {
+                            if (newTrack && isSoundtrackDisclaimerAgreed) {
+                                setMetaFormData({ ...metaFormData, soundtracks: [...(metaFormData.soundtracks || []), newTrack] });
+                                setNewTrack('');
+                            }
+                        }}
+                    >+</button>
+                </div>
+
+                {metaFormData.soundtracks && metaFormData.soundtracks.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.4rem' }}>
+                        {metaFormData.soundtracks.map((url: string, i: number) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', fontSize: '0.7rem' }}>
+                                <span style={{ opacity: 0.6, wordBreak: 'break-all' }}>{url}</span>
+                                <Trash size={12} cursor="pointer" onClick={() => setMetaFormData({ ...metaFormData, soundtracks: metaFormData.soundtracks.filter((_: any, idx: number) => idx !== i) })} />
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {(newTrack || (metaFormData.soundtracks && metaFormData.soundtracks.length > 0)) && (
+                    <div style={{ marginTop: '0.8rem', padding: '1rem', background: 'rgba(255, 100, 100, 0.05)', border: '1px solid rgba(255, 100, 100, 0.2)', borderRadius: '8px' }}>
+                        <p style={{ fontSize: '0.65rem', color: '#ff6666', lineHeight: 1.4, margin: 0, fontWeight: 800 }}>
+                            ⚠️ LEGAL DISCLOSURE: None of these sounds belong to Crack Origins; they are obtained from third-party platforms. All responsibility for these sounds rests with the person who added them.
+                        </p>
+                        <div 
+                        onClick={() => setIsSoundtrackDisclaimerAgreed(!isSoundtrackDisclaimerAgreed)} 
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.8rem', cursor: 'pointer' }}
+                        >
+                        {isSoundtrackDisclaimerAgreed ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} />}
+                        <span style={{ fontSize: '0.65rem', fontWeight: 900 }}>I AGREE & UNDERSTAND</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <div onClick={() => setMetaFormData({ ...metaFormData, isPrivate: !metaFormData.isPrivate })} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem', border: '1px solid var(--outline-color)', borderRadius: '8px', cursor: 'pointer', borderColor: metaFormData.isPrivate ? 'var(--primary)' : 'var(--outline-color)', background: metaFormData.isPrivate ? 'rgba(var(--primary-rgb), 0.05)' : 'transparent' }}>
                 <div style={{ color: metaFormData.isPrivate ? 'var(--primary)' : 'var(--text-muted)' }}>{metaFormData.isPrivate ? <CheckSquare size={18} /> : <Square size={18} />}</div>
                 <div style={{ fontSize: '0.8rem', fontWeight: 800 }}>Private Chronicle</div>
@@ -1137,6 +1405,18 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
           </button>
         </div>
       </Modal>
+
+      {/* Permanent player container to avoid mounting issues */}
+      <div style={{ position: 'fixed', top: -100, left: -100, width: 1, height: 1, opacity: 0.01, pointerEvents: 'none', zIndex: -1 }}>
+          <div id="atmosphere-player"></div>
+      </div>
     </div>
   );
 }
+
+const getYouTubeId = (url: string) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|\/shorts\/)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
