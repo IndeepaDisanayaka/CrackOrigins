@@ -663,6 +663,16 @@ export default function IdeaCollaborationsSidebar({
                             <span className={styles.fieldLabel}>LORE CONTENT REVISION</span>
                             <div className={styles.proposedContent}>
                               {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => {
+                                const isDiff = p && (p.delete || p.insert);
+                                if (isDiff) {
+                                  return (
+                                    <div key={i} className={styles.diffPara}>
+                                      {p.delete?.text && <del className={styles.deletedText}>{p.delete.text}</del>}
+                                      {p.insert?.text && <ins className={styles.insertedText}>{p.insert.text}</ins>}
+                                      {!p.delete?.text && !p.insert?.text && <span className={styles.noChangeText}>[No changes]</span>}
+                                    </div>
+                                  );
+                                }
                                 const html = typeof p === 'string' ? p : (p.text ? structuredToHtml(p) : (p.content || JSON.stringify(p)));
                                 return <p key={i} dangerouslySetInnerHTML={{ __html: html }} />;
                               })}

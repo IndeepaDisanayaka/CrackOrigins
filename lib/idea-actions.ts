@@ -4,6 +4,7 @@ import { getCollection, getMongoDb } from './mongodb';
 import { ObjectId } from 'mongodb';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
+import diff from 'fast-diff';
 
 export async function generateSlug(title: string) {
     return title
@@ -12,6 +13,89 @@ export async function generateSlug(title: string) {
         .replace(/[^\w\s-]/g, '')
         .replace(/[\s_-]+/g, '-')
         .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Calculates diff between two versions of a paragraph
+ */
+export async function calculateParagraphDiff(oldP: any, newP: any) {
+    const oldText = String(oldP?.text || "");
+    const newText = String(newP?.text || "");
+
+    if (oldText === newText) {
+        return {
+            delete: { from: 0, to: 0, text: "" },
+            insert: { at: 0, text: "" }
+        };
+    }
+
+    const changes = diff(oldText, newText);
+    
+    let deleteText = "";
+    let insertText = "";
+    let from = -1;
+    let at = -1;
+    
+    let currentOldPos = 0;
+    let currentNewPos = 0;
+    
+    for (const [type, text] of changes) {
+        if (type === -1) { // Delete
+            if (from === -1) from = currentOldPos;
+            deleteText += text;
+            currentOldPos += text.length;
+        } else if (type === 1) { // Insert
+            if (at === -1) at = currentNewPos;
+            insertText += text;
+            currentNewPos += text.length;
+        } else { // Equal
+            currentOldPos += text.length;
+            currentNewPos += text.length;
+        }
+    }
+
+    return {
+        delete: { 
+            from: from === -1 ? 0 : from, 
+            to: (from === -1 ? 0 : from) + deleteText.length, 
+            text: deleteText,
+            Typography: (oldP?.Typography || []).filter((t: any) => 
+                (t.from >= from && t.to <= from + deleteText.length)
+            )
+        },
+        insert: { 
+            at: at === -1 ? 0 : at, 
+            text: insertText,
+            Typography: (newP?.Typography || []).filter((t: any) =>
+                (t.from >= at && t.to <= at + insertText.length)
+            )
+        }
+    };
+}
+
+/**
+ * Applies a diff to a base paragraph
+ */
+export async function applyParagraphDiff(oldP: any, diff: any) {
+    // case: No diff, but we might have old specific structure
+    if (!diff || (!diff.delete && !diff.insert)) {
+        if (diff && typeof diff.text === 'string') return diff;
+        return oldP || { text: "", Typography: [] };
+    }
+    
+    let text = oldP?.text || "";
+    const del = diff.delete || { from: 0, to: 0 };
+    const ins = diff.insert || { at: 0, text: "" };
+
+    // Apply delete
+    const afterDelete = text.substring(0, Math.min(del.from, text.length)) + text.substring(Math.min(del.to, text.length));
+    // Apply insert
+    const final = afterDelete.substring(0, Math.min(ins.at, afterDelete.length)) + ins.text + afterDelete.substring(Math.min(ins.at, afterDelete.length));
+    
+    return {
+        text: final,
+        Typography: ins.Typography || oldP?.Typography || []
+    };
 }
 
 export async function publishIdea(uid: string, ideaData: {
@@ -72,6 +156,14 @@ export async function publishIdea(uid: string, ideaData: {
             lastUpdated: new Date()
         });
 
+        // Initialize empty snapshot
+        await db.collection("idea_snapshots").insertOne({
+            ideaId: newId,
+            title: ideaData.title,
+            sections: [],
+            updated_time: new Date()
+        });
+
         return { success: true, id: newId, slug: slug };
     } catch (error: any) {
         console.error("Error publishing idea:", error);
@@ -108,10 +200,14 @@ export async function saveCollaborationContent(
         
         let maxOrder = Math.max(authorMax?.orderid || 0, collabMax?.orderid || 0);
 
+        // Get current snapshot for diff calculation
+        const currentSnapshot: any = await db.collection("idea_snapshots").findOne({ ideaId });
+        const snapshotSections = currentSnapshot?.sections || [];
+
         // Process sections and form the version chain
         if (sections.length > 0) {
             const docsToInsert = await Promise.all(sections.map(async (section, index) => {
-                // Find all approved versions from both collections
+                // Find latest approved version to track ordering and lineage
                 const [creatorLatest, collabLatest] = await Promise.all([
                     db.collection("idea_authors").findOne(
                         { ideaId, sectionId: section.id, isApproved: true },
@@ -138,14 +234,14 @@ export async function saveCollaborationContent(
 
                 let orderid = 0;
                 if (lastApproved) {
-                    // This section already exists in the chronicle
                     orderid = lastApproved.orderid;
                 } else {
-                    // This is a BRAND NEW section - append to the end
                     maxOrder += 1;
                     orderid = maxOrder;
                 }
 
+                // Find snapshot data for diffing - try both string and ObjectId if needed, but here we assume string
+                const snapshotSection = snapshotSections.find((s: any) => String(s.id) === String(section.id));
 
                 return {
                     _id: new ObjectId(),
@@ -154,12 +250,18 @@ export async function saveCollaborationContent(
                     authorId: editorData.uid,
                     subtitle: section.title || section.subtitle || '',
                     slug: (section.title || section.subtitle || '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-'),
-                    paragraph: section.paragraphs.map((p: any) => ({
-                        text: typeof p === 'string' ? p : (p.text || ''),
-                        Typography: p.Typography || []
-                    })),
+                    paragraph: await (async () => {
+                        const oldPs = snapshotSection?.paragraphs || [];
+                        const newPs = section.paragraphs || [];
+                        const maxLen = Math.max(oldPs.length, newPs.length);
+                        const pDiffs = [];
+                        for (let i = 0; i < maxLen; i++) {
+                            pDiffs.push(await calculateParagraphDiff(oldPs[i], newPs[i]));
+                        }
+                        return pDiffs;
+                    })(),
                     orderid: orderid,
-                    isApproved: isAuthor, // Only authors are auto-approved
+                    isApproved: isAuthor, 
                     parentId: lastApproved ? lastApproved._id : null,
                     time: new Date(),
                     updated_time: new Date()
@@ -171,13 +273,52 @@ export async function saveCollaborationContent(
             await db.collection(collectionName).insertMany(docsToInsert as any[]);
         }
 
-        if (isAuthor) {
-            // Update the main ideas document lastUpdated for listing
+        if (isAuthor && sections.length > 0) {
+            // Update the main ideas document
             await db.collection<any>("ideas").updateOne({ _id: ideaId }, {
-                $set: {
-                    lastUpdated: new Date()
-                }
+                $set: { lastUpdated: new Date() }
             });
+
+            // Update ONLY the affected sections in the snapshot
+            for (const section of sections) {
+                const snapshotSectionData = {
+                    id: section.id,
+                    title: section.title || section.subtitle || '',
+                    slug: (section.title || section.subtitle || '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-'),
+                    paragraphs: section.paragraphs.map((p: any) => ({
+                        text: typeof p === 'string' ? p : (p.text || ''),
+                        Typography: p.Typography || []
+                    })),
+                    orderid: sections.find(s => s.id === section.id)?.orderid || maxOrder,
+                    updated_time: new Date()
+                };
+
+                // Ensure we use string comparison for ideaId
+                const snapshotQuery = { ideaId: String(ideaId), "sections.id": String(section.id) };
+                
+                // Try to update existing section in the array
+                const updateRes = await db.collection<any>("idea_snapshots").updateOne(
+                    snapshotQuery,
+                    { 
+                        $set: { 
+                            "sections.$": snapshotSectionData,
+                            updated_time: new Date()
+                        } 
+                    } as any
+                );
+
+                // If not found in array or document missing partially, use an upsert-like push
+                if (updateRes.matchedCount === 0) {
+                    await db.collection<any>("idea_snapshots").updateOne(
+                        { ideaId: String(ideaId) },
+                        { 
+                            $push: { sections: snapshotSectionData },
+                            $set: { updated_time: new Date() }
+                        } as any,
+                        { upsert: true }
+                    );
+                }
+            }
         }
 
         // Trigger Next.js revalidation
@@ -264,10 +405,43 @@ export const getIdeaById = cache(
     }
 );
 
+/**
+ * Fetch the latest snapshot for an idea (Consolidated content)
+ */
+export async function getIdeaSnapshot(ideaId: string) {
+    try {
+        const db = await getMongoDb();
+        const snapshot = await db.collection("idea_snapshots").findOne({ ideaId });
+        
+        // සිංහල: Snapshot එකේ දත්ත නොමැති නම් Author ගේ දත්ත වලින් load කිරීමට fallback එකක් එක් කරන ලදී.
+        if (!snapshot || !snapshot.sections || snapshot.sections.length === 0) {
+            const sectionsRes = await getIdeaSections(ideaId);
+            if (sectionsRes.success) {
+                return { 
+                    success: true, 
+                    snapshot: { sections: sectionsRes.sections },
+                    isFallback: true 
+                };
+            }
+        }
+
+        if (!snapshot) return { success: false, error: "Snapshot and fallback failed" };
+        return { success: true, snapshot: JSON.parse(JSON.stringify(snapshot)) };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 export const getIdeaSections = cache(
     async (ideaId: string, userId?: string) => {
         try {
             const db = await getMongoDb();
+
+            // Build the query to find:
+            // 1. ALL Approved content (author or collaborations)
+            // 2. The Current User's own (potentially unapproved) content so they don't lose their work
+            // 0. Get the latest snapshot if available
+            const snapshotDoc: any = await db.collection("idea_snapshots").findOne({ ideaId });
 
             // Build the query to find:
             // 1. ALL Approved content (author or collaborations)
@@ -312,7 +486,7 @@ export const getIdeaSections = cache(
                 // Start with the latest author
                 if (latest.authorId) uniqueAuthors.add(latest.authorId);
 
-                // Recursively fetch parents to find all contributors in the chain
+                // Recursively fetch parents
                 let currentParentId = latest.parentId;
                 while (currentParentId) {
                     const parentDoc: any = await db.collection("idea_collaborations").findOne({ _id: currentParentId }) || 
@@ -326,14 +500,52 @@ export const getIdeaSections = cache(
                     }
                 }
 
-                // Fetch account details for all identified contributors
+                const getDocTime = (doc: any) => {
+                    if (!doc) return 0;
+                    const t = doc.updated_time || doc.time || 0;
+                    return t instanceof Date ? t.getTime() : (typeof t === 'number' ? t : 0);
+                };
+
+                // Logic to determine display content:
+                // 1. If snapshot is newer than or equal to the latest doc, use snapshot (it's consolidated)
+                // 2. If snapshot exists but doc is newer, apply diff to snapshot
+                // 3. Fallback to latest.paragraph if no snapshot
+                
+                let displayParagraphs = latest.paragraph || [];
+                const snapshotSection = snapshotDoc?.sections?.find((s: any) => s.id === doc._id);
+                const snapshotTime = snapshotDoc?.updated_time ? new Date(snapshotDoc.updated_time).getTime() : 0;
+                const latestTime = getDocTime(latest);
+                
+                if (snapshotSection && snapshotTime >= latestTime) {
+                    displayParagraphs = snapshotSection.paragraphs || [];
+                } else if (snapshotSection) {
+                    // Apply the latest diff to the snapshot context
+                    displayParagraphs = await Promise.all((latest.paragraph || []).map(async (diff: any, idx: number) => {
+                        return await applyParagraphDiff(snapshotSection.paragraphs?.[idx], diff);
+                    }));
+                } else {
+                    // Completely new contribution or old version fallback
+                    displayParagraphs = (latest.paragraph || []).map((diff: any) => {
+                        // case 1: New diff structure (insert)
+                        if (diff && diff.insert) {
+                             return { text: diff.insert.text || "", Typography: diff.insert.Typography || [] };
+                        }
+                        // case 2: Old structure (full content)
+                        if (diff && typeof diff.text === 'string') {
+                            return { text: diff.text, Typography: diff.Typography || [] };
+                        }
+                        // case 3: Raw string
+                        return { text: (typeof diff === 'string' ? diff : ""), Typography: [] };
+                    });
+                }
+
                 const contributors = await db.collection("accounts").find({ uid: { $in: Array.from(uniqueAuthors) } }).toArray();
 
                 return {
                     id: doc._id,
                     title: latest.subtitle || '',
                     slug: latest.slug || '',
-                    paragraphs: latest.paragraph || [],
+                    paragraphs: displayParagraphs,
                     collaborators: contributors.map((c: any) => ({
                         uid: c.uid,
                         name: c.name || c.displayName || 'Anonymous',
@@ -517,6 +729,49 @@ export async function approveCollaboration(collaborationId: string) {
             return { success: false, error: 'Collaboration not found or already approved' };
         }
 
+        // Sync ONLY the specific section in the snapshot after approval
+        const collab: any = await db.collection("idea_collaborations").findOne({ _id: new ObjectId(collaborationId) }) ||
+                           await db.collection("idea_authors").findOne({ _id: new ObjectId(collaborationId) });
+        
+        if (collab && collab.ideaId) {
+            // Reconstruct the individual section based on its diff and current snapshot state
+            const snapshot: any = await db.collection("idea_snapshots").findOne({ ideaId: collab.ideaId });
+            const snapshotSection = snapshot?.sections?.find((s: any) => s.id === collab.sectionId);
+            
+            const reconstructedParagraphs = await Promise.all((collab.paragraph || []).map(async (diff: any, idx: number) => {
+                return await applyParagraphDiff(snapshotSection?.paragraphs?.[idx], diff);
+            }));
+
+            const updatedSectionData = {
+                id: collab.sectionId,
+                title: collab.subtitle || snapshotSection?.title || '',
+                slug: collab.slug || snapshotSection?.slug || '',
+                paragraphs: reconstructedParagraphs,
+                orderid: collab.orderid || snapshotSection?.orderid || 0,
+                updated_time: new Date()
+            };
+
+            const updateRes = await db.collection("idea_snapshots").updateOne(
+                { ideaId: collab.ideaId, "sections.id": collab.sectionId },
+                { 
+                    $set: { 
+                        "sections.$": updatedSectionData,
+                        updated_time: new Date()
+                    } 
+                } as any
+            );
+
+            if (updateRes.matchedCount === 0) {
+                await db.collection("idea_snapshots").updateOne(
+                    { ideaId: collab.ideaId },
+                    { 
+                        $push: { sections: updatedSectionData },
+                        $set: { updated_time: new Date() }
+                    } as any
+                );
+            }
+        }
+
         return { success: true };
     } catch (error: any) {
         console.error("Error approving collaboration:", error);
@@ -630,12 +885,24 @@ export async function updateCollaboration(collaborationId: string, uid: string, 
             return { success: false, error: 'Unauthorized to update this publication.' };
         }
 
+        // Get current snapshot for diff calculation
+        const currentSnapshot: any = await db.collection("idea_snapshots").findOne({ ideaId: collab.ideaId });
+        const snapshotSection = currentSnapshot?.sections?.find((s: any) => String(s.id) === String(collab.sectionId));
+        const snapshotParagraphs = snapshotSection?.paragraphs || [];
+
         await currentColl.updateOne(
             { _id: new ObjectId(collaborationId) },
             { 
                 $set: { 
                     subtitle: data.subtitle, 
-                    paragraph: data.paragraph,
+                    paragraph: await Promise.all(data.paragraph.map(async (p: any, idx: number) => {
+                        // If p is already a diff (unlikely from frontend but possible)
+                        if (p && (p.delete || p.insert) && typeof p.insert?.text !== 'string') return p;
+                        
+                        // Calculate diff against snapshot
+                        const oldP = snapshotParagraphs[idx];
+                        return await calculateParagraphDiff(oldP, p);
+                    })),
                     time: Date.now() 
                 } 
             }
