@@ -13,11 +13,10 @@ import Header from './layout/Header';
 import MobileNav from './layout/MobileNav';
 import Footer from './layout/Footer';
 import Hero from './sections/Hero';
-import StatsBar from './sections/StatsBar';
 import Features from './sections/Features';
 import FAQSection from './sections/FAQSection';
 import SplashScreen from './layout/SplashScreen';
-import SubHeader from './layout/SubHeader';
+
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
@@ -62,8 +61,33 @@ export default function HomeContent() {
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' });
         }
-      }, 800); // Wait for splash screen / loading
+      }, 800);
     }
+
+    const sections = ['hero', 'about', 'games', 'community', 'faq'];
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.5,
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          if (id) {
+            window.history.replaceState(null, '', `#${id}`);
+          }
+        }
+      });
+    }, observerOptions);
+
+    sections.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   const handleLogin = async (type: 'google' | 'email-login' | 'email-signup', credentials?: { email: string, password: string }) => {
@@ -91,7 +115,7 @@ export default function HomeContent() {
         setIsOpen={setIsMobileMenuOpen} 
       />
 
-      <SubHeader />
+      
 
       <main className={styles.main}>
         <AuthModal 
@@ -130,12 +154,13 @@ export default function HomeContent() {
 
         <Hero />
 
-        <StatsBar />
+        <div id="about">
+           <Features />
+        </div>
 
-        <Features />
-        <div className={styles.sectionDivider}></div>
 
         <motion.div
+          id="games"
           style={{ width: "100%" }}
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -145,13 +170,14 @@ export default function HomeContent() {
           <GamesCarousel />
         </motion.div>
 
-        <AffiliateSection
-          affiliateId={affiliateId}
-          friendsCount={affiliateCount}
-          xp={xp}
-          onRefresh={refreshStatus}
-        />
-
+        <div id="community">
+          <AffiliateSection
+            affiliateId={affiliateId}
+            friendsCount={affiliateCount}
+            xp={xp}
+            onRefresh={refreshStatus}
+          />
+        </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -161,7 +187,9 @@ export default function HomeContent() {
           <ExtraSections />
         </motion.div>
 
-        <FAQSection />
+        <div id="faq">
+          <FAQSection />
+        </div>
 
         <Footer />
 

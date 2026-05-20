@@ -1,30 +1,31 @@
 .container {
   width: 100%;
   max-width: 1400px;
-  margin: 6rem auto;
+  margin: 1rem auto 3rem;
   position: relative;
   z-index: 1;
 }
 
 .card {
-  background: var(--background);
+  background: rgba(var(--background-rgb), 0.5);
   border: 1px solid var(--outline-color);
   display: flex;
   flex-direction: row;
   overflow: hidden;
   position: relative;
   z-index: 10;
-  border-radius: 12px;
+  border-radius: 24px;
+  backdrop-filter: blur(10px);
 }
 
 /* Info Side (Left) */
 .infoContent {
   flex: 1.2;
-  padding: 4rem;
+  padding: 3rem;
   border-right: 1px solid var(--outline-color);
   display: flex;
   flex-direction: column;
-  gap: 3rem;
+  gap: 2rem;
 }
 
 .badge {
@@ -53,6 +54,7 @@
   text-transform: uppercase;
   letter-spacing: -0.04em;
 }
+
 
 .highlight {
   color: var(--primary);
@@ -161,11 +163,11 @@
 /* Progress Side (Right) */
 .progressVisual {
   flex: 0.8;
-  padding: 4rem;
-  background: rgba(255, 255, 255, 0.015);
+  padding: 3rem;
+  background: rgba(var(--primary-rgb), 0.02);
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 2rem;
 }
 
 .progHeader {
@@ -378,18 +380,31 @@
 
 /* Responsive */
 @media (max-width: 1100px) {
+  .container { padding: 0 1.25rem; }
   .card { flex-direction: column; }
-  .infoContent { border-right: none; border-bottom: 1px solid var(--outline-color); padding: 3rem; }
-  .progressVisual { padding: 3rem; }
+  .infoContent { border-right: none; border-bottom: 1px solid var(--outline-color); padding: 2.5rem; }
+  .progressVisual { padding: 2.5rem; }
 }
 
 @media (max-width: 768px) {
-  .title { font-size: 2.25rem; }
-  .statValue { font-size: 2.25rem; }
-  .infoContent, .progressVisual { padding: 2rem; }
+  .container { padding: 0 1rem; }
+  .title { font-size: 2rem; }
+  .statValue { font-size: 2rem; }
+  .infoContent, .progressVisual { padding: 1.5rem; }
   .statsRow { flex-wrap: wrap; gap: 1.5rem; }
   .referralBox { flex-direction: column; }
-  .inviteBtn { padding: 1.1rem; }
+  .inviteBtn { padding: 1.1rem; width: 100%; }
+  .linkWrapper { min-width: 0; }
+  .milestoneList { gap: 0.5rem; }
+  .milestoneItem { padding: 0.75rem; }
+  .progressLabels { display: none; }
+}
+
+@media (max-width: 480px) {
+  .title { font-size: 1.75rem; }
+  .statsRow { gap: 1rem; }
+  .statValue { font-size: 1.75rem; }
+  .infoContent, .progressVisual { padding: 1.25rem; }
 }
 
 .couponDetailCard {

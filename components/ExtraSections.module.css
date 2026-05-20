@@ -8,6 +8,7 @@
   gap: 3rem;
   position: relative;
   z-index: 50;
+  box-sizing: border-box;
 }
 
 .section {
@@ -32,6 +33,7 @@
   line-height: 1.6;
   font-weight: 500;
 }
+
 
 /* --- Modernized About Section --- */
 .aboutGrid {
@@ -379,9 +381,10 @@
 /* --- Steam Games Storefront --- */
 .steamGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .steamCard {
@@ -712,7 +715,6 @@
 
 .btnUnlock:hover {
   transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 10px 20px rgba(254, 182, 12, 0.3);
 }
 
 .btnUnlock:hover::before {
@@ -1198,11 +1200,51 @@
   .teaserTitle {
     font-size: 2.75rem;
   }
+
+  /* Collapse all main grids to single column on tablet */
+  .aboutGrid {
+    grid-template-columns: 1fr !important;
+    gap: 2rem !important;
+  }
+
+  .investGrid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1.25rem !important;
+  }
+
+  .steamGrid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1.25rem !important;
+  }
+
+  .rolesGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bottomWrapper {
+    grid-template-columns: 1fr !important;
+    gap: 2rem !important;
+  }
+
+  .container {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .aboutCard {
+    padding: 2.5rem !important;
+  }
 }
 
 @media (max-width: 768px) {
   .sectionTitle {
     font-size: 1.8rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .sectionSubtext {
+    font-size: 1rem;
+    margin-bottom: 2rem;
   }
 
   .discountPrice {
@@ -1211,6 +1253,14 @@
 
   .aboutHeroTitle {
     font-size: 2rem;
+  }
+
+  .aboutCard {
+    padding: 2rem !important;
+  }
+
+  .aboutStats {
+    gap: 1.5rem;
   }
   
   .teaserGrid {
@@ -1222,6 +1272,15 @@
     font-size: 2rem;
   }
   
+  /* All grids collapse to 1 column on mobile */
+  .investGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .steamGrid {
+    grid-template-columns: 1fr !important;
+  }
+
   .featureGrid {
     grid-template-columns: 1fr !important;
   }
@@ -1249,5 +1308,24 @@
     width: 100%;
     font-size: 0.85rem;
     padding: 0.75rem;
+  }
+
+  .socialsGrid {
+    gap: 0.75rem;
+  }
+
+  .socialCard {
+    min-width: calc(50% - 0.375rem);
+    padding: 1.75rem 1rem;
+  }
+
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    gap: 2rem;
+  }
+
+  .investCard {
+    padding: 1.75rem;
   }
 }

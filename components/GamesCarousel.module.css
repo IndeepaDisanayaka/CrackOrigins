@@ -5,6 +5,14 @@
   position: relative;
   z-index: 50;
   padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .carouselContainer {
+    padding: 0 0.75rem;
+    margin-bottom: 4rem;
+  }
 }
 
 .modalOpenContext {
@@ -33,6 +41,7 @@
   color: var(--foreground);
   line-height: 1.1;
 }
+
 
 .navButtons {
   display: flex;
@@ -82,7 +91,6 @@
   overflow: hidden;
   scroll-snap-align: start;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
   transition: transform 0.3s ease;
 }
 

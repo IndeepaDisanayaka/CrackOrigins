@@ -280,6 +280,7 @@
   opacity: 1;
 }
 
+.actionBtnActive,
 .actionBtnSaved {
   background: rgba(var(--primary-rgb), 0.1) !important;
   border-color: var(--primary) !important;
@@ -361,9 +362,9 @@
 }
 
 .actionBtn:hover {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #000;
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #000 !important;
 }
 
 :global(.light-theme) .actionBtn {

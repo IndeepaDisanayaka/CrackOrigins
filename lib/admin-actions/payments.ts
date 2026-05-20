@@ -304,7 +304,9 @@ export async function addAffiliateReward(inviterUid: string, amount: number, typ
         if (type === 'onetime') {
             rewardXP = levelData?.onetime_reward_xp || 5;
         } else {
-            rewardXP = Math.ceil((amount * commPercent) / 100);
+            // $1 = 1000 base points. XP = (amount_in_dollars × 1000 × commission%) / 100
+            // Example: $1 purchase, 20% commission → (1 × 1000 × 20) / 100 = 200 XP
+            rewardXP = Math.ceil((amount * 1000 * commPercent) / 100);
         }
  
         if (rewardXP > 0) {

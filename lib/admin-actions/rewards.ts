@@ -8,7 +8,10 @@ export async function getRewardLevels() {
     try {
         const db = await getMongoDb();
         const docs = await db.collection("reward_levels").find().sort({ min_xp: 1 }).toArray();
-        return docs.map((d: any) => ({ id: d._id.toString(), ...d })) as Types.RewardLevel[];
+        return docs.map((d: any) => {
+            const { _id, ...rest } = d;
+            return { id: _id.toString(), ...rest };
+        }) as Types.RewardLevel[];
     } catch (err: any) {
         return [];
     }

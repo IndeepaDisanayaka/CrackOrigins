@@ -338,20 +338,41 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const getWordCount = (str: string) => str.trim() ? str.trim().split(/\s+/).length : 0;
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerHeight === window.screen.height) {
+        setIsFullScreen(true);
+      } else if (!document.fullscreenElement) {
+        setIsFullScreen(false);
+      }
+    };
     check();
     window.addEventListener('resize', check);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullScreen) {
         setIsFullScreen(false);
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(err => console.warn(err));
+        }
       }
     };
+    
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        setIsFullScreen(true);
+      } else if (window.innerHeight !== window.screen.height) {
+        setIsFullScreen(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
       window.removeEventListener('resize', check);
       window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [isFullScreen]);
 
@@ -800,7 +821,12 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
               style={{ position: 'fixed', top: '2rem', right: '2rem', zIndex: 10001 }}
               animate={{ right: (isCollabSidebarOpen || isChatSidebarOpen || isSoundSidebarOpen) ? 'calc(25% + 2rem)' : '2rem' }}
             >
-              <button onClick={() => setIsFullScreen(false)} className={styles.actionBtn}>
+              <button onClick={() => {
+                setIsFullScreen(false);
+                if (document.fullscreenElement && document.exitFullscreen) {
+                  document.exitFullscreen().catch(err => console.warn(err));
+                }
+              }} className={styles.actionBtn}>
                 <Minimize2 size={18} />
               </button>
             </motion.div>
@@ -1014,7 +1040,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
                     {idea?.soundtracks && idea.soundtracks.length > 0 && (
                       <button
-                        className={`${styles.actionBtn} ${isSoundSidebarOpen ? styles.actionBtnActive : ''}`}
+                        className={`${styles.actionBtn} ${(isSoundSidebarOpen || isMusicPlaying) ? styles.actionBtnActive : ''}`}
                         onClick={() => {
                           const nextState = !isSoundSidebarOpen;
                           setIsSoundSidebarOpen(nextState);
@@ -1035,17 +1061,18 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
                           }
                         }}
                         title="Sound Center"
-                        style={{
-                          color: isMusicPlaying ? 'var(--primary)' : undefined,
-                          borderColor: isMusicPlaying ? 'var(--primary)' : undefined
-                        }}
                       >
                         {isMusicPlaying ? <Volume2 size={18} className="animate-pulse" /> : <Music size={18} />}
                       </button>
                     )}
                     <button className={`${styles.actionBtn} ${isChatSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsChatSidebarOpen(!isChatSidebarOpen); if (!isChatSidebarOpen) { setIsCollabSidebarOpen(false); setIsSoundSidebarOpen(false); } }} title="Comments"><MessageSquare size={18} /></button>
-                    <button className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsCollabSidebarOpen(!isCollabSidebarOpen); if (!isCollabSidebarOpen) { setIsChatSidebarOpen(false); setIsSoundSidebarOpen(false); } }} title="Collaborations" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}><Users size={18} /></button>
-                    <button className={styles.actionBtn} onClick={() => setIsFullScreen(true)} title="Full Screen Mode"><Maximize2 size={18} /></button>
+                    <button className={`${styles.actionBtn} ${isCollabSidebarOpen ? styles.actionBtnActive : ''}`} onClick={() => { setIsCollabSidebarOpen(!isCollabSidebarOpen); if (!isCollabSidebarOpen) { setIsChatSidebarOpen(false); setIsSoundSidebarOpen(false); } }} title="Collaborations"><Users size={18} /></button>
+                    <button className={styles.actionBtn} onClick={() => {
+                      setIsFullScreen(true);
+                      if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().catch(err => console.warn(err));
+                      }
+                    }} title="Full Screen Mode"><Maximize2 size={18} /></button>
                   </div>
                 </div>
               </div>

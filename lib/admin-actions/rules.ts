@@ -65,9 +65,10 @@ export async function getAccountRules(adminUid: string) {
 
         const docs = await db.collection("account_rules").find().toArray();
         const rules = docs.map((data: any) => {
+            const { _id, ...rest } = data;
             return { 
-                id: data._id.toString(), 
-                ...data,
+                id: _id.toString(), 
+                ...rest,
                 last_update: toIsoDate(data.last_update),
                 created: toIsoDate(data.created)
             };

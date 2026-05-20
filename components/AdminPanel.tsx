@@ -43,9 +43,7 @@ import {
   deleteBlogPost,
   getBlogPostsAction,
   deleteUserAccount,
-  deleteAnonymousUsers,
-  cleanupDeactivatedUsers,
-  cleanupExpiredOffers,
+  cleanupDeactivatedUsers,  cleanupExpiredOffers,
   getMyPermissions,
   assignRuleToUser,
   getAccountRules,
@@ -86,7 +84,7 @@ export default function AdminPanel({
   const [paymentView, setPaymentView] = useState<PaymentView>('payments');
   const [gameView, setGameView] = useState<'our' | 'offers'>('our');
   const [onlyKeyNotSet, setOnlyKeyNotSet] = useState(false);
-  const [userView, setUserView] = useState<'all' | 'google' | 'anonymous'>('all');
+  const [userView, setUserView] = useState<'all' | 'google'>('all');
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [expandedPayments, setExpandedPayments] = useState<Record<string, boolean>>({});
   const [paypalBalance, setPaypalBalance] = useState<string | null>(null);
@@ -115,8 +113,8 @@ export default function AdminPanel({
   const [userDeleteConfirm, setUserDeleteConfirm] = useState<{ open: boolean; uid: string; name: string }>({
     open: false, uid: "", name: ""
   });
-  const [bulkCleanupConfirm, setBulkCleanupConfirm] = useState<{ open: boolean; type: 'anonymous' | 'deactivated' | 'offers' }>({
-    open: false, type: 'anonymous'
+  const [bulkCleanupConfirm, setBulkCleanupConfirm] = useState<{ open: boolean; type: 'deactivated' | 'offers' }>({
+    open: false, type: 'deactivated'
   });
   const [keyModal, setKeyModal] = useState<{ open: boolean; targetUid: string; paymentId: string; key: string }>({
     open: false, targetUid: "", paymentId: "", key: ""
@@ -309,9 +307,7 @@ export default function AdminPanel({
         setCleaningProgress(prev => (prev < 90 ? prev + 5 : prev));
       }, 500);
 
-      const result = bulkCleanupConfirm.type === 'anonymous' 
-        ? await deleteAnonymousUsers(userUid)
-        : bulkCleanupConfirm.type === 'deactivated'
+      const result = bulkCleanupConfirm.type === 'deactivated'
         ? await cleanupDeactivatedUsers(userUid)
         : await cleanupExpiredOffers(userUid);
       
@@ -379,7 +375,6 @@ export default function AdminPanel({
 
     const isAnonymous = !u.email || u.email === "unknown" || u.email === "anonymous";
     if (userView === 'google' && isAnonymous) return false;
-    if (userView === 'anonymous' && !isAnonymous) return false;
 
     return true;
   });
@@ -976,12 +971,11 @@ export default function AdminPanel({
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                         {[
                           { id: 'all', label: 'All Users' },
-                          { id: 'google', label: 'Google Users' },
-                          { id: 'anonymous', label: 'Anonymous' }
+                          { id: 'google', label: 'Google Users' }
                         ].map(t => (
                           <button 
                             key={t.id} 
-                            className={userView === t.id ? "btnSolid" : "btnOutline"} 
+                            className={userView === (t.id as any) ? "btnSolid" : "btnOutline"} 
                             onClick={() => setUserView(t.id as any)}
                             style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', transform: 'none' }}
                           >
@@ -990,13 +984,6 @@ export default function AdminPanel({
                         ))}
                         {myPerms.isOwner && (
                           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.6rem' }}>
-                            <button 
-                              onClick={() => setBulkCleanupConfirm({ open: true, type: 'anonymous' })} 
-                              className="btnOutline" 
-                              style={{ padding: '0.45rem 0.8rem', fontSize: '0.75rem', color: '#f59e0b', borderColor: '#f59e0b' }}
-                            >
-                              <Trash2 size={13} /> Clean Anonymous
-                            </button>
                             <button 
                               onClick={() => setBulkCleanupConfirm({ open: true, type: 'deactivated' })} 
                               className="btnOutline" 
@@ -1152,7 +1139,7 @@ export default function AdminPanel({
                                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--outline-color)' }} />
                                          )}
                                          <div>
-                                            <div style={{ fontWeight: 700 }}>{u.name || 'Anonymous'}</div>
+                                            <div style={{ fontWeight: 700 }}>{u.name || 'User'}</div>
                                             <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>{u.email}</div>
                                          </div>
                                       </div>
@@ -1174,15 +1161,6 @@ export default function AdminPanel({
                                           Role
                                        </button>
                                      )}
-                                     {hasPerm('account', 'DELETE') && userView === 'anonymous' && (
-                                       <button
-                                         onClick={() => setUserDeleteConfirm({ open: true, uid: u.uid, name: u.name || u.email || 'Anonymous' })}
-                                         className="btnOutline"
-                                         style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
-                                       >
-                                          <Trash2 size={13} />
-                                       </button>
-                                     )}
                                      <button onClick={() => setExpandedUsers(prev => ({ ...prev, [u.uid]: !prev[u.uid] }))} className="btnOutline" style={{ padding: '0.4rem 0.55rem', fontSize: '0.7rem', marginLeft: '0.5rem' }}>
                                        {expandedUsers[u.uid] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                      </button>
@@ -1194,7 +1172,7 @@ export default function AdminPanel({
                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.6rem', fontSize: '0.78rem' }}>
                                        <div><strong>UID:</strong> {u.uid}</div>
                                        <div><strong>Email:</strong> {u.email || "N/A"}</div>
-                                       <div><strong>Name:</strong> {u.name || "Anonymous"}</div>
+                                       <div><strong>Name:</strong> {u.name || "User"}</div>
                                        <div><strong>Country:</strong> {u.country || "Unknown"}</div>
                                        <div><strong>Role:</strong> {u.isOwner ? "OWNER" : "USER"}</div>
                                        <div><strong>XP Balance:</strong> {u.xp || u.discount || 0} XP</div>

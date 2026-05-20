@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '../Modal';
 import { getPendingCollaborations, getAllCollaborations, approveCollaboration, unapproveCollaboration, deleteCollaboration, updateCollaboration, getCollaborationById } from '@/lib/idea-actions';
+import { getVisualDiffSegments } from '@/lib/diff-utils';
 import { structuredToHtml, parseHtmlToStructured } from '@/lib/text-parser';
 import { useToast } from '../Toast';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -663,8 +664,31 @@ export default function IdeaCollaborationsSidebar({
                             <span className={styles.fieldLabel}>LORE CONTENT REVISION</span>
                             <div className={styles.proposedContent}>
                               {selectedCollab.paragraph && selectedCollab.paragraph.map((p: any, i: number) => {
-                                const isDiff = p && (p.delete || p.insert);
-                                if (isDiff) {
+                                const isDiffArray = Array.isArray(p);
+                                const isOldDiff = p && (p.delete || p.insert);
+
+                                if (isDiffArray) {
+                                  // Find the original text to reconstruct visual segments properly
+                                  const baseSection = parentCollab 
+                                    ? (parentCollab.sectionId === selectedCollab.sectionId ? parentCollab : null)
+                                    : currentSections.find((s: any) => s.id === selectedCollab.sectionId);
+                                  
+                                  const basePara = baseSection?.paragraph ? baseSection.paragraph[i] : (baseSection as any)?.paragraphs?.[i];
+                                  const oldText = typeof basePara === 'string' ? basePara : (basePara?.text || "");
+                                  const segments = getVisualDiffSegments(oldText, p);
+                                  
+                                  return (
+                                    <div key={i} className={styles.diffPara}>
+                                      {segments.map((op: any, opIdx: number) => {
+                                        if (op.type === 'delete') return <del key={opIdx} className={styles.deletedText}>{op.text}</del>;
+                                        if (op.type === 'insert') return <ins key={opIdx} className={styles.insertedText}>{op.text}</ins>;
+                                        return <span key={opIdx}>{op.text}</span>;
+                                      })}
+                                    </div>
+                                  );
+                                }
+
+                                if (isOldDiff) {
                                   return (
                                     <div key={i} className={styles.diffPara}>
                                       {p.delete?.text && <del className={styles.deletedText}>{p.delete.text}</del>}

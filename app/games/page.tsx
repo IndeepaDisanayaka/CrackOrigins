@@ -1,12 +1,12 @@
 import React from 'react';
 import { Metadata } from 'next';
-import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { getGames } from '@/lib/admin-actions';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight, Play, Download, Star, Filter, Search } from 'lucide-react';
 import styles from './GamesPage.module.css';
+import GamesPageClient from './GamesPageClient';
 
 export const metadata: Metadata = {
     title: 'All Creations | Crack Origins',
@@ -26,7 +26,7 @@ export default async function GamesPage() {
 
     return (
         <div className={styles.container}>
-            <Header />
+            <GamesPageClient />
             <div className={styles.backgroundAnimation}></div>
             
             <main className={styles.main}>

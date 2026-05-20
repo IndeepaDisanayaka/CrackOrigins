@@ -171,18 +171,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (type: 'google' | 'email-login' | 'email-signup' = 'google', credentials?: { email: string, password: string }, referralId?: string | null) => {
     if (referralId) {
-      // Set a short-lived cookie for referral tracking (1 hour)
       document.cookie = `referralId=${referralId}; path=/; max-age=3600; SameSite=Lax`;
     }
 
     if (type === 'google') {
-      // For Google, we redirect to the login page or trigger sign-in
-      // ReferralId logic is handled in the signIn callback on the server
-      await signIn('google', { redirect: true });
+      await signIn('google', { callbackUrl: '/', redirect: true });
       return { success: true };
     }
-    // Implement other types if needed, or redirect to login page
-    return { success: false, error: "Please use the login page for email authentication." };
+
+    if (type === 'email-login') {
+      if (!credentials?.email || !credentials?.password) {
+        return { success: false, error: "Email and password are required." };
+      }
+      const res = await signIn('credentials', {
+        email: credentials.email,
+        password: credentials.password,
+        redirect: false
+      });
+      if (res?.error) {
+        return { success: false, error: "Invalid email or password." };
+      }
+      return { success: true };
+    }
+
+    if (type === 'email-signup') {
+      if (!credentials?.email || !credentials?.password) {
+        return { success: false, error: "Email and password are required." };
+      }
+      const { emailSignup } = await import('../admin-actions');
+      const res = await emailSignup({ 
+        email: credentials.email, 
+        password: credentials.password, 
+        referralId 
+      });
+      if (res.success) {
+        // Automatically login after signup
+        return login('email-login', credentials);
+      }
+      return res;
+    }
+
+    return { success: false, error: "Unknown login type." };
   };
 
   const logout = async () => {

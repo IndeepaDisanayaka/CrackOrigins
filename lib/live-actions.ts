@@ -101,3 +101,22 @@ export async function getGiveawayLeaderboard(target: number, listedTime: string,
 }
 
 
+/**
+ * Server Action: Get Platform Stats (Total Users & Total Games)
+ */
+export async function getPlatformStats() {
+    try {
+        const db = await getMongoDb();
+        const userCount = await db.collection("accounts").countDocuments();
+        const gamesCount = await db.collection("games").countDocuments();
+        
+        return {
+            success: true,
+            userCount: userCount || 0,
+            gamesCount: gamesCount || 0
+        };
+    } catch (err: any) {
+        console.error("Error in getPlatformStats:", err);
+        return { success: false, error: err.message };
+    }
+}

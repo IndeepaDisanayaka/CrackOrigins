@@ -9,3 +9,4 @@ export * from './rewards';
 export * from './rules';
 export * from './blogs';
 export * from './licenses';
+export * from './auth-email';

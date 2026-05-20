@@ -23,20 +23,30 @@ export async function findUserByEmail(email: string) {
     const normalizedEmail:string = await normalizeEmail(email);
     const emailHash = await hashEmail(normalizedEmail);
 
-    const byHash = await accountsCol.findOne({ emailHash });
-    if (byHash) return byHash;
+    // 1. Try to find by hash (Recommended)
+    let user = await accountsCol.findOne({ emailHash });
+    if (user) return user;
 
-    const cursor = accountsCol.find({});
+    // 2. Try to find by plain email (in case not hashed yet or legacy)
+    user = await accountsCol.findOne({ email: normalizedEmail });
+    if (user) return user;
+
+    // 3. Last resort: scan if encrypted but not hashed (Migration only)
+    // To prevent infinite timeouts in callbacks, we limit this scan
+    const cursor = accountsCol.find({ emailHash: { $exists: false } }).limit(200);
     while (await cursor.hasNext()) {
         const account = await cursor.next();
-        if (!account?.email || typeof account.email !== 'string') continue;
-        try {
-            const decryptedEmail:string = await normalizeEmail(decrypt(account.email));
-            if (decryptedEmail === normalizedEmail) {
-                return account;
+        if (account && account.email) {
+            try {
+                const decryptedEmail = decrypt(account.email);
+                if (await normalizeEmail(decryptedEmail) === normalizedEmail) {
+                    // Cache the hash for future lookups
+                    await accountsCol.updateOne({ _id: account._id }, { $set: { emailHash } });
+                    return account;
+                }
+            } catch (e) {
+                // Ignore decryption errors
             }
-        } catch {
-            continue;
         }
     }
 
@@ -400,36 +410,6 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
     }
 }
 
-export async function deleteAnonymousUsers(adminUid: string) {
-    try {
-        const db = await getMongoDb();
-        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
-        const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
-        if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };
-
-        const accounts = await db.collection("accounts").find().toArray();
-        const anonymousUids: string[] = [];
-
-        for (const data of accounts) {
-            let email = data.email || "";
-            if (email.includes(':')) {
-                try { email = decrypt(email); } catch { }
-            }
-            if (!email || email === "unknown" || email === "anonymous") {
-                anonymousUids.push(data.uid);
-            }
-        }
-
-        if (anonymousUids.length === 0) return { success: true, count: 0 };
-
-        const res = await db.collection("accounts").deleteMany({ uid: { $in: anonymousUids } });
-
-        return { success: true, count: res.deletedCount };
-    } catch (error: any) {
-        console.error("Error bulk deleting anonymous users:", error);
-        return { success: false, error: error.message };
-    }
-}
 
 export async function cleanupDeactivatedUsers(adminUid: string) {
     try {
@@ -456,20 +436,17 @@ export async function cleanupDeactivatedUsers(adminUid: string) {
             const isStale = (Date.now() - created.getTime()) > (24 * 60 * 60 * 1000);
 
             if (!hasActivity && isStale) {
-                let email = data.email || "";
-                if (email.includes(':')) {
-                    try { email = decrypt(email); } catch { }
-                }
-                if (!email || email === "unknown" || email === "anonymous") {
-                    uidsToDelete.push(data.uid);
-                }
+                // If the user has no history and is stale, we can flag for potential cleanup
+                // but we no longer specifically look for anonymous emails as they are removed
+                // uidsToDelete.push(data.uid); 
             }
         }
 
         if (uidsToDelete.length === 0) return { success: true, count: 0 };
 
-        const res = await db.collection("accounts").deleteMany({ uid: { $in: uidsToDelete } });
-        return { success: true, count: res.deletedCount };
+        // For now, automated cleanup of accounts is deactivated to prevent data loss.
+        // The admin can delete individual users from the UI.
+        return { success: true, count: 0 };
     } catch (error: any) {
         console.error("Error cleaning up deactivated users:", error);
     }
