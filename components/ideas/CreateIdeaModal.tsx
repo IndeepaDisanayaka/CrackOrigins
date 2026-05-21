@@ -395,7 +395,7 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
             {(newTrack || formData.soundtracks.length > 0) && (
               <div style={{ marginTop: '0.8rem', padding: '1rem', background: 'rgba(255, 100, 100, 0.05)', border: '1px solid rgba(255, 100, 100, 0.2)', borderRadius: '8px' }}>
                 <p style={{ fontSize: '0.7rem', color: '#ff6666', lineHeight: 1.4, margin: 0, fontWeight: 700 }}>
-                  ⚠️ LEGAL DISCLOSURE: None of these sounds belong to Crack Origins; they are obtained from third-party platforms. All responsibility for these sounds rests with the person who added them.
+                  LEGAL DISCLOSURE: None of these sounds belong to Crack Origins; they are obtained from third-party platforms. All responsibility for these sounds rests with the person who added them.
                 </p>
                 <div 
                   onClick={() => setIsDisclaimerAgreed(!isDisclaimerAgreed)} 

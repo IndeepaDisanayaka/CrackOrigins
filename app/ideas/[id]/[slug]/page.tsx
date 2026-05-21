@@ -1,8 +1,8 @@
 import React from 'react';
 import IdeaDetailsClient from './IdeaDetailsClient';
 import { Metadata } from 'next';
-import { getMongoDb } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { getAbsoluteImageUrl } from '@/lib/utils';
+import { getIdeaById, getIdeaSnapshot } from '@/lib/idea-actions';
 
 interface Props {
   params: Promise<{ id: string; slug: string }>;
@@ -12,14 +12,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id, slug } = await params;
   
   try {
-    const db = await getMongoDb();
-    let objId;
-    try { objId = new ObjectId(id); } catch(e) { objId = id as any; }
-    const data = await db.collection('ideas').findOne({ _id: objId });
-    if (data) {
+    const res = await getIdeaById(id);
+    if (res.success && res.idea) {
+      const data = res.idea;
       const title = `${data?.title} | Crack Origins Ideas`;
       const description = data?.description || 'Explore this creative idea on Crack Origins.';
-      const imageUrl = data?.image || '/og-image.png';
+      const imageUrl = getAbsoluteImageUrl(data?.image);
 
       return {
         title,
@@ -53,5 +51,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function IdeaDetailsPage({ params }: Props) {
   const { id, slug } = await params;
-  return <IdeaDetailsClient id={id} slug={slug} />;
+  
+  // Parallel fetch on server
+  const [ideaRes, snapshotRes] = await Promise.all([
+    getIdeaById(id),
+    getIdeaSnapshot(id)
+  ]);
+
+  if (!ideaRes.success || !ideaRes.idea) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)' }}>
+        <h1 style={{ color: 'var(--foreground)' }}>Chronicle Not Found</h1>
+        <p style={{ color: 'var(--text-muted)' }}>The requested classified transmission could not be retrieved.</p>
+      </div>
+    );
+  }
+
+  return (
+    <IdeaDetailsClient 
+      id={id} 
+      slug={slug} 
+      initialIdea={ideaRes.idea}
+      initialSnapshot={snapshotRes.success ? snapshotRes.snapshot : null}
+    />
+  );
 }

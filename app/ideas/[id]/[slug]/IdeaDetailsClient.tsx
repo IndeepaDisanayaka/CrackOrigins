@@ -54,11 +54,19 @@ const ListGameModal = dynamic(() => import('@/components/admin/ListGameModal'), 
 const DispatchModal = dynamic(() => import('@/components/admin/DispatchModal'), { ssr: false });
 const IdeaEditor = dynamic(() => import('@/components/ideas/IdeaEditor'), { ssr: false });
 
-export default function IdeaDetailsClient({ id, slug }: { id: string, slug: string }) {
+export default function IdeaDetailsClient({ id, slug, initialIdea, initialSnapshot }: { id: string, slug: string, initialIdea?: any, initialSnapshot?: any }) {
   const router = useRouter();
 
-  const [idea, setIdea] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [idea, setIdea] = useState<any>(() => {
+    if (initialIdea) {
+      return {
+        ...initialIdea,
+        sections: initialSnapshot?.sections || []
+      };
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(!initialIdea);
   const [error, setError] = useState<string | null>(null);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -116,6 +124,28 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [isGlobalMuted, setIsGlobalMuted] = useState<boolean>(true);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+
+  // Initialize meta from initial data if available
+  useEffect(() => {
+    if (initialIdea) {
+      setMetaFormData({
+        description: initialIdea.description || '',
+        image: initialIdea.image || '',
+        isPrivate: initialIdea.isPrivate || false,
+        tags: initialIdea.tags || [],
+        characters: initialIdea.characters || [],
+        environmentType: initialIdea.environmentType || 'Modern',
+        storyType: initialIdea.storyType || 'Horror',
+        targetAudience: initialIdea.targetAudience || '',
+        goal: initialIdea.goal || '',
+        endingType: initialIdea.endingType || 'Happy',
+        soundtracks: initialIdea.soundtracks || []
+      });
+      if (initialSnapshot?.sections) {
+        setLastCloudContent(JSON.stringify(initialSnapshot.sections));
+      }
+    }
+  }, [initialIdea, initialSnapshot]);
 
 
   useEffect(() => {
@@ -539,6 +569,11 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     } else {
       setIsIdeaSidebarOpen(false);
     }
+    
+    // Reset sidebar state on unmount
+    return () => {
+      setIsIdeaSidebarOpen(false);
+    };
   }, [isCollabSidebarOpen, isChatSidebarOpen, isSoundSidebarOpen, setIsIdeaSidebarOpen, isFullScreen]);
 
   const handleUpdateMeta = async (e: React.FormEvent) => {
@@ -575,7 +610,7 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
-  if (loading) {
+  if (loading && !idea) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)' }}>
         <div className="premiumLoader"></div>
@@ -728,6 +763,14 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
     const newVote = prevVote === type ? null : type;
     setUserVote(newVote);
+
+    if (newVote === 'up') {
+      showToast("Authentic Creation", "success", { subtitle: "You validated this as original and high-quality content." });
+    } else if (newVote === 'down') {
+      showToast("Low Fidelity Entry", "error", { subtitle: "You flagged this as redundant or unoriginal content." });
+    } else if (newVote === null) {
+      showToast("Vote Removed", "info", { subtitle: "Your intelligence validation has been cleared." });
+    }
 
     setIdea((prev: any) => {
       const newStatus = { ...prev.status };
@@ -1535,9 +1578,9 @@ export default function IdeaDetailsClient({ id, slug }: { id: string, slug: stri
 
               {(newTrack || (metaFormData.soundtracks && metaFormData.soundtracks.length > 0)) && (
                 <div style={{ marginTop: '0.8rem', padding: '1rem', background: 'rgba(255, 100, 100, 0.05)', border: '1px solid rgba(255, 100, 100, 0.2)', borderRadius: '8px' }}>
-                  <p style={{ fontSize: '0.65rem', color: '#ff6666', lineHeight: 1.4, margin: 0, fontWeight: 800 }}>
-                    ⚠️ LEGAL DISCLOSURE: None of these sounds belong to Crack Origins; they are obtained from third-party platforms. All responsibility for these sounds rests with the person who added them.
-                  </p>
+                    <p style={{ fontSize: '0.65rem', color: '#ff6666', lineHeight: 1.4, margin: 0, fontWeight: 800 }}>
+                      LEGAL DISCLOSURE: None of these sounds belong to Crack Origins; they are obtained from third-party platforms. All responsibility for these sounds rests with the person who added them.
+                    </p>
                   <div
                     onClick={() => setIsSoundtrackDisclaimerAgreed(!isSoundtrackDisclaimerAgreed)}
                     style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.8rem', cursor: 'pointer' }}

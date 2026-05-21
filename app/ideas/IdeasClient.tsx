@@ -302,9 +302,7 @@ export default function IdeasClient() {
 
             <div className={styles.sidebarSection} style={{ opacity: 0.5 }}>
               <div className={styles.footerGrid}>
-                {['Help', 'Status', 'About', 'Careers', 'Press', 'Privacy'].map(link => (
-                  <a key={link} href="#" className={styles.footerLink}>{link}</a>
-                ))}
+                 <p style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>© 2026 CRACK ORIGINS</p>
               </div>
             </div>
           </aside>

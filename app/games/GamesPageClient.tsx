@@ -1,16 +1,11 @@
-'use client';
-
-import Header from '@/components/layout/Header';
-import MobileNav from '@/components/layout/MobileNav';
-import { useState } from 'react';
+import HeaderWrapper from '@/components/blog/HeaderWrapper';
+import SubHeader from '@/components/layout/SubHeader';
 
 export default function GamesPageClient() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   return (
     <>
-      <Header isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
-      <MobileNav isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
+      <HeaderWrapper />
+      <SubHeader />
     </>
   );
 }

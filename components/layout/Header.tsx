@@ -51,15 +51,7 @@ export default function Header({
             <Link href="/#keys" className={styles.dropdownItem}>Offer Games</Link>
           </div>
         </div>
-        <div className={styles.dropdownContainer}>
-          <Link href="/blog" className={styles.link}>
-            Blog <ChevronDown size={12} className={styles.dropdownArrow} />
-          </Link>
-          <div className={styles.dropdownMenu}>
-            <Link href="/blog" className={styles.dropdownItem}>All Blogs</Link>
-            <Link href="/blog?category=news" className={styles.dropdownItem}>Latest News</Link>
-          </div>
-        </div>
+        <Link href="/blog" className={styles.link}>Blog</Link>
         <Link href="/ideas" className={`${styles.link} ${styles.specialLink}`}>
           <BadgeCheck size={14} />
           Ideas

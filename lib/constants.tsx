@@ -39,9 +39,10 @@ export const INVEST_PERKS = [
 ];
 
 export const JOIN_ROLES = [
-  { icon: <Code size={22} />, title: 'Game Developer', type: 'Full-time · Remote', desc: 'Build gameplay systems and core engine features.' },
-  { icon: <Briefcase size={22} />, title: 'UI/UX Designer', type: 'Full-time · Remote', desc: 'Design intuitive interfaces for immersive gaming experiences.' },
+  { icon: <Code size={22} />, title: 'Game Developer', type: 'Part-time · Remote', desc: 'Build gameplay systems and core engine features.' },
+  { icon: <Briefcase size={22} />, title: 'UI/UX Designer', type: 'Part-time · Remote', desc: 'Design intuitive interfaces for immersive gaming experiences.' },
   { icon: <UserPlus size={22} />, title: 'Community Manager', type: 'Part-time · Remote', desc: 'Manage Discord, social media, and player engagement.' },
+  { icon: <Zap size={22} />, title: '3D Artist', type: 'Part-time · Remote', desc: 'Create stunning 3D models, assets, and environments.' },
 ];
 
 export const revealVariants = {

@@ -589,7 +589,7 @@ export default function AdminPanel({
                               <div style={{ fontWeight: 800, fontSize: '1rem' }}>Pending Offers</div>
                               <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>
                                 {overdueCount > 0 
-                                  ? `⚠️ ${overdueCount} overdue — assign keys ASAP!` 
+                                  ? `${overdueCount} overdue — assign keys ASAP!` 
                                   : 'Offer payments awaiting key assignment'}
                               </div>
                             </div>

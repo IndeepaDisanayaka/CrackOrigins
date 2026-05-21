@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Mail } from 'lucide-react';
 import { YOUTUBE_SVG, INSTAGRAM_SVG, DISCORD_SVG, revealVariants, staggerContainer } from '../../lib/constants';
+import { Users, Globe, Zap } from 'lucide-react';
 import styles from '../ExtraSections.module.css';
 
 export default function CommunitySection() {
@@ -40,23 +40,29 @@ export default function CommunitySection() {
 
       <motion.section
         className={styles.section}
-        id="contact"
+        id="influence"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, margin: "-100px" }}
         variants={revealVariants}
       >
-        <span className="sectionLabel">Let&apos;s Talk</span>
-        <h2 className={styles.sectionTitle}>Work With Us</h2>
-        <div className={styles.contactCard}>
-          <p className={styles.contactDesc}>
-            Whether you&apos;re a publisher, creator, or fellow developer — we&apos;re always open to pushing boundaries together.
-          </p>
-          <div className={`${styles.subscribeRow} animateText animateText5`} style={{ display: "flex" }}>
-            <input type="email" placeholder="Enter your email for updates" className={styles.emailInput} />
-            <button className="btnSolid" style={{ padding: '0 1.5rem', fontSize: '0.75rem' }}>
-              <Mail size={14} /> Get in Touch
-            </button>
+        <span className="sectionLabel">Network Status</span>
+        <h2 className={styles.sectionTitle}>Global Influence</h2>
+        <div className={styles.investGrid} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+          <div className={styles.investCard}>
+            <div className={styles.investIcon}><Users size={24} /></div>
+            <h3 className={styles.investTitle}>Elite Vanguard</h3>
+            <p className={styles.investDesc}>2,500+ active operatives collaborating across Discord and GitHub.</p>
+          </div>
+          <div className={styles.investCard}>
+            <div className={styles.investIcon}><Globe size={24} /></div>
+            <h3 className={styles.investTitle}>Global Nodes</h3>
+            <p className={styles.investDesc}>Direct partnerships with 12+ independent game studios worldwide.</p>
+          </div>
+          <div className={styles.investCard}>
+            <div className={styles.investIcon}><Zap size={24} /></div>
+            <h3 className={styles.investTitle}>Neural Sync</h3>
+            <p className={styles.investDesc}>Processing 50+ unique gameplay concepts and story chronicles weekly.</p>
           </div>
         </div>
       </motion.section>

@@ -46,7 +46,7 @@ export default function AccountPage() {
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [userIdeas, setUserIdeas] = useState<any[]>([]);
     const [savedIdeas, setSavedIdeas] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'activity' | 'library' | 'rewards' | 'ideas' | 'affiliates'>('activity');
+    const [activeTab, setActiveTab] = useState<'activity' | 'library' | 'ideas' | 'affiliates'>('activity');
     const [affiliates, setAffiliates] = useState<any[]>([]);
     const [isLoadingAffiliates, setIsLoadingAffiliates] = useState(false);
     const [isLoadingActivities, setIsLoadingActivities] = useState(true);
@@ -424,7 +424,6 @@ export default function AccountPage() {
                                 <div onClick={() => setActiveTab('activity')} className={`${acct.activityTab} ${activeTab === 'activity' ? acct.active : ''}`}>Activity</div>
                                 <div onClick={() => setActiveTab('library')} className={`${acct.activityTab} ${activeTab === 'library' ? acct.active : ''}`}>Library</div>
                                 <div onClick={() => setActiveTab('affiliates')} className={`${acct.activityTab} ${activeTab === 'affiliates' ? acct.active : ''}`}>Recruits</div>
-                                <div onClick={() => setActiveTab('rewards')} className={`${acct.activityTab} ${activeTab === 'rewards' ? acct.active : ''}`} style={activeTab !== 'rewards' ? { opacity: 0.5 } : {}}>Rewards</div>
                                 <div onClick={() => setActiveTab('ideas')} className={`${acct.activityTab} ${activeTab === 'ideas' ? acct.active : ''}`}>Ideas</div>
                             </div>
 
@@ -542,13 +541,6 @@ export default function AccountPage() {
                                                 <Link href="/ideas" className={acct.createIdeaLink}>Discover Chronicles</Link>
                                             </div>
                                         )}
-                                    </div>
-                                )}
-
-                                {activeTab === 'rewards' && (
-                                    <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '3rem' }}>
-                                        <Activity size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-                                        <p>This module is currently under maintenance. Estimated completion: Q3 2026.</p>
                                     </div>
                                 )}
 

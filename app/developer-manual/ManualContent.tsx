@@ -99,24 +99,43 @@ const ManualContent = () => {
           ]
         },
         {
-            id: "code-structure",
-            title: "4. Lib & API Deep Explane",
-            text: "Deep explanation of the reusable guts of the system.",
+            id: "server-actions",
+            title: "4. Server Actions & API (Backend Flow)",
+            text: "Deep explanation of all core server-side functions that secure and manipulate the Crack Origins platform.",
             subsections: [
               {
-                subtitle: "/lib Folder: The Logic Brain",
+                subtitle: "/lib/admin-actions/* (Admin & Core Ops)",
                 items: [
-                  "admin-actions/: Modularized CRUD for users, games, rules, and rewards.",
-                  "crypto.ts: AES-256 security module for encrypting emails and keys.",
-                  "mongodb.ts: Handles high-performance connection pooling and direct driver access."
+                  "users.ts: `syncUserRecord` (Syncs OAuth to DB), `checkAdminStatus` (RBAC gate), `getAdminDashboardData` (Aggregates stats), `cleanupDeactivatedUsers`.",
+                  "games.ts: CRUD operations to list, modify, or delete game entity deployments via DB.",
+                  "offers.ts & paypments.ts: `investXP` (Deducts user points using MongoDB $inc), assigns giveaway slots.",
+                  "auth-email.ts: Processes raw tokens and transmits AES-256 encrypted verification emails.",
+                  "licenses.ts & coupons.ts: Handles digital goods delivery and discount logic generation."
                 ]
               },
               {
-                subtitle: "/api Folder: System Utilities",
+                subtitle: "/lib/idea-actions.ts (Ideas Engine)",
                 items: [
-                  "/api/presence: Real-time user tracking using heartbeats.",
-                  "/api/itch-sync: Logic to pull latest game builds from Itch.io.",
-                  "/api/bug-report: Direct link to the ticket management system."
+                  "Base CRUD: `publishIdea`, `deleteIdea`, `updateIdeaMetadata`.",
+                  "Collaboration: `saveCollaborationContent`, `approveCollaboration`, `updateCollaboration`.",
+                  "Versioning System: `calculateParagraphDiff`, `applyParagraphDiff` (Computes snapshot differentials utilizing fast-diff).",
+                  "Interactions: `incrementIdeaViews`, `voteIdea`, `upsertIdeaComment`, `toggleLibrarySave`."
+                ]
+              },
+              {
+                subtitle: "/lib/blog-actions.ts & /lib/paypal-actions.ts",
+                items: [
+                  "Blog: `incrementBlogViews`, `toggleBlogLikeSimple`, `upsertBlogComment`.",
+                  "PayPal: `capturePayPalOrder` (Communicates securely with PayPal Sandbox/Live API, verifies order payload details against DB expected value limits), `getPayPalBalance`."
+                ]
+              },
+              {
+                subtitle: "/app/api/* (Next.js Edge API Handlers)",
+                items: [
+                  "/api/presence: Handles low-latency ping heartbeats to update 'Online/Offline' visual statuses.",
+                  "/api/itch-sync: Triggers Itch.io mapping webhooks fetching latest build builds.",
+                  "/api/download: Stream-proxies premium binary logic to authorized users.",
+                  "/api/support: Bi-directional long-polling messaging sync route."
                 ]
               }
             ]
@@ -176,24 +195,41 @@ const ManualContent = () => {
           ]
         },
         {
-            id: "lib-api",
-            title: "4. Lib සහ API ගැඹුරු පැහැදිලි කිරීම",
-            text: "පද්ධතියේ මොළය සහ සේවා මාර්ග (Routes) මෙහි ඇත.",
+            id: "server-actions",
+            title: "4. සේවාදායකයේ ක්‍රියාකාරකම් (Server Actions & APIs)",
+            text: "Crack Origins පද්ධතියේ ප්‍රධාන backend ශ්‍රිත සහ API පිළිබඳ ගැඹුරු විශ්ලේෂණයක්.",
             subsections: [
               {
-                subtitle: "Lib ෆෝල්ඩරය: Logic ව්‍යුහය",
+                subtitle: "/lib/admin-actions/* (පාලක සහ ප්‍රධාන ක්‍රියා)",
                 items: [
-                  "admin-actions/: පාලක පද්ධතියේ ප්‍රධාන ක්‍රියාකාරකම්.",
-                  "crypto.ts: දත්ත රහසිගතව තැබීම (Encryption).",
-                  "mongodb.ts: දත්ත සමුදා සම්බන්ධතා වේගවත් කිරීම."
+                  "users.ts: `syncUserRecord` (පරිශීලක දත්ත සමමුහුර්ත කරයි), `checkAdminStatus` (අවසර පරීක්ෂා කරයි), `getAdminDashboardData` (සංඛ්‍යාලේඛන ලබා දෙයි).",
+                  "games.ts: Games දත්ත සමුදායට එක් කිරීම, වෙනස් කිරීම සහ ඉවත් කිරීම සිදු කරන CRUD ක්‍රියා.",
+                  "offers.ts / payments.ts: දත්ත සමුදායේ `$inc` යොදාගෙන XP අඩු කර Offers ලබා දීම පාලනය කරයි.",
+                  "auth-email.ts: AES-256 යොදාගෙන රහස්‍ය ඊමේල් යැවීම සිදු කරයි."
                 ]
               },
               {
-                subtitle: "API ෆෝල්ඩරය: සේවා මාර්ග (Routes)",
+                subtitle: "/lib/idea-actions.ts (නිර්මාණ එන්ජිම)",
                 items: [
-                  "/api/presence: සජීවීව සිටින පරිශීලකයින් පරීක්ෂා කිරීම.",
-                  "/api/itch-sync: Itch.io අඩවිය සමඟ දත්ත සමමුහුර්ත කිරීම.",
-                  "/api/support: සහාය සේවා පණිවිඩ හුවමාරුව."
+                  "මූලික ක්‍රියා: `publishIdea` (ප්‍රකාශනය), `deleteIdea`, `updateIdeaMetadata` (දත්ත යාවත්කාලීන කිරීම).",
+                  "එකට වැඩ කිරීම (Collaboration): `saveCollaborationContent`, `approveCollaboration`.",
+                  "Diff පද්ධතිය: `calculateParagraphDiff`, `applyParagraphDiff` (අකුරෙන් අකුර වෙනස්කම් ගබඩා කර Versioning සිදු කරයි).",
+                  "අන්තර්ක්‍රියා: `incrementIdeaViews`, `voteIdea`, `upsertIdeaComment`."
+                ]
+              },
+              {
+                subtitle: "/lib/blog-actions.ts සහ /lib/paypal-actions.ts",
+                items: [
+                  "Blog: `incrementBlogViews`, `toggleBlogLikeSimple`, `upsertBlogComment`.",
+                  "PayPal: `capturePayPalOrder` (PayPal API සමඟ සෘජුව සම්බන්ධ වී ගෙවීම් තහවුරු කරයි), `getPayPalBalance`."
+                ]
+              },
+              {
+                subtitle: "/app/api/* (Next.js API මාර්ග)",
+                items: [
+                  "/api/presence: පරිශීලකයින් Online ද Offline ද යන්න තීරණය කිරීමට තත්පර කිහිපයකට වරක් සන්නිවේදනය කරයි.",
+                  "/api/itch-sync: Itch.io හි ඇති අලුත්ම ක්‍රීඩා ගොනු අපේ පද්ධතියට සමමුහුර්ත කරයි.",
+                  "/api/download: බලයලත් පරිශීලකයින්ට පමණක් ෆයිල් ඩවුන්ලෝඩ් කිරීමට සහාය වේ."
                 ]
               }
             ]

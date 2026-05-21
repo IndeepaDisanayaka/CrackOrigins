@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Hash, Tag, Percent, Calendar, Plus, Users, Gift, CheckSquare, Square, Trophy } from 'lucide-react';
+import { Hash, Tag, Percent, Calendar, Plus, Trophy, Gift } from 'lucide-react';
 import Modal from '../Modal';
 import { createOffer, updateOffer } from '@/lib/admin-actions';
 import { useToast } from '../Toast';
 import { useAuth } from '../../lib/contexts/AuthContext';
-import styles from '../../app/page.module.css';
+import Input from '../ui/Input';
+import Checkbox from '../ui/Checkbox';
+import GlitchLoading from '../ui/GlitchLoading';
+import Button from '../ui/Button';
 
 interface AddOfferModalProps {
   isOpen: boolean;
@@ -84,7 +87,6 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
         offerScope: offerForm.offerScope,
       };
 
-
       const result = editData 
         ? await updateOffer(user.uid, editData.id, payload)
         : await createOffer(user.uid, payload);
@@ -115,153 +117,140 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={editData ? "Edit Game Offer" : "Add Game Offer"}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
-        <form onSubmit={handleAddOffer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <div 
-            onClick={() => setOfferForm({ ...offerForm, isGiveaway: !offerForm.isGiveaway })}
-            style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.75rem', 
-                padding: '1rem', 
-                background: 'transparent',
-                border: `1px solid ${offerForm.isGiveaway ? 'var(--primary)' : 'var(--outline-color)'}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.3s'
-            }}
-          >
-            <div style={{ color: offerForm.isGiveaway ? 'var(--primary)' : 'var(--text-muted)' }}>
-                {offerForm.isGiveaway ? <CheckSquare size={18} /> : <Square size={18} />}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.isGiveaway ? 'var(--primary)' : 'var(--foreground)' }}>
-                    LIST AS GIVEAWAY
-                </span>
-                <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Requires XP investment to claim</span>
-            </div>
+        {isGenerating ? (
+          <GlitchLoading text="PROCESSING..." />
+        ) : (
+          <form onSubmit={handleAddOffer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            
+            <Checkbox 
+              checked={offerForm.isGiveaway}
+              onChange={(c) => setOfferForm({ ...offerForm, isGiveaway: c })}
+              label="LIST AS GIVEAWAY"
+              description="Requires XP investment to claim"
+              icon={<Gift size={20} />}
+            />
 
-            <Gift size={20} style={{ marginLeft: 'auto', opacity: 0.3 }} />
-          </div>
-
-
-          {offerForm.isGiveaway && (
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div 
-              onClick={() => setOfferForm({ ...offerForm, offerScope: 'local' })}
-              style={{ 
-                  flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', 
-                  border: `1px solid ${offerForm.offerScope === 'local' ? 'var(--primary)' : 'var(--outline-color)'}`,
-                  borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s'
-              }}
-            >
-              <div style={{ color: offerForm.offerScope === 'local' ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  {offerForm.offerScope === 'local' ? <CheckSquare size={18} /> : <Square size={18} />}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.offerScope === 'local' ? 'var(--primary)' : 'var(--foreground)' }}>LOCAL OFFER</span>
-                  <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Normal Listing</span>
-              </div>
-            </div>
-
-            <div 
-              onClick={() => setOfferForm({ ...offerForm, offerScope: 'global' })}
-              style={{ 
-                  flex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', 
-                  background: offerForm.offerScope === 'global' ? 'rgba(254, 182, 12, 0.1)' : 'transparent',
-                  border: `1px solid ${offerForm.offerScope === 'global' ? 'var(--primary)' : 'var(--outline-color)'}`,
-                  borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s'
-              }}
-            >
-              <div style={{ color: offerForm.offerScope === 'global' ? 'var(--primary)' : 'var(--text-muted)' }}>
-                  {offerForm.offerScope === 'global' ? <CheckSquare size={18} /> : <Square size={18} />}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: offerForm.offerScope === 'global' ? 'var(--primary)' : 'var(--foreground)' }}>GLOBAL OFFER</span>
-                  <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>Panic Yellow Design</span>
-              </div>
-            </div>
-          </div>
-          )}
-
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Hash size={12} /> Steam App ID
-            </label>
-            <input type="text" placeholder="e.g. 1245620" className={styles.adminInput} value={offerForm.id} onChange={e => setOfferForm({ ...offerForm, id: e.target.value })} disabled={!!editData} />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Tag size={12} /> Game Title
-            </label>
-            <input type="text" placeholder="e.g. Elden Ring" className={styles.adminInput} value={offerForm.title} onChange={e => setOfferForm({ ...offerForm, title: e.target.value })} />
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Tag size={12} /> Value (Original Price)
-              </label>
-              <input style={{ flex: 1 }} type="number" placeholder="e.g. 59.99" className={styles.adminInput} value={offerForm.originalPrice} onChange={e => setOfferForm({ ...offerForm, originalPrice: e.target.value })} />
-            </div>
-            {!offerForm.isGiveaway && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <Percent size={12} /> Discount %
-                    </label>
-                    <input style={{ flex: 1 }} type="number" placeholder="e.g. 10" className={styles.adminInput} value={offerForm.discount} onChange={e => setOfferForm({ ...offerForm, discount: e.target.value })} />
-                </div>
-            )}
             {offerForm.isGiveaway && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <Trophy size={12} /> Target XP
-                    </label>
-                    <input style={{ flex: 1 }} type="number" placeholder="50" className={styles.adminInput} value={offerForm.targetXP} onChange={e => setOfferForm({ ...offerForm, targetXP: e.target.value })} />
-                </div>
-
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <Checkbox 
+                  checked={offerForm.offerScope === 'local'}
+                  onChange={() => setOfferForm({ ...offerForm, offerScope: 'local' })}
+                  label="LOCAL OFFER"
+                  description="Normal Listing"
+                  className="flex-1"
+                />
+                
+                <Checkbox 
+                  checked={offerForm.offerScope === 'global'}
+                  onChange={() => setOfferForm({ ...offerForm, offerScope: 'global' })}
+                  label="GLOBAL OFFER"
+                  description="Panic Yellow Design"
+                  className="flex-1"
+                  style={{ background: offerForm.offerScope === 'global' ? 'rgba(254, 182, 12, 0.1)' : 'transparent' }}
+                />
+              </div>
             )}
-          </div>
-          
-          <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)' }}>
-            Status: {offerForm.isGiveaway ? "FREE GIVEAWAY" : `PRICE $${getFinalOfferPrice()}`}
-          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Tag size={12} /> Steam Store URL
-            </label>
-            <input type="url" placeholder="https://store.steampowered.com/app/..." className={styles.adminInput} value={offerForm.gameUrl} onChange={e => setOfferForm({ ...offerForm, gameUrl: e.target.value })} />
-          </div>
+            <Input 
+              icon={<Hash size={12} />} 
+              label="Steam App ID" 
+              type="text" 
+              placeholder="e.g. 1245620" 
+              value={offerForm.id} 
+              onChange={e => setOfferForm({ ...offerForm, id: e.target.value })} 
+              disabled={!!editData} 
+            />
 
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Tag size={12} /> OS
-              </label>
-              <input style={{ flex: 1 }} type="text" placeholder="windows" className={styles.adminInput} value={offerForm.operatingSystem} onChange={e => setOfferForm({ ...offerForm, operatingSystem: e.target.value })} />
+            <Input 
+              icon={<Tag size={12} />} 
+              label="Game Title" 
+              type="text" 
+              placeholder="e.g. Elden Ring" 
+              value={offerForm.title} 
+              onChange={e => setOfferForm({ ...offerForm, title: e.target.value })} 
+            />
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <Input 
+                icon={<Tag size={12} />} 
+                label="Value (Original Price)" 
+                type="number" 
+                placeholder="e.g. 59.99" 
+                value={offerForm.originalPrice} 
+                onChange={e => setOfferForm({ ...offerForm, originalPrice: e.target.value })} 
+                containerStyle={{ flex: 1 }}
+              />
+              {!offerForm.isGiveaway && (
+                <Input 
+                  icon={<Percent size={12} />} 
+                  label="Discount %" 
+                  type="number" 
+                  placeholder="e.g. 10" 
+                  value={offerForm.discount} 
+                  onChange={e => setOfferForm({ ...offerForm, discount: e.target.value })} 
+                  containerStyle={{ flex: 1 }}
+                />
+              )}
+              {offerForm.isGiveaway && (
+                <Input 
+                  icon={<Trophy size={12} />} 
+                  label="Target XP" 
+                  type="number" 
+                  placeholder="50" 
+                  value={offerForm.targetXP} 
+                  onChange={e => setOfferForm({ ...offerForm, targetXP: e.target.value })} 
+                  containerStyle={{ flex: 1 }}
+                />
+              )}
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Hash size={12} /> Quantity
-              </label>
-              <input style={{ flex: 1 }} type="number" placeholder="1" className={styles.adminInput} value={offerForm.quantity} onChange={e => setOfferForm({ ...offerForm, quantity: parseInt(e.target.value || "0") })} />
+            
+            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)' }}>
+              Status: {offerForm.isGiveaway ? "FREE GIVEAWAY" : `PRICE $${getFinalOfferPrice()}`}
             </div>
-          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Calendar size={12} /> Expiration Date
-            </label>
-            <input type="date" className={styles.adminInput} value={offerForm.expire} onChange={e => setOfferForm({ ...offerForm, expire: e.target.value })} />
-          </div>
+            <Input 
+              icon={<Tag size={12} />} 
+              label="Steam Store URL" 
+              type="url" 
+              placeholder="https://store.steampowered.com/app/..." 
+              value={offerForm.gameUrl} 
+              onChange={e => setOfferForm({ ...offerForm, gameUrl: e.target.value })} 
+            />
 
-          <button type="submit" className="btnSolid" disabled={isGenerating} style={{ marginTop: '0.5rem', width: '100%', padding: '1rem', gap: '0.5rem' }}>
-            {isGenerating ? "Processing..." : (editData ? "Save Changes" : <><Plus size={16} /> Add Offer</>)}
-          </button>
-        </form>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <Input 
+                icon={<Tag size={12} />} 
+                label="OS" 
+                type="text" 
+                placeholder="windows" 
+                value={offerForm.operatingSystem} 
+                onChange={e => setOfferForm({ ...offerForm, operatingSystem: e.target.value })} 
+                containerStyle={{ flex: 1 }}
+              />
+              <Input 
+                icon={<Hash size={12} />} 
+                label="Quantity" 
+                type="number" 
+                placeholder="1" 
+                value={offerForm.quantity} 
+                onChange={e => setOfferForm({ ...offerForm, quantity: parseInt(e.target.value || "0") })} 
+                containerStyle={{ flex: 1 }}
+              />
+            </div>
+
+            <Input 
+              icon={<Calendar size={12} />} 
+              label="Expiration Date" 
+              type="date" 
+              value={offerForm.expire} 
+              onChange={e => setOfferForm({ ...offerForm, expire: e.target.value })} 
+            />
+
+            <Button type="submit" variant="solid" style={{ marginTop: '0.5rem', width: '100%', padding: '1rem', gap: '0.5rem' }}>
+              {editData ? "Save Changes" : <><Plus size={16} /> Add Offer</>}
+            </Button>
+          </form>
+        )}
       </div>
     </Modal>
   );

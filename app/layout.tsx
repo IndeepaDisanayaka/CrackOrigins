@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Roboto } from 'next/font/google';
-import Script from 'next/script';
+
 import './globals.css';
 import { GlobalProvider } from '../components/providers/GlobalProvider';
 import { GoogleAnalytics } from '@next/third-parties/google';
@@ -74,22 +74,6 @@ export default function RootLayout({
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1235859654015353"
           crossOrigin="anonymous"
         />
-        <Script id="schema-structured-data" type="application/ld+json">
-          {`
-            {
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "Crack Origins",
-              "url": "https://crackorigins.com",
-              "description": "Crack Origins is a premier indie game development studio crafting immersive experiences.",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://crackorigins.com/search?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              }
-            }
-          `}
-        </Script>
       </head>
       <body style={{ fontFamily: 'var(--font-roboto), sans-serif' }}>
         <LoadingBar />

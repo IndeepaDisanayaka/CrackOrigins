@@ -797,3 +797,59 @@ option {
 select {
   border: 1px solid var(--outline-color);
 }
+
+.adminInput {
+  background: transparent !important;
+  border: 1px solid var(--outline-color);
+  padding: 1rem;
+  border-radius: 8px;
+  color: var(--foreground);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s ease;
+}
+
+.adminInput:focus {
+  border-color: var(--primary);
+}
+
+.adminInput::placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+textarea.adminInput {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* --- Premium Scrollbar --- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--outline-color);
+  border: 2px solid var(--background);
+  border-radius: 10px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Fix for Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-color) var(--background);
+}
+
