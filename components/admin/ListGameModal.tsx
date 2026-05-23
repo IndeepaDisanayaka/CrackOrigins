@@ -39,6 +39,8 @@ export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: 
     downloadUrl: "",
     itchUploadId: "",
     itchGameId: "",
+    redirectUrl: "", // New field for Play Store
+    platform: "itch", // New field (itch or playstore)
     images: "",
     storageValue: "",
     storageUnit: "GB",
@@ -84,6 +86,8 @@ export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: 
         downloadUrl: editData.downloadUrl || "",
         itchUploadId: editData.itchUploadId || "",
         itchGameId: editData.itchGameId || "",
+        redirectUrl: editData.redirectUrl || "",
+        platform: editData.platform || "itch",
         images: Array.isArray(editData.images) ? editData.images.join(', ') : (editData.images || ""),
         storageValue,
         storageUnit,
@@ -120,6 +124,8 @@ export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: 
         downloadUrl: "",
         itchUploadId: "",
         itchGameId: "",
+        redirectUrl: "",
+        platform: "itch",
         images: "",
         storageValue: "",
         storageUnit: "GB",
@@ -141,8 +147,18 @@ export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: 
     e.preventDefault();
     if (!user) return;
 
-    if (!gameForm.title || !gameForm.description || !gameForm.price || !gameForm.itchUploadId) {
-      showToast("Please fill all required fields (including itch.io Upload ID).", "error");
+    if (!gameForm.title || !gameForm.description || !gameForm.price) {
+      showToast("Please fill all required fields.", "error");
+      return;
+    }
+
+    if (gameForm.platform === 'itch' && !gameForm.itchUploadId) {
+      showToast("Please provide an itch.io Upload ID.", "error");
+      return;
+    }
+
+    if (gameForm.platform === 'playstore' && !gameForm.redirectUrl) {
+      showToast("Please provide a Play Store Redirect URL.", "error");
       return;
     }
 
@@ -339,101 +355,149 @@ export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0', maxHeight: '80vh', overflowY: 'auto' }}>
           <form onSubmit={handleListGame} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-            {/* ── itch.io Game Selector ── */}
-            <div style={{
-              background: 'rgba(var(--primary-rgb), 0.04)',
-              border: '1px solid rgba(var(--primary-rgb), 0.2)',
-              padding: '1rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              borderRadius: '8px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--primary)' }}>
-                  Auto-fill from itch.io
-                </span>
-                <button
-                  type="button"
-                  onClick={fetchItchGames}
-                  disabled={itchLoading}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.4rem',
-                    background: 'transparent', border: 'none',
-                    fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)',
-                    cursor: 'pointer', opacity: itchLoading ? 0.5 : 1,
-                  }}
-                >
-                  <RefreshCw size={11} style={{ animation: itchLoading ? 'spin 1s linear infinite' : 'none' }} />
-                  {itchLoading ? 'Loading…' : 'Refresh'}
-                </button>
-              </div>
+            {/* Platform Selector Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '0.4rem', borderRadius: '12px' }}>
+              <button 
+                type="button" 
+                onClick={() => setGameForm({ ...gameForm, platform: 'itch' })}
+                style={{
+                  flex: 1, padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', border: 'none',
+                  fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px',
+                  background: gameForm.platform === 'itch' ? 'var(--primary)' : 'transparent',
+                  color: gameForm.platform === 'itch' ? '#fff' : 'var(--text-muted)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Itch.io
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setGameForm({ ...gameForm, platform: 'playstore' })}
+                style={{
+                  flex: 1, padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', border: 'none',
+                  fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px',
+                  background: gameForm.platform === 'playstore' ? 'var(--primary)' : 'transparent',
+                  color: gameForm.platform === 'playstore' ? '#fff' : 'var(--text-muted)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Google Playstore
+              </button>
+            </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                {/* Cover preview */}
-                {selectedCover && (
-                  <div style={{ width: 80, height: 80, flexShrink: 0, position: 'relative', overflow: 'hidden', border: '1px solid rgba(var(--foreground-rgb),0.1)', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-                    <img src={selectedCover} alt="cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                )}
+            {/* ── itch.io Game Selector (Only for itch platform) ── */}
+            {gameForm.platform === 'itch' && (
+              <div style={{
+                background: 'rgba(var(--primary-rgb), 0.04)',
+                border: '1px solid rgba(var(--primary-rgb), 0.2)',
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                borderRadius: '8px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--primary)' }}>
+                    Auto-fill from itch.io
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchItchGames}
+                    disabled={itchLoading}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      background: 'transparent', border: 'none',
+                      fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)',
+                      cursor: 'pointer', opacity: itchLoading ? 0.5 : 1,
+                    }}
+                  >
+                    <RefreshCw size={11} style={{ animation: itchLoading ? 'spin 1s linear infinite' : 'none' }} />
+                    {itchLoading ? 'Loading…' : 'Refresh'}
+                  </button>
+                </div>
 
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {/* Game select */}
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      className={styles.adminInput}
-                      value={selectedItchId}
-                      onChange={e => handleItchSelect(e.target.value)}
-                      disabled={itchLoading}
-                      style={{ 
-                        background: 'rgba(var(--foreground-rgb), 0.05)', 
-                        color: 'var(--foreground)', 
-                        width: '100%', 
-                        paddingRight: '2rem',
-                        border: '1px solid rgba(var(--primary-rgb), 0.3)',
-                        fontWeight: 600
-                      }}
-                    >
-                      <option value="">{itchLoading ? 'Fetching games…' : itchGames.length === 0 ? 'No games found' : '— Select a game —'}</option>
-                      {itchGames.map(g => (
-                        <option key={g.id} value={String(g.id)}>
-                          {g.title} (ID: {g.id})
-                        </option>
-                      ))}
-                    </select>
-                    <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
-                      <ChevronDown size={14} />
-                    </div>
-                  </div>
-
-                  {/* Upload select (shown after a game is picked) */}
-                  {itchUploads.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.68rem', fontWeight: 900, opacity: 0.8, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Select Primary Upload (Download ID)
-                      </label>
-                      <div style={{ position: 'relative' }}>
-                        <select
-                          className={styles.adminInput}
-                          value={gameForm.itchUploadId}
-                          onChange={e => setGameForm(prev => ({ ...prev, itchUploadId: e.target.value }))}
-                          style={{ background: 'rgba(var(--foreground-rgb), 0.05)', color: 'var(--foreground)', width: '100%', paddingRight: '2rem' }}
-                        >
-                          {itchUploads.map(u => (
-                            <option key={u.id} value={String(u.id)}>
-                              {u.display_name || u.filename || `Upload #${u.id}`} (ID: {u.id})
-                            </option>
-                          ))}
-                        </select>
-                        <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
-                          <ChevronDown size={14} />
-                        </div>
-                      </div>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  {/* Cover preview */}
+                  {selectedCover && (
+                    <div style={{ width: 80, height: 80, flexShrink: 0, position: 'relative', overflow: 'hidden', border: '1px solid rgba(var(--foreground-rgb),0.1)', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                      <img src={selectedCover} alt="cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   )}
+
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {/* Game select */}
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        className={styles.adminInput}
+                        value={selectedItchId}
+                        onChange={e => handleItchSelect(e.target.value)}
+                        disabled={itchLoading}
+                        style={{ 
+                          background: 'rgba(var(--foreground-rgb), 0.05)', 
+                          color: 'var(--foreground)', 
+                          width: '100%', 
+                          paddingRight: '2rem',
+                          border: '1px solid rgba(var(--primary-rgb), 0.3)',
+                          fontWeight: 600
+                        }}
+                      >
+                        <option value="">{itchLoading ? 'Fetching games…' : itchGames.length === 0 ? 'No games found' : '— Select a game —'}</option>
+                        {itchGames.map(g => (
+                          <option key={g.id} value={String(g.id)}>
+                            {g.title} (ID: {g.id})
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
+                        <ChevronDown size={14} />
+                      </div>
+                    </div>
+
+                    {/* Upload select (shown after a game is picked) */}
+                    {itchUploads.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <label style={{ fontSize: '0.68rem', fontWeight: 900, opacity: 0.8, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Select Primary Upload (Download ID)
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <select
+                            className={styles.adminInput}
+                            value={gameForm.itchUploadId}
+                            onChange={e => setGameForm(prev => ({ ...prev, itchUploadId: e.target.value }))}
+                            style={{ background: 'rgba(var(--foreground-rgb), 0.05)', color: 'var(--foreground)', width: '100%', paddingRight: '2rem' }}
+                          >
+                            {itchUploads.map(u => (
+                              <option key={u.id} value={String(u.id)}>
+                                {u.display_name || u.filename || `Upload #${u.id}`} (ID: {u.id})
+                              </option>
+                            ))}
+                          </select>
+                          <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
+                            <ChevronDown size={14} />
+                          </div>
+                   ...</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* ── Play Store URL (Only for playstore platform) ── */}
+            {gameForm.platform === 'playstore' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                   Redirect URL (Play Store Link) <span style={{ color: 'var(--primary)', marginLeft: '0.25rem' }}>*</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="https://play.google.com/store/apps/details?id=..." 
+                  className={styles.adminInput} 
+                  value={gameForm.redirectUrl} 
+                  onChange={e => setGameForm({ ...gameForm, redirectUrl: e.target.value })} 
+                />
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '1rem' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -505,132 +569,135 @@ export default function ListGameModal({ isOpen, onClose, onSuccess, editData }: 
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-              <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Box size={12} /> Combined Storage Needed
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input type="number" placeholder="60" className={styles.adminInput} value={gameForm.storageValue} onChange={e => setGameForm({ ...gameForm, storageValue: e.target.value })} style={{ flex: 2 }} />
-                  <select className={styles.adminInput} value={gameForm.storageUnit} onChange={e => setGameForm({ ...gameForm, storageUnit: e.target.value })} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
-                    <option value="MB">MB</option>
-                    <option value="GB">GB</option>
-                    <option value="TB">TB</option>
-                  </select>
+            {/* Hardware Matrix (Only for itch platform) */}
+            {gameForm.platform === 'itch' && (
+              <>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Box size={12} /> Combined Storage Needed
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input type="number" placeholder="60" className={styles.adminInput} value={gameForm.storageValue} onChange={e => setGameForm({ ...gameForm, storageValue: e.target.value })} style={{ flex: 2 }} />
+                      <select className={styles.adminInput} value={gameForm.storageUnit} onChange={e => setGameForm({ ...gameForm, storageUnit: e.target.value })} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--foreground)' }}>
+                        <option value="MB">MB</option>
+                        <option value="GB">GB</option>
+                        <option value="TB">TB</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+                    <div 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '1rem', 
+                        background: 'rgba(255,255,255,0.05)', 
+                        padding: '0.8rem 1rem', 
+                        borderRadius: '8px', 
+                        cursor: 'pointer',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        transition: 'all 0.2s ease',
+                        flex: 1
+                      }} 
+                      onClick={() => setGameForm({ ...gameForm, vrSupported: !gameForm.vrSupported })}
+                    >
+                      <CheckCircle checked={gameForm.vrSupported} />
+                      <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>VR Supported</label>
+                    </div>
+                    <div 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '1rem', 
+                        background: 'rgba(255,255,255,0.05)', 
+                        padding: '0.8rem 1rem', 
+                        borderRadius: '8px', 
+                        cursor: 'pointer',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        transition: 'all 0.2s ease',
+                        flex: 1
+                      }} 
+                      onClick={() => setGameForm({ ...gameForm, showVideo: !gameForm.showVideo })}
+                    >
+                      <CheckCircle checked={gameForm.showVideo} />
+                      <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>Show Video Header</label>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ flex: 1, display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-                <div 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '1rem', 
-                    background: 'rgba(255,255,255,0.05)', 
-                    padding: '0.8rem 1rem', 
-                    borderRadius: '8px', 
-                    cursor: 'pointer',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    transition: 'all 0.2s ease',
-                    flex: 1
-                  }} 
-                  onClick={() => setGameForm({ ...gameForm, vrSupported: !gameForm.vrSupported })}
-                >
-                  <CheckCircle checked={gameForm.vrSupported} />
-                  <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>VR Supported</label>
+
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <HardDrive size={12} /> itch.io Upload ID <span style={{ color: 'var(--primary)', marginLeft: '0.25rem' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 16013605"
+                      className={styles.adminInput}
+                      value={gameForm.itchUploadId}
+                      onChange={e => setGameForm({ ...gameForm, itchUploadId: e.target.value })}
+                    />
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Box size={12} /> itch.io Game ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 123456"
+                      className={styles.adminInput}
+                      value={gameForm.itchGameId}
+                      onChange={e => setGameForm({ ...gameForm, itchGameId: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '1rem', 
-                    background: 'rgba(255,255,255,0.05)', 
-                    padding: '0.8rem 1rem', 
-                    borderRadius: '8px', 
-                    cursor: 'pointer',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    transition: 'all 0.2s ease',
-                    flex: 1
-                  }} 
-                  onClick={() => setGameForm({ ...gameForm, showVideo: !gameForm.showVideo })}
-                >
-                  <CheckCircle checked={gameForm.showVideo} />
-                  <label style={{ fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: 0.9 }}>Show Video Header</label>
+
+                <span style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: '-0.5rem' }}>
+                  The Upload ID is used for secure server-side downloads. No Google Drive link required.
+                </span>
+
+                <h4 style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', marginTop: '1rem', color: 'var(--primary)' }}>Hardware Matrix (Minimum)</h4>
+                <div style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Cpu size={10} /> Processor</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.min.processor} onChange={e => updateRequirement('min', 'processor', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><MemoryStick size={10} /> Memory</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.min.memory} onChange={e => updateRequirement('min', 'memory', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Monitor size={10} /> Graphics</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.min.graphics} onChange={e => updateRequirement('min', 'graphics', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}>DirectX</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.min.directx} onChange={e => updateRequirement('min', 'directx', e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <HardDrive size={12} /> itch.io Upload ID <span style={{ color: 'var(--primary)', marginLeft: '0.25rem' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 16013605"
-                  className={styles.adminInput}
-                  value={gameForm.itchUploadId}
-                  onChange={e => setGameForm({ ...gameForm, itchUploadId: e.target.value })}
-                />
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 800, opacity: 0.75, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Box size={12} /> itch.io Game ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 123456"
-                  className={styles.adminInput}
-                  value={gameForm.itchGameId}
-                  onChange={e => setGameForm({ ...gameForm, itchGameId: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <span style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: '-0.5rem' }}>
-              The Upload ID is used for secure server-side downloads. No Google Drive link required.
-            </span>
-
-            {/* Minimum Requirements */}
-            <h4 style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', marginTop: '1rem', color: 'var(--primary)' }}>Hardware Matrix (Minimum)</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Cpu size={10} /> Processor</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.processor} onChange={e => updateRequirement('min', 'processor', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><MemoryStick size={10} /> Memory</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.memory} onChange={e => updateRequirement('min', 'memory', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Monitor size={10} /> Graphics</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.graphics} onChange={e => updateRequirement('min', 'graphics', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}>DirectX</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.min.directx} onChange={e => updateRequirement('min', 'directx', e.target.value)} />
-              </div>
-            </div>
-
-            {/* Recommended Requirements */}
-            <h4 style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', marginTop: '1rem', color: 'var(--primary)' }}>Hardware Matrix (Recommended)</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Cpu size={10} /> Processor</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.processor} onChange={e => updateRequirement('max', 'processor', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><MemoryStick size={10} /> Memory</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.memory} onChange={e => updateRequirement('max', 'memory', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Monitor size={10} /> Graphics</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.graphics} onChange={e => updateRequirement('max', 'graphics', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                 <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}>DirectX</label>
-                <input type="text" className={styles.adminInput} value={gameForm.requirement.max.directx} onChange={e => updateRequirement('max', 'directx', e.target.value)} />
-              </div>
-            </div>
+                <h4 style={{ fontSize: '0.8rem', fontWeight: 900, textTransform: 'uppercase', marginTop: '1rem', color: 'var(--primary)' }}>Hardware Matrix (Recommended)</h4>
+                <div style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Cpu size={10} /> Processor</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.max.processor} onChange={e => updateRequirement('max', 'processor', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><MemoryStick size={10} /> Memory</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.max.memory} onChange={e => updateRequirement('max', 'memory', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}><Monitor size={10} /> Graphics</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.max.graphics} onChange={e => updateRequirement('max', 'graphics', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                     <label style={{ fontSize: '0.7rem', fontWeight: 800, opacity: 0.6 }}>DirectX</label>
+                    <input type="text" className={styles.adminInput} value={gameForm.requirement.max.directx} onChange={e => updateRequirement('max', 'directx', e.target.value)} />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
               <button type="button" className="btnOutline" onClick={onClose} style={{ flex: 1 }}>Cancel</button>

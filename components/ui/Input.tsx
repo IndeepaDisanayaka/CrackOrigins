@@ -5,9 +5,10 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTe
   icon?: React.ReactNode;
   containerStyle?: React.CSSProperties;
   as?: 'input' | 'textarea';
+  description?: string;
 }
 
-export default function Input({ label, icon, containerStyle, className, as = 'input', ...props }: InputProps) {
+export default function Input({ label, icon, containerStyle, className, as = 'input', description, ...props }: InputProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', ...containerStyle }}>
       {label && (
@@ -27,6 +28,11 @@ export default function Input({ label, icon, containerStyle, className, as = 'in
           style={{ ...props.style }}
           {...(props as React.InputHTMLAttributes<HTMLInputElement>)} 
         />
+      )}
+      {description && (
+        <span style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '-0.25rem' }}>
+          {description}
+        </span>
       )}
     </div>
   );

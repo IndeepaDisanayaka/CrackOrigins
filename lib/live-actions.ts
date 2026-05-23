@@ -21,7 +21,8 @@ export async function getGlobalOffers() {
             const originalPrice = Number(data.originalPrice || 0);
             const discountPrice = isNaN(discountPercent) ? originalPrice : originalPrice - (originalPrice * discountPercent / 100);
 
-            const steamAppId = data.gameUrl?.match(/\/app\/(\d+)/)?.[1] || data._id;
+            const steamAppId = data.gameUrl?.match(/\/app\/(\d+)/)?.[1] || (String(data._id).match(/^\d+$/) ? String(data._id) : null);
+            const fallbackImage = data.image || data.thumbnail || (steamAppId ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/header.jpg` : null);
 
             return {
               id: data._id.toString(),
@@ -29,9 +30,9 @@ export async function getGlobalOffers() {
               originalPrice: `$${originalPrice.toFixed(2)}`,
               discountPrice: `$${discountPrice.toFixed(2)}`,
               discount: (typeof data.discount === 'string' && data.discount.includes('-')) ? data.discount : `-${discountPercent}%`,
-              image: `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/header.jpg`,
+              image: fallbackImage || '/game-placeholder.jpg',
               platforms: data.operatingSystem ? [String(data.operatingSystem).toLowerCase()] : ['windows'],
-              steamUrl: data.gameUrl || `https://store.steampowered.com/app/${steamAppId}/`,
+              steamUrl: data.gameUrl || (steamAppId ? `https://store.steampowered.com/app/${steamAppId}/` : '#'),
               endTime: toIsoDate(data.expire) || new Date().toISOString(),
               listed: toIsoDate(data.listed) || new Date().toISOString(),
               targetXP: Number(data.targetXP || data.targetAffiliates || 10),

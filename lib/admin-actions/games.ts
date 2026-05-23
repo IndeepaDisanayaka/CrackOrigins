@@ -58,6 +58,8 @@ export async function getGames() {
                 vrSupported: data.vrSupported ?? (data.requirement?.min?.vrSupported ?? false),
                 itchUploadId: data.itchUploadId || "",
                 itchGameId: data.itchGameId || "",
+                platform: data.platform || "itch",
+                redirectUrl: data.redirectUrl || "",
                 images: data.images || [],
                 showVideo: data.showVideo ?? true,
                 listed: toIsoDate(data.createdAt) || toIsoDate(data.listed) || new Date().toISOString(),
@@ -90,9 +92,11 @@ export async function getGameBySlug(slug: string) {
 
         if (!targetDoc) return { success: false, error: "Game not found." };
         
+        const { _id, ...docData } = targetDoc;
+
         const game = {
-            id: targetDoc._id.toString(),
-            ...targetDoc,
+            id: _id.toString(),
+            ...docData,
             slug: slug,
             requirements: {
                 min: targetDoc.requirement?.min || {},

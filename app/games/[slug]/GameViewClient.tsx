@@ -7,7 +7,7 @@ import MobileNav from '@/components/layout/MobileNav';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useModals } from '@/lib/contexts/ModalContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, User, Star, Clock, Globe, Shield, HardDrive, Monitor, ChevronRight, ChevronLeft, Send, Video, Image as ImageIcon, Download, Cpu, MemoryStick, Box, Eye, EyeOff, Copy } from 'lucide-react';
+import { Play, User, Star, Clock, Globe, Shield, HardDrive, Monitor, ChevronRight, ChevronLeft, Send, Video, Image as ImageIcon, Download, Cpu, MemoryStick, Box, Eye, EyeOff, Copy, Smartphone } from 'lucide-react';
 import { addGameReview, getOwnedGames, incrementDownloadCount, verifyCoupon } from '@/lib/admin-actions';
 import { useToast } from '@/components/Toast';
 import PayPalCheckout from '@/lib/paypal';
@@ -132,6 +132,12 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
     };
 
     const handleDownload = async () => {
+        if (game.platform === 'playstore' && game.redirectUrl) {
+            window.open(game.redirectUrl, '_blank');
+            showToast(`Redirecting to Google Play Store...`, "success");
+            return;
+        }
+
         if (!game.itchUploadId && !game.downloadUrl) {
             showToast("Download link not available for this creation.", "error");
             return;
@@ -258,6 +264,12 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                     <ChevronRight size={12} /> 
                                     <span style={{ color: 'var(--foreground)' }}>{game.title}</span>
                                 </div>
+                                {game.platform === 'playstore' && (
+                                    <div className={styles.platformBadge}>
+                                        <Play size={12} fill="#fff" />
+                                        <span>AVAILABLE ON GOOGLE PLAY</span>
+                                    </div>
+                                )}
                                 <h1 className={styles.title}>{game.title}</h1>
                                 <p className={styles.tagline}>{game.description}</p>
 
@@ -282,7 +294,7 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                     <div className={styles.priceRow}>
                                         <span className={styles.priceLabel}>Access Protocol</span>
                                         <span className={styles.priceValue}>
-                                            {game.price === 0 || game.price === 'Free' ? 'FREE' : `$${finalPrice}`}
+                                            {game.platform === 'playstore' ? 'PLAY STORE' : (game.price === 0 || game.price === 'Free' ? 'FREE' : `$${finalPrice}`)}
                                             {isCouponApplied && <span style={{ fontSize: '0.8rem', color: '#ff4444', textDecoration: 'line-through', marginLeft: '0.5rem', fontWeight: 600 }}>${game.price}</span>}
                                         </span>
                                     </div>
@@ -294,7 +306,7 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                     </div>
                                 ) : (
                                     <>
-                                        {!isPurchased && game.price > 0 && game.price !== 'Free' && (
+                                        {!isPurchased && game.price > 0 && game.price !== 'Free' && game.platform !== 'playstore' && (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
                                                 {/* Premium Coupon Input */}
                                                 <div style={{ 
@@ -372,7 +384,7 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                         )}
                                         
                                         <div className={styles.paypalWrapper} style={{ position: 'relative' }}>
-                                            {(!isPurchased && game.price > 0 && game.price !== 'Free' && !isAgreed) && (
+                                            {(!isPurchased && game.price > 0 && game.price !== 'Free' && game.platform !== 'playstore' && !isAgreed) && (
                                                 <div 
                                                     style={{ 
                                                         position: 'absolute', 
@@ -386,10 +398,11 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                                                 />
                                             )}
                                             
-                                            {isPurchased || game.price === 0 || game.price === 'Free' ? (
+                                            {(isPurchased || game.price === 0 || game.price === 'Free' || game.platform === 'playstore') ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
                                                     <button className="btnSolid" style={{ width: '100%', gap: '0.75rem' }} onClick={handleDownload}>
-                                                        <Download size={18} /> INITIALIZE DOWNLOAD
+                                                        {game.platform === 'playstore' ? <Play size={18} fill="currentColor" /> : <Download size={18} />}
+                                                        {game.platform === 'playstore' ? 'GET ON GOOGLE PLAY' : 'INITIALIZE DOWNLOAD'}
                                                     </button>
                                                     {isPurchased && (
                                                         <button className="btnOutline" style={{ width: '100%', gap: '0.75rem', fontWeight: 900 }} onClick={() => setIsDetailsModalOpen(true)}>
@@ -490,36 +503,38 @@ export default function GameViewClient({ game, updates, reviews }: GameViewClien
                     </div>
 
                     <div className={styles.rightCol}>
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>System Clearance</h2>
-                            <div className={styles.reqGrid}>
-                                <div className={styles.reqBlock}>
-                                    <span className={styles.reqLabel}>Minimum Operational Spec</span>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                        <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.min.processor}</div>
-                                        <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.min.memory}</div>
-                                        <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.min.graphics}</div>
+                        {game.platform !== 'playstore' && (
+                            <section className={styles.section}>
+                                <h2 className={styles.sectionTitle}>System Clearance</h2>
+                                <div className={styles.reqGrid}>
+                                    <div className={styles.reqBlock}>
+                                        <span className={styles.reqLabel}>Minimum Operational Spec</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                            <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.min.processor}</div>
+                                            <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.min.memory}</div>
+                                            <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.min.graphics}</div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className={styles.reqBlock} style={{ borderLeftColor: 'var(--foreground)' }}>
-                                    <span className={styles.reqLabel}>Recommended Operational Spec</span>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                        <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.max.processor}</div>
-                                        <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.max.memory}</div>
-                                        <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.max.graphics}</div>
+                                    <div className={styles.reqBlock} style={{ borderLeftColor: 'var(--foreground)' }}>
+                                        <span className={styles.reqLabel}>Recommended Operational Spec</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                            <div className={styles.reqValue}><Cpu size={14} color="var(--primary)" /> {game.requirements.max.processor}</div>
+                                            <div className={styles.reqValue}><MemoryStick size={14} color="var(--primary)" /> {game.requirements.max.memory}</div>
+                                            <div className={styles.reqValue}><Monitor size={14} color="var(--primary)" /> {game.requirements.max.graphics}</div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className={styles.reqBlock} style={{ borderLeftColor: 'var(--primary)' }}>
-                                    <span className={styles.reqLabel}>Deployment Matrix</span>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                        <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.storage}</div>
-                                        <div className={styles.reqValue} style={{ color: game.vrSupported ? 'var(--primary)' : 'inherit' }}>
-                                            <Globe size={14} /> VR: {game.vrSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}
+                                    <div className={styles.reqBlock} style={{ borderLeftColor: 'var(--primary)' }}>
+                                        <span className={styles.reqLabel}>Deployment Matrix</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                            <div className={styles.reqValue}><Box size={14} color="var(--primary)" /> {game.storage}</div>
+                                            <div className={styles.reqValue} style={{ color: game.vrSupported ? 'var(--primary)' : 'inherit' }}>
+                                                <Globe size={14} /> VR: {game.vrSupported ? 'SUPPORTED' : 'NOT SUPPORTED'}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </section>
+                            </section>
+                        )}
 
                         <section className={styles.section}>
                             <h2 className={styles.sectionTitle}>Operator Feedback</h2>

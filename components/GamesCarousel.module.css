@@ -106,7 +106,12 @@
     min-width: 100%;
   }
   .navButtons {
-    display: none;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .navBtn {
+    width: 40px;
+    height: 40px;
   }
 }
 

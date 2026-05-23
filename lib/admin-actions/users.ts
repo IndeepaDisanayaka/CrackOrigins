@@ -53,6 +53,62 @@ export async function findUserByEmail(email: string) {
     return null;
 }
 
+export async function createQuickGuestAccount(email: string) {
+    try {
+        const db = await getMongoDb();
+        const accountsCol = db.collection('accounts');
+        
+        const normalizedEmail = await normalizeEmail(email);
+        const emailHash = await hashEmail(normalizedEmail);
+
+        // 1. Check if user already exists
+        const existingUser = await findUserByEmail(normalizedEmail);
+        if (existingUser) {
+            return { 
+                success: true, 
+                alreadyExists: true, 
+                uid: existingUser.uid || existingUser._id.toString() 
+            };
+        }
+
+        // 2. Generate unique affiliate ID
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let affiliateId = '';
+        let isUniqueSync = false;
+        while (!isUniqueSync) {
+            affiliateId = '';
+            for (let i = 0; i < 8; i++) {
+                affiliateId += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            const exists = await accountsCol.findOne({ affiliateId });
+            if (!exists) isUniqueSync = true;
+        }
+
+        // 3. Create the record first to get the MongoDB _id
+        const guestPayload: any = {
+            email: encrypt(normalizedEmail),
+            emailHash,
+            isGuestEmail: true,
+            xp: 0,
+            created: new Date().toISOString(),
+            last: new Date().toISOString(),
+            updatedAt: new Date(),
+            affiliateId,
+            isOwner: false,
+            country: "Unknown",
+            name: "Guest Operative"
+        };
+
+        const result = await accountsCol.insertOne(guestPayload);
+        const mongoId = result.insertedId.toString();
+
+        return { success: true, isNew: true, uid: mongoId };
+    } catch (error: any) {
+        console.error("Error creating guest account:", error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function syncUserRecord(uid: string, data: {
     isOwner: boolean,
     name: string | null;
@@ -68,7 +124,15 @@ export async function syncUserRecord(uid: string, data: {
         const db = await getMongoDb();
         const accountsCol = db.collection('accounts');
         
-        const existing = await accountsCol.findOne({ uid });
+        let existing = await accountsCol.findOne({ 
+            $or: [{ _id: uid as any }, { uid: uid }] 
+        });
+        
+        // If not found by ID/UID, try finding by email to "sync" or "link"
+        if (!existing && data.email) {
+            existing = await findUserByEmail(data.email);
+        }
+
         const isNewUser = !existing;
 
         let affiliateId = existing?.affiliateId || null;
@@ -99,7 +163,6 @@ export async function syncUserRecord(uid: string, data: {
         }
 
         const userPayload: any = {
-            uid,
             isOwner: isNewUser ? data.isOwner : (existing?.isOwner ?? data.isOwner),
             name: data.name,
             email: encrypt(data.email || "unknown"),
@@ -117,7 +180,7 @@ export async function syncUserRecord(uid: string, data: {
         if (referredBy) userPayload.referredBy = referredBy;
 
         await accountsCol.updateOne(
-            { uid },
+            { _id: uid as any },
             { $set: userPayload },
             { upsert: true }
         );
@@ -147,7 +210,9 @@ export async function checkAdminStatus(uid: string) {
     try {
         const db = await getMongoDb();
         const accountsCol = db.collection('accounts');
-        const data = await accountsCol.findOne({ uid });
+        const data = await accountsCol.findOne({ 
+            $or: [{ _id: uid as any }, { uid: uid }] 
+        });
         
         if (!data) return { 
             success: false, isOwner: false, isAdmin: false, affiliateCount: 0, 
@@ -200,7 +265,9 @@ export async function checkAdminStatus(uid: string) {
 export async function getAdminDashboardData(adminUid: string) {
     try {
         const db = await getMongoDb();
-        const userDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const userDoc = await db.collection("accounts").findOne({ 
+            $or: [{ _id: adminUid as any }, { uid: adminUid }] 
+        });
         
         if (!userDoc) return { success: false, error: "User not found." };
         
@@ -390,14 +457,18 @@ export async function updateUserOwnerStatus(adminUid: string, targetUid: string,
 export async function deleteUserAccount(adminUid: string, targetUid: string) {
     try {
         const db = await getMongoDb();
-        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const adminDoc = await db.collection("accounts").findOne({ 
+            $or: [{ _id: adminUid as any }, { uid: adminUid }] 
+        });
         const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
         
         if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };
 
         // Delete from MongoDB collections
         await Promise.all([
-            db.collection("accounts").deleteOne({ uid: targetUid }),
+            db.collection("accounts").deleteOne({ 
+                $or: [{ _id: targetUid as any }, { uid: targetUid }] 
+            }),
             db.collection("payments").deleteMany({ userId: targetUid }),
             db.collection("account_offers").deleteMany({ userId: targetUid }),
             db.collection("account_affiliates").deleteMany({ referredBy: targetUid })
@@ -414,7 +485,9 @@ export async function deleteUserAccount(adminUid: string, targetUid: string) {
 export async function cleanupDeactivatedUsers(adminUid: string) {
     try {
         const db = await getMongoDb();
-        const adminDoc = await db.collection("accounts").findOne({ uid: adminUid });
+        const adminDoc = await db.collection("accounts").findOne({ 
+            $or: [{ _id: adminUid as any }, { uid: adminUid }] 
+        });
         const canDelete = adminDoc?.isOwner || (adminDoc?.ruleId && await hasPermission(adminUid, 'account', 'DELETE'));
 
         if (!adminDoc || !canDelete) return { success: false, error: "Unauthorized." };

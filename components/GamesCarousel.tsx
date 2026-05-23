@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './GamesCarousel.module.css';
 import { Play, ShoppingCart, User, CheckCircle2, Eye, EyeOff, Copy, Bug, Image as ImageIcon, Monitor, Smartphone, Laptop, Download, Shield, Share2 } from 'lucide-react';
 import { useAuth } from '../lib/contexts/AuthContext';
@@ -17,6 +18,7 @@ import Image from 'next/image';
 // GAMES constant removed, now using state
 
 export default function GamesCarousel() {
+  const router = useRouter();
   const { user } = useAuth();
   const { isAuthModalOpen, setIsAuthModalOpen, isBugReportOpen, setIsBugReportOpen } = useModals();
   const { showToast } = useToast();
@@ -205,12 +207,7 @@ export default function GamesCarousel() {
           
           return (
             <div key={game.id || idx} className={styles.card} onClick={() => {
-              if (isOwned || isFree) {
-                // Do nothing on card click if owned
-              } else {
-                setSelectedGame(game);
-                setModalState('idle');
-              }
+              router.push(`/games/${game.slug}`);
             }}>
               <Image
                 src={(game.images && game.images.length > 0) ? game.images[0] : (game.image || '/placeholder-game.png')}
@@ -220,9 +217,9 @@ export default function GamesCarousel() {
               />
               <div className={styles.cardOverlay}></div>
               
-              <Link href={`/games/${game.slug}`} className={styles.topRightIcon}>
+              <div className={styles.topRightIcon}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
-              </Link>
+              </div>
               
               <div className={styles.cardContent}>
                 <div className={styles.stars}>
@@ -236,7 +233,18 @@ export default function GamesCarousel() {
                 <p className={styles.cardSubtitle}>{game.genre.split(',')[0]} • {game.price}</p>
                 
                 <div className={styles.cardActions}>
-                  {(isOwned || isFree) ? (
+                  {game.platform === 'playstore' ? (
+                    <button 
+                      className={`${styles.actionBtn} ${styles.primary}`} 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (game.redirectUrl) window.open(game.redirectUrl, '_blank'); 
+                        else showToast("Redirecting...", "success");
+                      }}
+                    >
+                      <Play size={14} /> Get on Play Store
+                    </button>
+                  ) : (isOwned || isFree) ? (
                     <>
                       <button className={`${styles.actionBtn} ${styles.primary}`} onClick={(e) => { e.stopPropagation(); triggerDirectDownload(game); }}>
                         <Download size={14} /> Download

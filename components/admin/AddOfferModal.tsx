@@ -32,6 +32,7 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
     operatingSystem: "windows",
     platform: "steam",
     gameUrl: "",
+    image: "",
     isGiveaway: false,
     targetXP: "10",
     offerScope: "local",
@@ -50,6 +51,7 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
         operatingSystem: editData.operatingSystem || "windows",
         platform: editData.platform || "steam",
         gameUrl: editData.gameUrl || "",
+        image: editData.image || "",
         isGiveaway: editData.isGiveaway ?? false,
         targetXP: editData.targetXP?.toString() || editData.targetAffiliates?.toString() || "10",
         offerScope: editData.offerScope || "local",
@@ -58,7 +60,7 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
     } else if (isOpen && !editData) {
       setOfferForm({
         id: "", title: "", originalPrice: "", discount: "", expire: "", quantity: 1, 
-        operatingSystem: "windows", platform: "steam", gameUrl: "", 
+        operatingSystem: "windows", platform: "steam", gameUrl: "", image: "",
         isGiveaway: false, targetXP: "10", offerScope: "local"
       });
 
@@ -215,6 +217,16 @@ export default function AddOfferModal({ isOpen, onClose, onSuccess, editData }: 
               placeholder="https://store.steampowered.com/app/..." 
               value={offerForm.gameUrl} 
               onChange={e => setOfferForm({ ...offerForm, gameUrl: e.target.value })} 
+            />
+
+            <Input 
+              icon={<Tag size={12} />} 
+              label="Custom Image URL (Optional)" 
+              type="url" 
+              placeholder="https://example.com/image.jpg" 
+              value={offerForm.image} 
+              onChange={e => setOfferForm({ ...offerForm, image: e.target.value })} 
+              description="Leave empty to use Steam header image"
             />
 
             <div style={{ display: 'flex', gap: '1rem' }}>

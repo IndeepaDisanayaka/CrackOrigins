@@ -467,7 +467,21 @@ function GlobalSteamCard({
 
             </div>
             <div style={{ flex: '0.6 1 300px', position: 'relative', minHeight: '200px' }}>
-                <img src={game.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
+                <img 
+                    src={game.image && !game.image.includes('placeholder') ? game.image : `https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId || game.id}/header.jpg`}
+                    alt={game.title} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} 
+                    onError={(e) => { 
+                        const target = e.target as HTMLImageElement;
+                        if (target.src.includes('cdn.akamai')) {
+                            target.src = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId || game.id}/header.jpg`;
+                        } else if (target.src.includes('shared.akamai')) {
+                            target.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId || game.id}/header.jpg`;
+                        } else if (!target.src.includes('placeholder')) {
+                            target.src = '/game-placeholder.jpg';
+                        }
+                    }}
+                />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, var(--background) 0%, transparent 100%)' }} />
                 <motion.div className={styles.discountBadge} style={{ position: 'absolute', top: '1rem', right: '1rem' }} whileHover={{ scale: 1.1, rotate: 2 }}>GIVEAWAY</motion.div>
             </div>
@@ -558,10 +572,19 @@ function GiveawayLeaderboard({
             <div className={styles.leaderboardLeft} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 500px', overflow: 'hidden' }}>
                 <div style={{ width: '100%', position: 'relative', aspectRatio: '21/9' }}>
                     <img
-                        src={`https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.id}/header.jpg`}
+                        src={game.image && !game.image.includes('placeholder') ? game.image : `https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId || game.id}/header.jpg`}
                         alt={game.title}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => { (e.target as HTMLImageElement).src = game.image || ''; }}
+                        onError={(e) => { 
+                            const target = e.target as HTMLImageElement;
+                            if (target.src.includes('cdn.akamai')) {
+                                target.src = `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${game.steamAppId || game.id}/header.jpg`;
+                            } else if (target.src.includes('shared.akamai')) {
+                                target.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamAppId || game.id}/header.jpg`;
+                            } else if (!target.src.includes('placeholder')) {
+                                target.src = '/game-placeholder.jpg';
+                            }
+                        }}
                     />
                     <motion.div className={styles.discountBadge} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem' }}>GIVEAWAY</motion.div>
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--background) 0%, transparent 80%)' }} />
@@ -943,9 +966,8 @@ export default function SteamMarketplace({ showAll = false }: { showAll?: boolea
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', opacity: 0.7, color: 'var(--primary)', background: 'rgba(var(--primary-rgb), 0.02)', border: '1px dashed rgba(var(--primary-rgb), 0.15)' }}>No active offers available right now.</div>
                 ) : (
                     (() => {
-                        const remainingGames = steamGames.filter(game => game.offerScope !== 'global');
-                        return (showAll ? remainingGames : remainingGames.slice(0, 3))
-                            .map((game) => {
+                        const remainingGames = showAll ? steamGames : steamGames.filter(game => game.offerScope !== 'global').slice(0, 3);
+                        return remainingGames.map((game) => {
                                 if (game.offerScope === 'global') {
                                     return (
                                         <GlobalSteamCard

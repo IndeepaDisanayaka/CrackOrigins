@@ -38,3 +38,17 @@ export function decrypt(text: string): string {
     
     return decrypted.toString();
 }
+
+/**
+ * Encrypt any text using a custom key.
+ */
+export function encryptWithKey(text: string, customKey: string): string {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const key = Buffer.from(customKey.padEnd(32, '0').slice(0, 32));
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+}

@@ -26,7 +26,8 @@ import {
   Trash2,
   Filter,
   BadgeCheck,
-  Eye
+  Eye,
+  Smartphone
 } from 'lucide-react';
 
 import { StatCard } from './admin/StatCard';
@@ -51,6 +52,7 @@ import {
   getLicenses,
   deleteLicense
 } from '@/lib/admin-actions';
+import { getAuthCodes, clearAuthCodes } from '@/lib/admin-actions/auth';
 
 import RolesModal from './admin/RolesModal';
 import { getPayPalBalance } from '@/lib/paypal-actions';
@@ -67,7 +69,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'support';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -92,6 +94,7 @@ export default function AdminPanel({
   const [isPaypalLoading, setIsPaypalLoading] = useState(false);
   const [blogData, setBlogData] = useState<any[]>([]);
   const [licenseData, setLicenseData] = useState<any[]>([]);
+  const [authCodes, setAuthCodes] = useState<any[]>([]);
 
   // Live Cursor Users
   const [showLiveCursors, setShowLiveCursors] = useState(false);
@@ -170,6 +173,11 @@ export default function AdminPanel({
     const resLic = await getLicenses(userUid);
     if (resLic.success && resLic.licenses) {
       setLicenseData(resLic.licenses);
+    }
+
+    const resAuth = await getAuthCodes(userUid);
+    if (resAuth.success && resAuth.codes) {
+      setAuthCodes(resAuth.codes);
     }
   };
 
@@ -443,6 +451,7 @@ export default function AdminPanel({
                { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games', visible: hasPerm('games', 'READ') },
                { id: 'blogs', icon: <MessageSquare size={18} />, label: 'Blogs', visible: hasPerm('blogs', 'READ') },
                { id: 'licenses', icon: <BadgeCheck size={18} />, label: 'Licenses', visible: myPerms.isOwner },
+               { id: 'auth', icon: <Key size={18} />, label: 'Access Codes', visible: true },
                { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries', visible: true },
              ].filter(i => i.visible).map(item => (
                <button
@@ -489,7 +498,7 @@ export default function AdminPanel({
               {/* Top Header Content Area */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
-                                       <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
+                                        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{activeTab === 'auth' ? 'Access Codes' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
                     <p style={{ fontSize: '0.8rem', opacity: 0.75 }}>Manage your studio's ecosystem records.</p>
                  </div>
                  <div style={{ display: 'flex', gap: '0.8rem' }}>
@@ -516,6 +525,40 @@ export default function AdminPanel({
                       <button onClick={() => setShowAddBlog(true)} className="btnSolid" style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}>
                         <ExternalLink size={14} style={{ marginRight: '0.4rem' }} /> Post Dispatch
                       </button>
+                    )}
+                    {activeTab === 'auth' && (
+                       <div style={{ display: 'flex', gap: '0.8rem' }}>
+                         <button 
+                           onClick={async () => {
+                             if(confirm("Clear all expired access codes?")) {
+                               const res = await clearAuthCodes(userUid, 'expired');
+                               if(res.success) {
+                                 showToast(`Cleaned up ${res.count} expired codes.`, "success");
+                                 fetchData();
+                               } else showToast(res.error || "Error", "error");
+                             }
+                           }} 
+                           className="btnOutline" 
+                           style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#f59e0b', borderColor: '#f59e0b' }}
+                         >
+                           <Trash2 size={14} style={{ marginRight: '0.4rem' }} /> Clear Expired
+                         </button>
+                         <button 
+                           onClick={async () => {
+                             if(confirm("DANGER: This will remove ALL access codes from the database. Proceed?")) {
+                               const res = await clearAuthCodes(userUid, 'all');
+                               if(res.success) {
+                                 showToast(`Wiped all authorization records.`, "success");
+                                 fetchData();
+                               } else showToast(res.error || "Error", "error");
+                             }
+                           }} 
+                           className="btnOutline" 
+                           style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                         >
+                           <Trash2 size={14} style={{ marginRight: '0.4rem' }} /> Wipe All
+                         </button>
+                       </div>
                     )}
                  </div>
               </div>
@@ -1256,7 +1299,20 @@ export default function AdminPanel({
                                <tr key={g.id} style={{ borderBottom: '1px solid var(--outline-color)' }}>
                                  <td style={{ padding: '1rem' }}>
                                    <div style={{ fontWeight: 700 }}>{g.title || 'Untitled Game'}</div>
-                                   <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>ID: {g.id}</div>
+                                   <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', marginTop: '0.2rem' }}>
+                                     <div style={{ fontSize: '0.7rem', opacity: 0.75 }}>ID: {g.id}</div>
+                                     <span style={{ 
+                                       fontSize: '0.6rem', 
+                                       padding: '0.1rem 0.4rem', 
+                                       background: g.platform === 'playstore' ? '#34a853' : '#fa5c5c', 
+                                       color: '#fff', 
+                                       borderRadius: '2px',
+                                       fontWeight: 800,
+                                       textTransform: 'uppercase'
+                                     }}>
+                                       {g.platform || 'itch'}
+                                     </span>
+                                   </div>
                                  </td>
                                  <td style={{ padding: '1rem' }}>
                                    <div>Price: ${g.price}</div>
@@ -1430,30 +1486,65 @@ export default function AdminPanel({
                                        </div>
                                      </td>
                                    </tr>
-                                   {isExpanded && (
-                                     <tr style={{ borderBottom: '1px solid var(--outline-color)', background: 'rgba(var(--primary-rgb), 0.02)' }}>
-                                       <td colSpan={4} style={{ padding: '1.5rem' }}>
-                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                                           <div style={{ borderLeft: '2px solid var(--primary)', paddingLeft: '1rem' }}>
-                                             <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '1px' }}>Scope & Description</div>
-                                             <div style={{ fontSize: '0.85rem', lineHeight: 1.6, opacity: 0.9 }}>{lic.description}</div>
-                                           </div>
-                                           <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--outline-color)' }}>
-                                             <div style={{ fontSize: '0.65rem', fontWeight: 800, opacity: 0.6, textTransform: 'uppercase', marginBottom: '0.6rem', letterSpacing: '1px' }}>Legal Terms & Usage Constraints</div>
-                                             <div style={{ fontSize: '0.75rem', opacity: 0.8, lineHeight: 1.5, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>{lic.terms || "Subject to standard agency lore agreement."}</div>
-                                           </div>
-                                         </div>
-                                       </td>
-                                     </tr>
-                                   )}
                                  </React.Fragment>
                                );
                              })}
                            </tbody>
-                      </table>
-                   </div>
-                </div>
-              )}
+                       </table>
+                    </div>
+                 </div>
+               )}
+
+               {/* External Access Codes Rendering */}
+               {activeTab === 'auth' && (
+                 <div style={{ border: '1px solid var(--outline-color)', background: 'transparent', overflowX: 'auto' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                               <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--outline-color)', background: 'rgba(var(--foreground-rgb), 0.02)' }}>
+                                 <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.7 }}>Access Code</th>
+                                 <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.7 }}>Authorized Email</th>
+                                 <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.7 }}>Status</th>
+                                 <th style={{ padding: '1rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.7 }}>Validity</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                             {authCodes.map((ac: any, idx: number) => {
+                               const isExpired = new Date() > new Date(ac.expiresAt);
+                               return (
+                                 <tr key={ac.id || idx} style={{ borderBottom: '1px solid var(--outline-color)', opacity: ac.used ? 0.5 : 1 }}>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.25rem', letterSpacing: '2px' }}>{ac.code}</div>
+                                     <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>VERIFICATION CODE</div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ fontWeight: 700 }}>{ac.email}</div>
+                                     <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '4px' }}>
+                                       Generated: {formatDate(new Date(ac.createdAt), 'dd MMM HH:mm:ss')}
+                                     </div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     {ac.used ? (
+                                       <span style={{ fontSize: '0.7rem', color: '#34a853', fontWeight: 800, textTransform: 'uppercase' }}>VERIFIED</span>
+                                     ) : isExpired ? (
+                                       <span style={{ fontSize: '0.7rem', color: '#ff4d4d', fontWeight: 800, textTransform: 'uppercase' }}>EXPIRED</span>
+                                     ) : (
+                                       <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase' }}>ACTIVE</span>
+                                     )}
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ fontSize: '0.65rem', opacity: 0.5 }}>
+                                       Expires: {formatDate(new Date(ac.expiresAt), 'HH:mm:ss')}
+                                     </div>
+                                   </td>
+                                 </tr>
+                               );
+                             })}
+                            </tbody>
+                       </table>
+                    </div>
+                 </div>
+               )}
             </>
           )}
 
