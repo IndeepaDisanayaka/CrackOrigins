@@ -295,7 +295,7 @@ export async function addAffiliateReward(inviterUid: string, amount: number, typ
         const userDoc = await db.collection("accounts").findOne({ uid: inviterUid });
         if (!userDoc) return { success: false, error: "Inviter not found." };
  
-        const currentLevelTitle = userDoc.affiliateLevel || "starter";
+        const currentLevelTitle = userDoc.reward_level || userDoc.affiliateLevel || "starter";
  
         const levelData = await db.collection("reward_levels").findOne({ title: currentLevelTitle });
         const commPercent = levelData?.payment_commision || 2;

@@ -50,7 +50,10 @@ import {
   getAccountRules,
   returnGameXP,
   getLicenses,
-  deleteLicense
+  deleteLicense,
+  getWithdrawalRequests,
+  processWithdrawal,
+  getUserGameActivities
 } from '@/lib/admin-actions';
 import { getAuthCodes, clearAuthCodes } from '@/lib/admin-actions/auth';
 
@@ -69,7 +72,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support' | 'withdrawals';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -95,6 +98,14 @@ export default function AdminPanel({
   const [blogData, setBlogData] = useState<any[]>([]);
   const [licenseData, setLicenseData] = useState<any[]>([]);
   const [authCodes, setAuthCodes] = useState<any[]>([]);
+  const [withdrawalData, setWithdrawalData] = useState<any[]>([]);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<any | null>(null);
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [activitiesPage, setActivitiesPage] = useState(0);
+  const [hasMoreActivities, setHasMoreActivities] = useState(false);
+  const [withdrawalConfirm, setWithdrawalConfirm] = useState<{ open: boolean; id: string; status: 'COMPLETED' | 'REJECTED'; userName: string } | null>(null);
+  const [isProcessingWithdrawal, setIsProcessingWithdrawal] = useState(false);
 
   // Live Cursor Users
   const [showLiveCursors, setShowLiveCursors] = useState(false);
@@ -178,6 +189,11 @@ export default function AdminPanel({
     const resAuth = await getAuthCodes(userUid);
     if (resAuth.success && resAuth.codes) {
       setAuthCodes(resAuth.codes);
+    }
+
+    const resWith = await getWithdrawalRequests(userUid);
+    if (resWith.success && resWith.withdrawals) {
+      setWithdrawalData(resWith.withdrawals);
     }
   };
 
@@ -303,6 +319,56 @@ export default function AdminPanel({
       setUserDeleteConfirm({ open: false, uid: "", name: "" });
       fetchData();
     } else showToast(res.error || "Error", "error");
+  };
+
+  const handleSelectWithdrawal = async (w: any) => {
+    setSelectedWithdrawal(w);
+    setLoadingActivities(true);
+    setActivitiesPage(0);
+    setUserActivities([]);
+    const res = await getUserGameActivities(userUid, w.accountId, 100, 0);
+    if (res.success) {
+      setUserActivities(res.activities || []);
+      setHasMoreActivities(res.hasMore || false);
+    } else {
+      showToast("Failed to load user activities.", "error");
+    }
+    setLoadingActivities(false);
+  };
+
+  const handleLoadMoreActivities = async () => {
+    if (!selectedWithdrawal || loadingActivities) return;
+    setLoadingActivities(true);
+    const nextPage = activitiesPage + 1;
+    const res = await getUserGameActivities(userUid, selectedWithdrawal.accountId, 100, nextPage * 100);
+    if (res.success) {
+      setUserActivities(prev => [...prev, ...(res.activities || [])]);
+      setHasMoreActivities(res.hasMore || false);
+      setActivitiesPage(nextPage);
+    }
+    setLoadingActivities(false);
+  };
+
+  const handleProcessWithdrawal = (id: string, status: 'COMPLETED' | 'REJECTED') => {
+    const w = withdrawalData.find((x: any) => x.id === id) || selectedWithdrawal;
+    setWithdrawalConfirm({ open: true, id, status, userName: w?.userName || 'this user' });
+  };
+
+  const confirmProcessWithdrawal = async () => {
+    if (!withdrawalConfirm) return;
+    setIsProcessingWithdrawal(true);
+    const res = await processWithdrawal(userUid, withdrawalConfirm.id, withdrawalConfirm.status);
+    if (res.success) {
+      showToast(`Withdrawal marked as ${withdrawalConfirm.status}`, 'success');
+      fetchData();
+      if (selectedWithdrawal?.id === withdrawalConfirm.id) {
+        setSelectedWithdrawal((prev: any) => ({ ...prev, status: withdrawalConfirm.status, isProcessed: withdrawalConfirm.status === 'COMPLETED' }));
+      }
+      setWithdrawalConfirm(null);
+    } else {
+      showToast(res.error || 'Failed to update status', 'error');
+    }
+    setIsProcessingWithdrawal(false);
   };
 
   const handleBulkCleanup = async () => {
@@ -453,6 +519,7 @@ export default function AdminPanel({
                { id: 'licenses', icon: <BadgeCheck size={18} />, label: 'Licenses', visible: myPerms.isOwner },
                { id: 'auth', icon: <Key size={18} />, label: 'Access Codes', visible: true },
                { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries', visible: true },
+               { id: 'withdrawals', icon: <CreditCard size={18} />, label: 'Withdrawals', visible: hasPerm('payments', 'READ') },
              ].filter(i => i.visible).map(item => (
                <button
                  key={item.id}
@@ -1220,7 +1287,7 @@ export default function AdminPanel({
                                        <div><strong>Role:</strong> {u.isOwner ? "OWNER" : "USER"}</div>
                                        <div><strong>XP Balance:</strong> {u.xp || u.discount || 0} XP</div>
 
-                                       <div><strong>Affiliate Level:</strong> <span style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{u.affiliateLevel || "starter"}</span></div>
+                                       <div><strong>Affiliate Level:</strong> <span style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{u.reward_level || "starter"}</span></div>
                                      </div>
                                    </td>
                                  </tr>
@@ -1545,6 +1612,148 @@ export default function AdminPanel({
                     </div>
                  </div>
                )}
+               {/* Withdrawals Rendering */}
+               {activeTab === 'withdrawals' && (
+                 <div style={{ display: 'flex', gap: '1.5rem', height: '100%', minHeight: '600px' }}>
+                    {/* Left: List */}
+                    <div style={{ flex: 1, border: '1px solid var(--outline-color)', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1rem', borderBottom: '1px solid var(--outline-color)', background: 'rgba(var(--foreground-rgb), 0.02)', fontWeight: 800 }}>
+                            PENDING REQUESTS
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--outline-color)', textAlign: 'left', opacity: 0.7 }}>
+                                        <th style={{ padding: '0.8rem' }}>User</th>
+                                        <th style={{ padding: '0.8rem' }}>Amount</th>
+                                        <th style={{ padding: '0.8rem' }}>Date</th>
+                                        <th style={{ padding: '0.8rem' }}>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {withdrawalData.filter(w => !search || w.userName.toLowerCase().includes(search.toLowerCase()) || w.mobileNo.includes(search)).map((w: any) => (
+                                        <tr 
+                                            key={w.id} 
+                                            onClick={() => handleSelectWithdrawal(w)}
+                                            style={{ 
+                                                borderBottom: '1px solid var(--outline-color)', 
+                                                cursor: 'pointer',
+                                                background: selectedWithdrawal?.id === w.id ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent'
+                                            }}
+                                        >
+                                            <td style={{ padding: '0.8rem' }}>
+                                                <div style={{ fontWeight: 700 }}>{w.userName}</div>
+                                                <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{w.mobileNo}</div>
+                                            </td>
+                                            <td style={{ padding: '0.8rem', fontWeight: 800, color: 'var(--primary)' }}>
+                                                ${w.amount}
+                                            </td>
+                                            <td style={{ padding: '0.8rem', opacity: 0.7 }}>
+                                                {formatDate(new Date(w.createdAt), 'dd MMM HH:mm')}
+                                            </td>
+                                            <td style={{ padding: '0.8rem' }}>
+                                                <span style={{ 
+                                                    fontSize: '0.65rem', 
+                                                    padding: '0.2rem 0.5rem', 
+                                                    borderRadius: '4px',
+                                                    background: w.status === 'COMPLETED' ? '#4ade80' : w.status === 'REJECTED' ? '#ff4d4d' : 'rgba(255,255,255,0.1)',
+                                                    color: (w.status === 'COMPLETED' || w.status === 'REJECTED') ? '#000' : 'inherit',
+                                                    fontWeight: 800
+                                                }}>
+                                                    {w.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Right: Details & Activities */}
+                    <div style={{ width: '450px', border: '1px solid var(--outline-color)', display: 'flex', flexDirection: 'column', background: 'rgba(var(--background-rgb), 0.3)' }}>
+                        {selectedWithdrawal ? (
+                            <>
+                                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--outline-color)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <h3 style={{ fontWeight: 900, marginBottom: 0, fontSize: '1.1rem' }}>WITHDRAWAL DETAILS</h3>
+                                        <button onClick={() => setSelectedWithdrawal(null)} style={{ background: 'none', border: 'none', color: 'var(--foreground)', opacity: 0.5, cursor: 'pointer' }}><X size={16} /></button>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', fontSize: '0.8rem' }}>
+                                        <div><span style={{ opacity: 0.6 }}>User:</span> {selectedWithdrawal.userName}</div>
+                                        <div><span style={{ opacity: 0.6 }}>Mobile:</span> {selectedWithdrawal.mobileNo}</div>
+                                        <div><span style={{ opacity: 0.6 }}>Country:</span> {selectedWithdrawal.country}</div>
+                                        <div><span style={{ opacity: 0.6 }}>Amount:</span> ${selectedWithdrawal.amount}</div>
+                                        <div><span style={{ opacity: 0.6 }}>XP Deducted:</span> {selectedWithdrawal.xpDeducted} XP</div>
+                                        <div><span style={{ opacity: 0.6 }}>Product:</span> {selectedWithdrawal.gameName || selectedWithdrawal.productCode}</div>
+                                    </div>
+
+                                    {selectedWithdrawal.status === 'PENDING' && (
+                                        <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1.5rem' }}>
+                                            <button 
+                                                onClick={() => handleProcessWithdrawal(selectedWithdrawal.id, 'COMPLETED')}
+                                                className="btnSolid" 
+                                                style={{ flex: 1, padding: '0.6rem', fontSize: '0.75rem', background: '#4ade80', color: '#000' }}
+                                            >
+                                                APPROVE
+                                            </button>
+                                            <button 
+                                                onClick={() => handleProcessWithdrawal(selectedWithdrawal.id, 'REJECTED')}
+                                                className="btnOutline" 
+                                                style={{ flex: 1, padding: '0.6rem', fontSize: '0.75rem', color: '#ff4d4d', borderColor: '#ff4d4d' }}
+                                            >
+                                                REJECT
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                    <div style={{ padding: '0.8rem 1.5rem', borderBottom: '1px solid var(--outline-color)', fontSize: '0.7rem', fontWeight: 900, opacity: 0.6, letterSpacing: '1px' }}>
+                                        USER GAME ACTIVITIES
+                                    </div>
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+                                        {loadingActivities ? (
+                                            <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>Loading logs...</div>
+                                        ) : userActivities.length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>No activities found.</div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                {userActivities.map((a: any) => (
+                                                    <div key={a.id} style={{ padding: '0.6rem', border: '1px solid var(--outline-color)', fontSize: '0.72rem', background: 'rgba(255,255,255,0.02)' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                                                            <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{a.type || 'LOG'}</span>
+                                                            <span style={{ opacity: 0.5 }}>{formatDate(new Date(a.timestamp || a.createdAt), 'HH:mm:ss')}</span>
+                                                        </div>
+                                                        <div style={{ opacity: 0.8 }}>{a.description}</div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                                                            {a.xpEarned ? <div style={{ color: '#4ade80', fontSize: '0.65rem' }}>+{a.xpEarned} XP</div> : <div></div>}
+                                                            {a.playTime ? <div style={{ opacity: 0.5, fontSize: '0.65rem' }}>{Math.floor(a.playTime / 60)}m {a.playTime % 60}s played</div> : null}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {hasMoreActivities && (
+                                                    <button 
+                                                        onClick={handleLoadMoreActivities} 
+                                                        className="btnOutline" 
+                                                        disabled={loadingActivities}
+                                                        style={{ width: '100%', padding: '0.5rem', fontSize: '0.7rem', marginTop: '0.5rem' }}
+                                                    >
+                                                        {loadingActivities ? 'LOADING...' : 'LOAD MORE ACTIVITIES'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, textAlign: 'center', padding: '2rem' }}>
+                                Select a withdrawal request to view details and game logs
+                            </div>
+                        )}
+                    </div>
+                 </div>
+               )}
             </>
           )}
 
@@ -1779,6 +1988,39 @@ export default function AdminPanel({
                     onClick={confirmLicenseRevoke}
                 >
                     REVOKE LICENSE
+                </button>
+            </div>
+        </div>
+    </Modal>
+
+    {/* Withdrawal Request Confirmation */}
+    <Modal isOpen={withdrawalConfirm?.open || false} onClose={() => setWithdrawalConfirm(null)} maxWidth="400px">
+        <div style={{ padding: '2rem', background: 'var(--background)', color: 'var(--foreground)', textAlign: 'center' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: withdrawalConfirm?.status === 'COMPLETED' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(255, 77, 77, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                {withdrawalConfirm?.status === 'COMPLETED' ? <CheckCircle2 size={30} color="#4ade80" /> : <X size={30} color="#ff4d4d" />}
+            </div>
+            <h3 style={{ fontWeight: 800, marginBottom: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                {withdrawalConfirm?.status === 'COMPLETED' ? 'Approve Withdrawal?' : 'Reject Withdrawal?'}
+            </h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '2rem', lineHeight: 1.6 }}>
+                Are you sure you want to {withdrawalConfirm?.status === 'COMPLETED' ? 'APPROVE' : 'REJECT'} the withdrawal request for <strong>{withdrawalConfirm?.userName}</strong>?
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+                <button className="btnOutline" style={{ width: '100%', padding: '0.8rem' }} onClick={() => setWithdrawalConfirm(null)} disabled={isProcessingWithdrawal}>Cancel</button>
+                <button 
+                    className="btnSolid" 
+                    style={{ 
+                        width: '100%', 
+                        padding: '0.8rem', 
+                        background: withdrawalConfirm?.status === 'COMPLETED' ? '#4ade80' : '#ff4d4d', 
+                        color: withdrawalConfirm?.status === 'COMPLETED' ? '#000' : '#fff', 
+                        border: 'none', 
+                        fontWeight: 900 
+                    }} 
+                    onClick={confirmProcessWithdrawal}
+                    disabled={isProcessingWithdrawal}
+                >
+                    {isProcessingWithdrawal ? 'PROCESSING...' : (withdrawalConfirm?.status === 'COMPLETED' ? 'APPROVE' : 'REJECT')}
                 </button>
             </div>
         </div>

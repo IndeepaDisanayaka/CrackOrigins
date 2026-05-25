@@ -40,7 +40,7 @@ interface ActivityItem {
 }
 
 export default function AccountPage() {
-    const { user, isAuthLoading, logout, affiliateId, affiliateCount, xp, affiliateLevel, affiliateLevelDetails, isAdmin, login } = useAuth();
+    const { user, isAuthLoading, logout, affiliateId, affiliateCount, xp, reward_level, affiliateLevelDetails, isAdmin, login } = useAuth();
 
     const router = useRouter();
     const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -345,7 +345,7 @@ export default function AccountPage() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                         <div className={acct.metricHeader}>
                                             <TrendingUp className={acct.metricIcon} />
-                                            <span className={acct.metricTitle}>Rank: {affiliateLevel?.toUpperCase() || 'STARTER'}</span>
+                                            <span className={acct.metricTitle}>Rank: {reward_level?.toUpperCase() || 'STARTER'}</span>
                                         </div>
                                         <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)' }}>
                                             {affiliateLevelDetails?.payment_commision}% Comm. | {affiliateLevelDetails?.onetime_reward_xp} XP / Recruit
@@ -400,7 +400,7 @@ export default function AccountPage() {
                                 </div>
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><Activity size={16} /> Affiliate Level</span>
-                                    <span className={acct.detailValue} style={{ textTransform: 'uppercase', fontWeight: 800 }}>{affiliateLevel || 'starter'}</span>
+                                    <span className={acct.detailValue} style={{ textTransform: 'uppercase', fontWeight: 800 }}>{reward_level || 'starter'}</span>
                                 </div>
                                 <div className={acct.detailRow}>
                                     <span className={acct.detailLabel}><Percent size={16} /> XP Balance</span>

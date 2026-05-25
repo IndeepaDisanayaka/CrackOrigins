@@ -20,7 +20,7 @@ export interface UserRecord {
     isAnonymous?: boolean;
     ruleId: string | null;
     xp: number;
-    affiliateLevel: string;
+    reward_level: string;
     affiliateId?: string | null;
 }
 

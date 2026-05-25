@@ -32,7 +32,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
   }, []);
 
 
-  const { user, affiliateLevel, affiliateLevelDetails } = useAuth();
+  const { user, reward_level, affiliateLevelDetails } = useAuth();
   const MILESTONES = levels.map(l => ({
     friends: l.min_xp,
     label: l.title,
@@ -149,7 +149,7 @@ export default function AffiliateSection({ affiliateId, friendsCount = 0, xp = 0
             {[
                 { val: friendsCount, label: "Comrades Recruited" },
                 { val: currentXP, label: "Total Rank XP" },
-                { val: affiliateLevel.toUpperCase(), label: "Current Rank" }
+                { val: reward_level.toUpperCase(), label: "Current Rank" }
             ].map((stat, i) => (
 
                 <motion.div 

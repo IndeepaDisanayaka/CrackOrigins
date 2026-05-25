@@ -240,7 +240,7 @@ export async function checkAdminStatus(uid: string) {
             isAdmin,
             affiliateId: data?.affiliateId || null,
             xp: currentXp,
-            affiliateLevel: currentLevel.title || 'starter',
+            reward_level: currentLevel.title || 'starter',
             affiliateLevelDetails: {
                 title: currentLevel.title,
                 onetime_reward_xp: currentLevel.onetime_reward_xp,
@@ -312,7 +312,7 @@ export async function getAdminDashboardData(adminUid: string) {
                     country: data.country || "Unknown",
                     ruleId: data.ruleId || null,
                     xp: data.xp || data.discount || 0,
-                    affiliateLevel: data.affiliateLevel || "starter",
+                    reward_level: data.reward_level || data.affiliateLevel || "starter",
                 });
             });
 

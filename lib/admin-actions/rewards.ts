@@ -70,7 +70,7 @@ export async function updateUserLevel(uid: string) {
             }
         }
 
-        await db.collection("accounts").updateOne({ uid }, { $set: { affiliateLevel: newLevel } });
+        await db.collection("accounts").updateOne({ uid }, { $set: { reward_level: newLevel } });
     } catch (err) {}
 }
 

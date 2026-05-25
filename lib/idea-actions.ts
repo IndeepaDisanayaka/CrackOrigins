@@ -603,7 +603,7 @@ export const getIdeaSections = cache(
                         uid: c.uid,
                         name: c.name || c.displayName || 'Anonymous',
                         photo: c.photoURL || c.photo || '',
-                        rank: c.affiliateLevel || 'starter'
+                        rank: c.reward_level || c.affiliateLevel || 'starter'
                     })),
                     updated_time: latest.updated_time
                 };

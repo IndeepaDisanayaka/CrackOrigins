@@ -23,7 +23,7 @@ interface AuthContextType {
   isAdmin: boolean;
   affiliateId: string | null;
   xp: number;
-  affiliateLevel: string;
+  reward_level: string;
   affiliateLevelDetails: any;
   affiliateCount: number;
   country: string;
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
   const [xp, setXp] = useState(0);
-  const [affiliateLevel, setAffiliateLevel] = useState('starter');
+  const [reward_level, setReward_level] = useState('starter');
   const [affiliateLevelDetails, setAffiliateLevelDetails] = useState<any>(null);
   const [affiliateCount, setAffiliateCount] = useState(0);
   const [country, setCountry] = useState('Unknown');
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsOwner(res.isOwner || false);
         setAffiliateId(res.affiliateId);
         setXp(res.xp || 0);
-        setAffiliateLevel(res.affiliateLevel || 'starter');
+        setReward_level(res.reward_level || 'starter');
         setAffiliateLevelDetails(res.affiliateLevelDetails || null);
         setAffiliateCount(res.affiliateCount || 0);
         setMetadata(res.metadata || { creationTime: null, lastSignInTime: null });
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPermissions({});
       setAffiliateId(null);
       setXp(0);
-      setAffiliateLevel('starter');
+      setReward_level('starter');
       setAffiliateLevelDetails(null);
       setAffiliateCount(0);
     }
@@ -224,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdmin,
       affiliateId,
       xp,
-      affiliateLevel,
+      reward_level,
       affiliateLevelDetails,
       affiliateCount,
       country,
