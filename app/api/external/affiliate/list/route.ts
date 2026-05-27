@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
                 error: 'User ID is required.' 
             }, { status: 400 });
         }
-
+ 
         const db = await getMongoDb();
         
         // Filter by productCode if provided
