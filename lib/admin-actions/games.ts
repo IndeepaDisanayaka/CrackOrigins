@@ -108,14 +108,19 @@ export async function getGameBySlug(slug: string) {
 
         // Fetch updates (use top-level collection due to migration)
         const updates = await db.collection("game_updates").find({ 
-            gameId: targetDoc._id.toString() 
+            $or: [
+                { gameId: targetDoc._id },
+                { gameId: targetDoc._id.toString() }
+            ]
         }).sort({ date: -1 }).toArray();
         
         const formattedUpdates = await Promise.all(updates.map(async (uData: any) => {
-            const uSlug = await generateGameSlug(uData.title || "");
+            const { _id, gameId, ...rest } = uData;
+            const uSlug = await generateGameSlug(rest.title || "");
             return {
-                id: uData._id.toString(),
-                ...uData,
+                id: _id.toString(),
+                gameId: gameId?.toString(),
+                ...rest,
                 slug: uSlug,
                 date: toIsoDate(uData.date) || new Date().toISOString(),
                 createdAt: toIsoDate(uData.createdAt) || new Date().toISOString()
@@ -124,14 +129,21 @@ export async function getGameBySlug(slug: string) {
 
         // Fetch reviews
         const reviews = await db.collection("game_reviews").find({ 
-            gameId: targetDoc._id.toString() 
+            $or: [
+                { gameId: targetDoc._id },
+                { gameId: targetDoc._id.toString() }
+            ]
         }).sort({ time: -1 }).toArray();
         
-        const formattedReviews = reviews.map((rData: any) => ({ 
-            id: rData._id.toString(), 
-            ...rData,
-            time: toIsoDate(rData.time) || new Date().toISOString()
-        }));
+        const formattedReviews = reviews.map((rData: any) => {
+            const { _id, gameId, ...rest } = rData;
+            return { 
+                id: _id.toString(), 
+                gameId: gameId?.toString(),
+                ...rest,
+                time: toIsoDate(rData.time) || new Date().toISOString()
+            };
+        });
 
         return { success: true, game, updates: formattedUpdates, reviews: formattedReviews };
     } catch (error: any) {
@@ -186,7 +198,10 @@ export async function getGameUpdate(gameSlug: string, updateId: string) {
         if (!targetGame) return { success: false, error: "Game not found." };
 
         const updates = await db.collection("game_updates").find({ 
-            gameId: targetGame._id.toString() 
+            $or: [
+                { gameId: targetGame._id },
+                { gameId: targetGame._id.toString() }
+            ]
         }).toArray();
         
         let targetUpdate = null;
@@ -200,9 +215,11 @@ export async function getGameUpdate(gameSlug: string, updateId: string) {
 
         if (!targetUpdate) return { success: false, error: "Update not found." };
 
+        const { _id, gameId, ...rest } = targetUpdate;
         const update = {
-            id: targetUpdate._id.toString(),
-            ...targetUpdate,
+            id: _id.toString(),
+            gameId: gameId?.toString(),
+            ...rest,
             date: toIsoDate(targetUpdate?.date) || new Date().toISOString(),
             createdAt: toIsoDate(targetUpdate?.createdAt) || new Date().toISOString(),
             gameTitle: targetGame.title

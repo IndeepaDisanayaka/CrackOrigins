@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       }
 
       const res = await db.collection('game_updates').insertOne({
-        gameId,
+        gameId: new ObjectId(gameId),
         title,
         description,
         body: content,
