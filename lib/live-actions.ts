@@ -67,12 +67,20 @@ export async function getGiveawayLeaderboard(target: number, listedTime: string,
         const db = await getMongoDb();
         const investments = await db.collection("offer_investments").find({ offerId }).toArray();
 
+        // Fetch all test account UIDs to filter them out
+        const testAccounts = await db.collection("accounts").find({ isTestAccount: true }).toArray();
+        const testAccountUids = new Set(testAccounts.map(a => a.uid || a._id.toString()));
+
         const userMap = new Map<string, { uid: string, displayName: string, xp: number, photoURL?: string }>();
         let totalFilled = 0;
 
         investments.forEach((data: any) => {
             const xp = Number(data.xp || data.points || 0);
             const uid = data.uid || data._id.toString(); 
+            
+            // Skip if it is a test account
+            if (testAccountUids.has(uid)) return;
+
             totalFilled += xp;
             
             if (userMap.has(uid)) {
@@ -108,7 +116,7 @@ export async function getGiveawayLeaderboard(target: number, listedTime: string,
 export async function getPlatformStats() {
     try {
         const db = await getMongoDb();
-        const userCount = await db.collection("accounts").countDocuments();
+        const userCount = await db.collection("accounts").countDocuments({ isTestAccount: { $ne: true } });
         const gamesCount = await db.collection("games").countDocuments();
         
         return {

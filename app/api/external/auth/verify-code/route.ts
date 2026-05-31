@@ -59,6 +59,22 @@ export async function POST(req: NextRequest) {
 
         const uid = accountRes.uid;
 
+        // Special handling for Test Account to add the requested fields
+        const TEST_EMAIL = "test.crackorigins@gmail.com";
+        const TEST_CODE = "209671";
+        
+        if (email === TEST_EMAIL) {
+            await db.collection('accounts').updateOne(
+                { $or: [{ uid: uid }, { _id: new ObjectId(uid) }] },
+                { 
+                    $set: { 
+                        isTestAccount: true,
+                        testAccountCode: TEST_CODE 
+                    } 
+                }
+            );
+        }
+
         // --- Handle Affiliate Logic ---
         if (affiliateId) {
             // Fetch new user's own data (use ObjectId for reliability since uid is a string ID)

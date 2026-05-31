@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
         const leaderboard = await accountsCol.find(
             { 
                 xp: { $gt: 0 }, // Only show users with at least some XP
-                isGuestEmail: { $ne: true } // Optional: Exclude temporary guest accounts if desired
+                isGuestEmail: { $ne: true }, // Optional: Exclude temporary guest accounts if desired
+                isTestAccount: { $ne: true } // EXCLUDE TEST ACCOUNTS FROM PUBLIC VIEW
             },
             {
                 projection: {
