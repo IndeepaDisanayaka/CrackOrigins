@@ -11,3 +11,4 @@ export * from './blogs';
 export * from './licenses';
 export * from './auth-email';
 export * from './withdrawals';
+export * from './account-deletions';

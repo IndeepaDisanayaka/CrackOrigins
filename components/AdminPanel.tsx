@@ -53,7 +53,9 @@ import {
   deleteLicense,
   getWithdrawalRequests,
   processWithdrawal,
-  getUserGameActivities
+  getUserGameActivities,
+  getAccountDeletions,
+  confirmAccountDeletion
 } from '@/lib/admin-actions';
 import { getAuthCodes, clearAuthCodes } from '@/lib/admin-actions/auth';
 
@@ -72,7 +74,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support' | 'withdrawals';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support' | 'withdrawals' | 'account-deletions';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -101,6 +103,7 @@ export default function AdminPanel({
   const [withdrawalData, setWithdrawalData] = useState<any[]>([]);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<any | null>(null);
   const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [deletionData, setDeletionData] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [activitiesPage, setActivitiesPage] = useState(0);
   const [hasMoreActivities, setHasMoreActivities] = useState(false);
@@ -194,6 +197,11 @@ export default function AdminPanel({
     const resWith = await getWithdrawalRequests(userUid);
     if (resWith.success && resWith.withdrawals) {
       setWithdrawalData(resWith.withdrawals);
+    }
+
+    const resDel = await getAccountDeletions();
+    if (resDel.success && resDel.deletions) {
+      setDeletionData(resDel.deletions);
     }
   };
 
@@ -520,6 +528,7 @@ export default function AdminPanel({
                { id: 'auth', icon: <Key size={18} />, label: 'Access Codes', visible: true },
                { id: 'support', icon: <MessageSquare size={18} />, label: 'Inquiries', visible: true },
                { id: 'withdrawals', icon: <CreditCard size={18} />, label: 'Withdrawals', visible: hasPerm('payments', 'READ') },
+               { id: 'account-deletions', icon: <Trash2 size={18} />, label: 'Deletions', visible: myPerms.isOwner },
              ].filter(i => i.visible).map(item => (
                <button
                  key={item.id}
@@ -1612,7 +1621,74 @@ export default function AdminPanel({
                     </div>
                  </div>
                )}
+
+               {/* Account Deletions Rendering */}
+               {activeTab === 'account-deletions' && (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ border: '1px solid var(--outline-color)', background: 'transparent', overflowX: 'auto' }}>
+                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                            <thead>
+                               <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--outline-color)', background: 'rgba(var(--foreground-rgb), 0.02)' }}>
+                                 <th style={{ padding: '1rem', opacity: 0.7 }}>User</th>
+                                 <th style={{ padding: '1rem', opacity: 0.7 }}>Reason / Description</th>
+                                 <th style={{ padding: '1rem', opacity: 0.7 }}>Requested At</th>
+                                 <th style={{ padding: '1rem', opacity: 0.7 }}>Days Remaining</th>
+                                 <th style={{ padding: '1rem', opacity: 0.7 }}>Actions</th>
+                               </tr>
+                            </thead>
+                            <tbody>
+                             {deletionData.filter(d => !search || d.name?.toLowerCase().includes(search.toLowerCase()) || d.email?.toLowerCase().includes(search.toLowerCase())).map((d: any) => {
+                               const daysRemaining = Math.max(0, Math.ceil((new Date(d.scheduledAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+                               return (
+                                 <tr key={d._id} style={{ borderBottom: '1px solid var(--outline-color)' }}>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ fontWeight: 800 }}>{d.name}</div>
+                                     <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{d.email}</div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ fontWeight: 700, color: '#ff4d4d' }}>{d.reason}</div>
+                                     <div style={{ fontSize: '0.7rem', opacity: 0.6, maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.description}</div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ opacity: 0.7 }}>{formatDate(new Date(d.requestedAt), 'dd MMM yyyy')}</div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     <div style={{ 
+                                       fontWeight: 900, 
+                                       color: daysRemaining < 7 ? '#ff4d4d' : 'var(--primary)',
+                                       fontSize: '0.95rem'
+                                     }}>
+                                       {daysRemaining} DAYS
+                                     </div>
+                                   </td>
+                                   <td style={{ padding: '1rem' }}>
+                                     <button 
+                                       onClick={async () => {
+                                         if(confirm(`DANGER: Permanently delete account of ${d.name}? This action is irreversible.`)) {
+                                           const res = await confirmAccountDeletion(d._id);
+                                           if(res.success) {
+                                             showToast("Account permanent deletion completed.", "success");
+                                             fetchData();
+                                           } else showToast(res.error || "Error", "error");
+                                         }
+                                       }}
+                                       className="btnSolid"
+                                       style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem', background: '#ff4d4d', color: '#000' }}
+                                     >
+                                       ERASE DATA
+                                     </button>
+                                   </td>
+                                 </tr>
+                               );
+                             })}
+                            </tbody>
+                       </table>
+                    </div>
+                 </div>
+               )}
+
                {/* Withdrawals Rendering */}
+
                {activeTab === 'withdrawals' && (
                  <div style={{ display: 'flex', gap: '1.5rem', height: '100%', minHeight: '600px' }}>
                     {/* Left: List */}

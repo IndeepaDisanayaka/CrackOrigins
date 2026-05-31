@@ -410,6 +410,10 @@ export default function AccountPage() {
                                     <span className={acct.detailLabel}><MapPin size={16} /> Region</span>
                                     <span className={acct.detailValue}>Global (Auto)</span>
                                 </div>
+                                <div className={acct.detailRow} style={{ borderBottom: 'none', marginTop: '1rem' }}>
+                                    <span className={acct.detailLabel} style={{ color: '#ff6b6b' }}><Trash2 size={16} /> Termination</span>
+                                    <Link href="/account/delete" className={acct.detailValue} style={{ color: '#ff6b6b', textDecoration: 'underline', fontSize: '0.8rem' }}>Request Account Deletion</Link>
+                                </div>
                             </div>
                         </motion.div>
 

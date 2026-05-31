@@ -59,6 +59,7 @@ export default function Footer() {
           <div className={styles.links}>
             <Link href="/terms">Terms of Service</Link>
             <Link href="/terms#privacy">Privacy Policy</Link>
+            <Link href="/account/delete" style={{ color: '#ff6b6b' }}>Delete Account</Link>
           </div>
         </div>
       </div>

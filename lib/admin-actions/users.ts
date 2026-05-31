@@ -130,6 +130,19 @@ export async function syncUserRecord(uid: string, data: {
         
         // If not found by ID/UID, try finding by email to "sync" or "link"
         if (!existing && data.email) {
+            // Check if this email is blacklisted due to a past deletion request
+            const isBlacklisted = await db.collection("account_deletions").findOne({ 
+                email: data.email, 
+                status: 'completed' 
+            });
+            
+            if (isBlacklisted) {
+                return { 
+                    success: false, 
+                    error: "Your account has been permanently deleted at your request. You cannot create a new account with this email address as per the termination agreement." 
+                };
+            }
+
             existing = await findUserByEmail(data.email);
         }
 
