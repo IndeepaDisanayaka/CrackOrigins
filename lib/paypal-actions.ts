@@ -119,12 +119,12 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
             }
         } else {
             console.log(`Processing Free Claim: ${game}`);
-            details = { 
-                status: "COMPLETED", 
-                payer: { 
+            details = {
+                status: "COMPLETED",
+                payer: {
                     email_address: "free-tier@crackorigins.com",
                     name: { given_name: "Crack", surname: "Origins User" }
-                } 
+                }
             };
         }
 
@@ -181,9 +181,9 @@ export async function capturePayPalOrder(orderID: string, uid: string, game: str
                 paymentData.paypalOrderId = orderID;
                 paymentData.payerEmail = encrypt(details.payer?.email_address || "unknown");
                 paymentData.payerName = encrypt(
-                    details.payer?.name 
-                    ? `${details.payer.name.given_name || ""} ${details.payer.name.surname || ""}`.trim() || "unknown" 
-                    : "unknown"
+                    details.payer?.name
+                        ? `${details.payer.name.given_name || ""} ${details.payer.name.surname || ""}`.trim() || "unknown"
+                        : "unknown"
                 );
             }
 
@@ -244,7 +244,7 @@ export async function getPayPalBalance(adminUid: string) {
             const val = parseFloat(doc.amount);
             if (!isNaN(val)) totalAmount += val;
         });
-        
+
         offers.forEach(doc => {
             const val = parseFloat(doc.amount);
             if (!isNaN(val)) totalAmount += val;

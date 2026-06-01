@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 
 export async function POST(req: NextRequest) {
     try {
-        const { productCode, accountId, playTime, earnedXp } = await req.json();
+        const { productCode, accountId, playTime, earnedXp, lifeCount, level } = await req.json();
 
         // 1. Basic Validation
         if (!productCode || !accountId || earnedXp === undefined) {
@@ -59,8 +59,10 @@ export async function POST(req: NextRequest) {
             productCode,
             gameId: game._id.toString(),
             accountId: user._id.toString(),
-            playTime: playTime || 0,
+            playTime: Number(playTime) || 0,
             earnedXp: Number(earnedXp),
+            lifeCount: Number(lifeCount) || 0,
+            level: Number(level) || 0,
             timestamp: new Date(),
             isProcessed: true, // Mark as processed immediately since XP was added
             type: 'match_result'

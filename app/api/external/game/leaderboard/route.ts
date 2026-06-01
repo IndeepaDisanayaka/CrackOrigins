@@ -3,28 +3,70 @@ import { getMongoDb } from '@/lib/mongodb';
 
 export async function GET(req: NextRequest) {
     try {
-        const db = await getMongoDb();
-        const accountsCol = db.collection('accounts');
+        const { searchParams } = new URL(req.url);
+        const productCode = searchParams.get('productCode');
 
-        // Fetch top 100 players by XP
-        const leaderboard = await accountsCol.find(
-            { 
-                xp: { $gt: 0 }, // Only show users with at least some XP
-                isGuestEmail: { $ne: true }, // Optional: Exclude temporary guest accounts if desired
-                isTestAccount: { $ne: true } // EXCLUDE TEST ACCOUNTS FROM PUBLIC VIEW
+        if (!productCode) {
+            return NextResponse.json({ 
+                success: false, 
+                error: 'Product code is required.' 
+            }, { status: 400 });
+        }
+
+        const db = await getMongoDb();
+
+        const leaderboard = await db.collection('game_activities').aggregate([
+            { $match: { productCode: productCode } }, // Filter by game
+            { $sort: { earnedXp: -1, timestamp: -1 } }, // Get highest XP records first
+            {
+                $group: {
+                    _id: "$accountId",
+                    maxEarnedXp: { $first: "$earnedXp" },
+                    level: { $first: "$level" },
+                    playTime: { $first: "$playTime" },
+                    timestamp: { $first: "$timestamp" }
+                }
             },
             {
-                projection: {
-                    name: 1,
-                    photoURL: 1,
-                    xp: 1,
-                    _id: 0 // Explicitly exclude ID to avoid leaking internal identifiers
+                $lookup: {
+                    from: "accounts",
+                    let: { actAccountId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $or: [
+                                        { $eq: [{ $toString: "$_id" }, "$$actAccountId"] },
+                                        { $eq: ["$uid", "$$actAccountId"] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: "user"
                 }
-            }
-        )
-        .sort({ xp: -1 })
-        .limit(100)
-        .toArray();
+            },
+            { $unwind: "$user" },
+            {
+                $match: {
+                    "user.isTestAccount": { $ne: true },
+                    "user.isGuestEmail": { $ne: true }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    name: "$user.name",
+                    photoURL: "$user.photoURL",
+                    xp: "$maxEarnedXp",
+                    level: { $ifNull: ["$level", 0] },
+                    playTime: { $ifNull: ["$playTime", 0] },
+                    storedTime: "$timestamp"
+                }
+            },
+            { $sort: { xp: -1 } },
+            { $limit: 100 }
+        ]).toArray();
 
         return NextResponse.json({
             success: true,
