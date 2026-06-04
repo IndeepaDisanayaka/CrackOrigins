@@ -49,14 +49,13 @@ export async function GET(req: NextRequest) {
             { $unwind: "$user" },
             {
                 $match: {
-                    "user.isTestAccount": { $ne: true },
-                    "user.isGuestEmail": { $ne: true }
+                    "user.isTestAccount": { $ne: true }
                 }
             },
             {
                 $project: {
                     _id: 0,
-                    name: "$user.name",
+                    name: { $ifNull: ["$user.name", { $ifNull: ["$user.displayName", "Guest Operative"] }] },
                     photoURL: "$user.photoURL",
                     xp: "$maxEarnedXp",
                     level: { $ifNull: ["$level", 0] },
@@ -65,7 +64,7 @@ export async function GET(req: NextRequest) {
                 }
             },
             { $sort: { xp: -1 } },
-            { $limit: 100 }
+            { $limit: 1000 }
         ]).toArray();
 
         return NextResponse.json({
