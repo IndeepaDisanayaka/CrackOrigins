@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
         }
 
         const db = await getMongoDb();
+        
         const leaderboard = await db.collection('game_activities').aggregate([
             { $match: { productCode: productCode } }, // Filter by game
             { $sort: { earnedXp: -1, timestamp: -1 } }, // Get highest XP records first
