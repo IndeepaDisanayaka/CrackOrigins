@@ -1,18 +1,21 @@
 import React from 'react';
 import IdeaDetailsClient from './IdeaDetailsClient';
 import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { getAbsoluteImageUrl } from '@/lib/utils';
-import { getIdeaById, getIdeaSnapshot } from '@/lib/idea-actions';
+import { getIdeaBySlug, getIdeaSnapshot } from '@/lib/idea-actions';
+
+export const dynamic = 'force-dynamic';
 
 interface Props {
-  params: Promise<{ id: string; slug: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id, slug } = await params;
+  const { slug } = await params;
   
   try {
-    const res = await getIdeaById(id);
+    const res = await getIdeaBySlug(slug);
     if (res.success && res.idea) {
       const data = res.idea;
       const title = `${data?.title} | Crack Origins Ideas`;
@@ -26,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           title,
           description,
           type: 'article',
-          url: `https://crackorigins.com/ideas/${id}/${slug}`,
+          url: `https://crackorigins.com/ideas/${slug}`,
           images: [{ url: imageUrl }],
         },
         twitter: {
@@ -36,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           images: [imageUrl],
         },
         alternates: {
-          canonical: `https://crackorigins.com/ideas/${id}/${slug}`,
+          canonical: `https://crackorigins.com/ideas/${slug}`,
         },
       };
     }
@@ -50,26 +53,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function IdeaDetailsPage({ params }: Props) {
-  const { id, slug } = await params;
+  const { slug } = await params;
   
-  // Parallel fetch on server
-  const [ideaRes, snapshotRes] = await Promise.all([
-    getIdeaById(id),
-    getIdeaSnapshot(id)
-  ]);
+  const ideaRes = await getIdeaBySlug(slug);
 
   if (!ideaRes.success || !ideaRes.idea) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)' }}>
-        <h1 style={{ color: 'var(--foreground)' }}>Chronicle Not Found</h1>
-        <p style={{ color: 'var(--text-muted)' }}>The requested classified transmission could not be retrieved.</p>
-      </div>
-    );
+    notFound();
   }
+
+  const ideaId = ideaRes.idea._id;
+  const snapshotRes = await getIdeaSnapshot(ideaId);
 
   return (
     <IdeaDetailsClient 
-      id={id} 
+      id={ideaId}
       slug={slug} 
       initialIdea={ideaRes.idea}
       initialSnapshot={snapshotRes.success ? snapshotRes.snapshot : null}

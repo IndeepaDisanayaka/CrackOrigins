@@ -267,7 +267,7 @@ export default function IdeasClient() {
                     <div 
                       key={idea.id || idea._id} 
                       className={styles.userCardSmall}
-                      onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
+                      onClick={() => router.push(`/ideas/${idea.slug || getSlug(idea.title)}`)}
                     >
                       <h4 className={styles.userCardTitle}>{idea.title}</h4>
                       <span className={styles.userCardDate}>{formatDate(idea.time)}</span>
@@ -285,7 +285,7 @@ export default function IdeasClient() {
                   <div 
                     key={idea.id || idea._id || i} 
                     className={styles.lastStoryItem}
-                    onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
+                    onClick={() => router.push(`/ideas/${idea.slug || getSlug(idea.title)}`)}
                   >
                     <div className={styles.lastStoryAuthor}>
                       <img src={idea.authorPhoto || `https://i.pravatar.cc/150?u=${idea.authorUid || i}`} alt={idea.author} className={styles.lastStoryAvatar} />
@@ -342,7 +342,7 @@ export default function IdeasClient() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1 }}
-                    onClick={() => router.push(`/ideas/${idea.id || idea._id}/${idea.slug || getSlug(idea.title)}`)}
+                    onClick={() => router.push(`/ideas/${idea.slug || getSlug(idea.title)}`)}
                   >
                     <div className={styles.articleImageWrapper}>
                       <img src={idea.image || `https://picsum.photos/seed/${idea.id || i}/800/450`} alt={idea.title} loading="lazy" />

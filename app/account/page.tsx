@@ -7,16 +7,15 @@ import { motion } from 'framer-motion';
 import { 
     User, Mail, Calendar, Key, Shield, LogOut, ArrowLeft, Users, 
     Percent, ShoppingBag, MapPin, CheckCircle, Activity, TrendingUp,
-    Lightbulb, Trash2, ExternalLink, AlertCircle, Bookmark 
+    Lightbulb, Trash2, ExternalLink, AlertCircle, Bookmark, Pencil, Lock, ShieldCheck, X, Camera
 } from 'lucide-react';
 import LiveCursors from '@/components/LiveCursors';
 import pageStyles from '@/app/page.module.css';
 import acct from './account.module.css';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getOwnedGames, getUserActivity } from '@/lib/admin-actions';
+import { getUserAffiliates, updateUserProfile, changeUserPassword, requestPasswordReset, verifyPasswordResetCode, getOwnedGames, getUserActivity, getUserExperiences } from '@/lib/admin-actions';
 import { getUserIdeas, deleteIdea, getSavedIdeas } from '@/lib/idea-actions';
-import { getUserAffiliates } from '@/lib/admin-actions';
 
 import { useModals } from '@/lib/contexts/ModalContext';
 import Header from '@/components/layout/Header';
@@ -58,7 +57,8 @@ export default function AccountPage() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-    
+    const [experiences, setExperiences] = useState<any[]>([]);
+    const [isLoadingExperiences, setIsLoadingExperiences] = useState(false);
     const { 
         isAuthModalOpen, setIsAuthModalOpen, 
         isAdminModalOpen, setIsAdminModalOpen,
@@ -67,6 +67,139 @@ export default function AccountPage() {
         isListGameOpen, setIsListGameOpen,
         isDispatchModalOpen, setIsDispatchModalOpen
     } = useModals();
+    
+    // Profile Editing States
+    const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+    const [isEditPhotoOpen, setIsEditPhotoOpen] = useState(false);
+    const [newName, setNewName] = useState(user?.displayName || '');
+    const [newPhotoURL, setNewPhotoURL] = useState(user?.photoURL || '');
+    const [isProfileSaving, setIsProfileSaving] = useState(false);
+
+    // Password Change States
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [passwordData, setPasswordData] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    const [isPasswordSaving, setIsPasswordSaving] = useState(false);
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+
+    // Password Reset States
+    const [isResetMode, setIsResetMode] = useState(false); // If true, showing OTP/Reset form
+    const [resetStep, setResetStep] = useState<'request' | 'verify' | 'newPassword'>('request');
+    const [resetEmail, setResetEmail] = useState(user?.email || '');
+    const [resetCode, setResetCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [isResetLoading, setIsResetLoading] = useState(false);
+    const [resetError, setResetError] = useState<string | null>(null);
+    const [resetUid, setResetUid] = useState<string | null>(null);
+
+    const { refreshStatus } = useAuth();
+
+    const handleSaveName = async () => {
+        if (!user || !newName.trim()) return;
+        setIsProfileSaving(true);
+        const res = await updateUserProfile(user.uid, { name: newName.trim() });
+        if (res.success) {
+            await refreshStatus();
+            setIsEditNameOpen(false);
+        } else {
+            alert(res.error || "Failed to update name.");
+        }
+        setIsProfileSaving(false);
+    };
+
+    const handleSavePhoto = async () => {
+        if (!user || !newPhotoURL.trim()) return;
+        setIsProfileSaving(true);
+        const res = await updateUserProfile(user.uid, { photoURL: newPhotoURL.trim() });
+        if (res.success) {
+            await refreshStatus();
+            setIsEditPhotoOpen(false);
+        } else {
+            alert(res.error || "Failed to update photo.");
+        }
+        setIsProfileSaving(false);
+    };
+
+    const handleSavePassword = async () => {
+        if (!user) return;
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            setPasswordError("Passwords do not match.");
+            return;
+        }
+        
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+        if (!passwordRegex.test(passwordData.newPassword)) {
+            setPasswordError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.");
+            return;
+        }
+
+        setIsPasswordSaving(true);
+        setPasswordError(null);
+        const res = await changeUserPassword(user.uid, { 
+            oldPassword: passwordData.oldPassword, 
+            newPassword: passwordData.newPassword 
+        });
+        
+        if (res.success) {
+            alert("Password updated successfully.");
+            setIsPasswordModalOpen(false);
+            setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+            await refreshStatus();
+        } else {
+            setPasswordError(res.error || "Failed to update password.");
+        }
+        setIsPasswordSaving(false);
+    };
+
+    const handleRequestReset = async () => {
+        setIsResetLoading(true);
+        setResetError(null);
+        const res = await requestPasswordReset(resetEmail);
+        if (res.success) {
+            setResetStep('verify');
+        } else {
+            setResetError(res.error || "Failed to send reset code.");
+        }
+        setIsResetLoading(false);
+    };
+
+    const handleVerifyCode = async () => {
+        setIsResetLoading(true);
+        setResetError(null);
+        const res = await verifyPasswordResetCode(resetEmail, resetCode);
+        if (res.success) {
+            setResetUid(res.uid);
+            setResetStep('newPassword');
+        } else {
+            setResetError(res.error || "Invalid or expired code.");
+        }
+        setIsResetLoading(false);
+    };
+
+    const handleResetPassword = async () => {
+        if (!resetUid) return;
+
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            setResetError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.");
+            return;
+        }
+
+        setIsResetLoading(true);
+        setResetError(null);
+        const res = await changeUserPassword(resetUid, { 
+            newPassword: newPassword, 
+            force: true 
+        });
+        if (res.success) {
+            alert("Password reset successfully. You can now login with your new password.");
+            setIsPasswordModalOpen(false);
+            setIsResetMode(false);
+            await refreshStatus();
+        } else {
+            setResetError(res.error || "Failed to reset password.");
+        }
+        setIsResetLoading(false);
+    };
 
     useEffect(() => {
         if (!isAuthLoading && !user) {
@@ -126,21 +259,33 @@ export default function AccountPage() {
                         });
                     }
 
+                    // Sort everything by date descending
+                    mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    
                     if (pageNum === 1) {
-                        mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                         setActivities(mapped);
                     } else {
-                        setActivities(prev => {
-                            const newArr = [...prev, ...mapped];
-                            // Sorting everything might be expensive but ensures correct timeline
-                            return newArr.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                        });
+                        setActivities(prev => [...prev, ...mapped]);
                     }
                 } catch (err) {
                     console.error("Failed to load activities", err);
                 } finally {
                     setIsLoadingActivities(false);
                     setIsLoadingMore(false);
+                }
+            };
+            
+            const fetchExperiences = async () => {
+                setIsLoadingExperiences(true);
+                try {
+                    const res = await getUserExperiences(user.uid);
+                    if (res.success) {
+                        setExperiences(res.experiences || []);
+                    }
+                } catch (err) {
+                    console.error("Failed to load experiences", err);
+                } finally {
+                    setIsLoadingExperiences(false);
                 }
             };
             
@@ -191,6 +336,7 @@ export default function AccountPage() {
                 fetchIdeas();
                 fetchSaved();
                 fetchAffiliates();
+                fetchExperiences();
             } else {
                 fetchActivities(page);
             }
@@ -314,7 +460,10 @@ export default function AccountPage() {
                             className={acct.profileCard}
                         >
                             <div className={acct.profileHeader}>
-                                <div style={{ position: 'relative' }}>
+                                <div className={acct.avatarWrapper} onClick={() => {
+                                    setNewPhotoURL(user.photoURL || '');
+                                    setIsEditPhotoOpen(true);
+                                }}>
                                     {user.photoURL ? (
                                         <Image src={user.photoURL} alt="Profile Avatar" width={80} height={80} className={acct.profileAvatar} unoptimized />
                                     ) : (
@@ -322,10 +471,24 @@ export default function AccountPage() {
                                             <User size={30} />
                                         </div>
                                     )}
+                                    <div className={acct.avatarOverlay}>
+                                        <Camera size={20} />
+                                        <span>CHANGE PHOTO</span>
+                                    </div>
                                 </div>
                                 <div className={acct.profileMeta}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                         <h2 className={acct.profileName}>{user.displayName || 'Gamers'}</h2>
+                                        <button 
+                                            onClick={() => {
+                                                setNewName(user.displayName || '');
+                                                setIsEditNameOpen(true);
+                                            }}
+                                            className={acct.editIconButton}
+                                            title="Edit Name"
+                                        >
+                                            <Pencil size={14} />
+                                        </button>
                                         {isAdmin && <Shield size={16} color="var(--primary)" />}
                                     </div>
                                     <span className={acct.profileRole}>{isAdmin ? 'Administrator' : 'Standard Member'} · Crack Origins</span>
@@ -410,9 +573,57 @@ export default function AccountPage() {
                                     <span className={acct.detailLabel}><MapPin size={16} /> Region</span>
                                     <span className={acct.detailValue}>Global (Auto)</span>
                                 </div>
+
+                                <div className={acct.detailRow}>
+                                    <span className={acct.detailLabel}><Lock size={16} /> Security</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <span className={acct.detailValue} style={{ fontSize: '0.75rem', opacity: 0.8 }}>
+                                            {user.authMethod === 'google' ? 'Connected via Google' : 'Standard Password Authentication'}
+                                        </span>
+                                        <button 
+                                            onClick={() => {
+                                                setIsPasswordModalOpen(true);
+                                                setIsResetMode(false);
+                                                setPasswordError(null);
+                                            }} 
+                                            className="btnOutline" 
+                                            style={{ fontSize: '0.6rem', padding: '2px 8px', borderRadius: '4px', borderColor: 'rgba(var(--primary-rgb), 0.3)', color: 'var(--primary)' }}
+                                        >
+                                            {user.hasPassword ? 'CHANGE PASSWORD' : 'SET PASSWORD'}
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className={acct.detailRow} style={{ borderBottom: 'none', marginTop: '1rem' }}>
                                     <span className={acct.detailLabel} style={{ color: '#ff6b6b' }}><Trash2 size={16} /> Termination</span>
                                     <Link href="/account/delete" className={acct.detailValue} style={{ color: '#ff6b6b', textDecoration: 'underline', fontSize: '0.8rem' }}>Request Account Deletion</Link>
+                                </div>
+                            </div>
+
+                            {/* EXPERIENCED PLATFORMS */}
+                            <div className={acct.experiencedSection}>
+                                <div className={acct.experiencedHeader}>
+                                    <Activity size={14} color="var(--primary)" />
+                                    <span>EXPERIENCED PLATFORMS</span>
+                                </div>
+                                <div className={acct.experiencedLogos}>
+                                    {isLoadingExperiences ? (
+                                        <div className="glitchLoader" style={{ fontSize: '0.6rem' }}>SCANNING...</div>
+                                    ) : experiences.length > 0 ? (
+                                        experiences.map(exp => (
+                                            <div key={exp.id} className={acct.expLogoWrapper} title={exp.title}>
+                                                <Image 
+                                                    src={exp.logo} 
+                                                    alt={exp.title} 
+                                                    width={32} 
+                                                    height={32} 
+                                                    className={acct.expLogo}
+                                                    unoptimized
+                                                />
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>NO DEPLOYMENT DATA FOUND</span>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
@@ -490,7 +701,7 @@ export default function AccountPage() {
                                                         <h4 className={acct.ideaCardTitle}>{idea.title}</h4>
                                                         <p className={acct.ideaCardDesc}>{idea.description.substring(0, 80)}...</p>
                                                         <div className={acct.ideaCardFooter}>
-                                                            <Link href={`/ideas/${idea._id}/${idea.slug}`} className={acct.viewIdeaBtn}>
+                                                            <Link href={`/ideas/${idea.slug}`} className={acct.viewIdeaBtn}>
                                                                 <ExternalLink size={14} /> View
                                                             </Link>
                                                             <button 
@@ -531,7 +742,7 @@ export default function AccountPage() {
                                                         <h4 className={acct.ideaCardTitle}>{idea.title}</h4>
                                                         <p className={acct.ideaCardDesc}>{idea.description.substring(0, 80)}...</p>
                                                         <div className={acct.ideaCardFooter}>
-                                                            <Link href={`/ideas/${idea._id}/${idea.slug}`} className={acct.viewIdeaBtn}>
+                                                            <Link href={`/ideas/${idea.slug}`} className={acct.viewIdeaBtn}>
                                                                 <ExternalLink size={14} /> Read More
                                                             </Link>
                                                         </div>
@@ -643,6 +854,244 @@ export default function AccountPage() {
                             {isDeleting ? 'ERASING...' : 'CONFIRM TERMINATION'}
                         </button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* Password Management Modal */}
+            <Modal
+                isOpen={isPasswordModalOpen}
+                onClose={() => {
+                    setIsPasswordModalOpen(false);
+                    setIsResetMode(false);
+                    setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+                    setResetStep('request');
+                    setResetError(null);
+                }}
+                title={isResetMode ? "Security: Identity Recovery" : (user?.hasPassword ? "Security: Change Authorization" : "Security: Set Authorization")}
+            >
+                {!isResetMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '8px', border: '1px solid rgba(var(--primary-rgb), 0.1)' }}>
+                            <Lock size={24} color="var(--primary)" />
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>Authorization Protocol</h3>
+                                <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>Update your mainframe entry credentials.</p>
+                            </div>
+                        </div>
+
+                        {passwordError && (
+                            <div style={{ padding: '0.8rem', background: 'rgba(255, 107, 107, 0.1)', border: '1px solid rgba(255, 107, 107, 0.2)', borderRadius: '6px', color: '#ff6b6b', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <AlertCircle size={14} /> {passwordError}
+                            </div>
+                        )}
+
+                        {user?.hasPassword && (
+                            <div className={acct.inputGroup}>
+                                <label className={acct.inputLabel}>Current Password</label>
+                                <input 
+                                    type="password" 
+                                    className={acct.styledInput} 
+                                    placeholder="Enter old password"
+                                    value={passwordData.oldPassword}
+                                    onChange={(e) => setPasswordData({...passwordData, oldPassword: e.target.value})}
+                                />
+                                <button 
+                                    onClick={() => setIsResetMode(true)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 700, padding: '4px 0', cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                    Forgot Current Password? Use Email Recovery
+                                </button>
+                            </div>
+                        )}
+
+                        <div className={acct.inputGroup}>
+                            <label className={acct.inputLabel}>New Password</label>
+                            <input 
+                                type="password" 
+                                className={acct.styledInput} 
+                                placeholder="Min. 6 characters"
+                                value={passwordData.newPassword}
+                                onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                            />
+                        </div>
+
+                        <div className={acct.inputGroup}>
+                            <label className={acct.inputLabel}>Confirm New Password</label>
+                            <input 
+                                type="password" 
+                                className={acct.styledInput} 
+                                placeholder="Repeat new password"
+                                value={passwordData.confirmPassword}
+                                onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                            />
+                        </div>
+
+                        <button 
+                            className="btnSolid" 
+                            style={{ width: '100%', padding: '1rem', marginTop: '0.5rem' }}
+                            onClick={handleSavePassword}
+                            disabled={isPasswordSaving}
+                        >
+                            {isPasswordSaving ? 'PROCESSING...' : 'AUTHORIZE CHANGE'}
+                        </button>
+                    </div>
+                ) : (
+                    /* Password Reset Flow */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(255, 215, 0, 0.05)', borderRadius: '8px', border: '1px solid rgba(255, 215, 0, 0.1)' }}>
+                            <ShieldCheck size={24} color="#FFD700" />
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>Account Recovery</h3>
+                                <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>Verification required via registered terminal.</p>
+                            </div>
+                        </div>
+
+                        {resetError && (
+                            <div style={{ padding: '0.8rem', background: 'rgba(255, 107, 107, 0.1)', border: '1px solid rgba(255, 107, 107, 0.2)', borderRadius: '6px', color: '#ff6b6b', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <AlertCircle size={14} /> {resetError}
+                            </div>
+                        )}
+
+                        {resetStep === 'request' && (
+                            <div className={acct.inputGroup}>
+                                <label className={acct.inputLabel}>Registered Email</label>
+                                <input 
+                                    type="email" 
+                                    className={acct.styledInput} 
+                                    placeholder="Enter account email"
+                                    value={resetEmail}
+                                    onChange={(e) => setResetEmail(e.target.value)}
+                                />
+                                <p style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.5rem' }}>We will send a 6-digit verification code to this address.</p>
+                                <button className="btnSolid" style={{ width: '100%', marginTop: '1rem' }} onClick={handleRequestReset} disabled={isResetLoading}>
+                                    {isResetLoading ? 'TRANSMITTING...' : 'SEND VERIFICATION CODE'}
+                                </button>
+                            </div>
+                        )}
+
+                        {resetStep === 'verify' && (
+                            <div className={acct.inputGroup}>
+                                <label className={acct.inputLabel}>Verification Code</label>
+                                <input 
+                                    type="text" 
+                                    className={acct.styledInput} 
+                                    placeholder="6-digit code"
+                                    value={resetCode}
+                                    onChange={(e) => setResetCode(e.target.value)}
+                                    style={{ textAlign: 'center', letterSpacing: '8px', fontSize: '1.5rem', fontWeight: 900 }}
+                                />
+                                <button className="btnSolid" style={{ width: '100%', marginTop: '1.5rem' }} onClick={handleVerifyCode} disabled={isResetLoading}>
+                                    {isResetLoading ? 'VERIFYING...' : 'VALIDATE IDENTITY'}
+                                </button>
+                                <button 
+                                    onClick={() => setResetStep('request')}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '1rem', width: '100%', cursor: 'pointer' }}
+                                >
+                                    Wrong email? Change Address
+                                </button>
+                            </div>
+                        )}
+
+                        {resetStep === 'newPassword' && (
+                            <div className={acct.inputGroup}>
+                                <label className={acct.inputLabel}>New Mainframe Password</label>
+                                <input 
+                                    type="password" 
+                                    className={acct.styledInput} 
+                                    placeholder="Min. 6 characters"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                />
+                                <button className="btnSolid" style={{ width: '100%', marginTop: '1.5rem' }} onClick={handleResetPassword} disabled={isResetLoading}>
+                                    {isResetLoading ? 'UPDATING...' : 'RESET PASSWORD'}
+                                </button>
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={() => setIsResetMode(false)}
+                            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', fontWeight: 700, padding: '10px', cursor: 'pointer' }}
+                        >
+                            Return to Standard Change
+                        </button>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Profile Name Modal */}
+            <Modal
+                isOpen={isEditNameOpen}
+                onClose={() => setIsEditNameOpen(false)}
+                title="Security: Identity Adjustment"
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '8px', border: '1px solid rgba(var(--primary-rgb), 0.1)' }}>
+                        <User size={24} color="var(--primary)" />
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>Primary Identifier</h3>
+                            <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>How you are identified across the mainframe.</p>
+                        </div>
+                    </div>
+
+                    <div className={acct.inputGroup}>
+                        <label className={acct.inputLabel}>New Signature Name</label>
+                        <input 
+                            type="text" 
+                            className={acct.styledInput} 
+                            placeholder="Enter your name"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                        />
+                    </div>
+
+                    <button 
+                        className="btnSolid" 
+                        style={{ width: '100%', padding: '1rem' }}
+                        onClick={handleSaveName}
+                        disabled={isProfileSaving}
+                    >
+                        {isProfileSaving ? 'SYNCING...' : 'UPDATE IDENTITY'}
+                    </button>
+                </div>
+            </Modal>
+
+            {/* Profile Photo Modal */}
+            <Modal
+                isOpen={isEditPhotoOpen}
+                onClose={() => setIsEditPhotoOpen(false)}
+                title="Security: Visual Presence"
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: '8px', border: '1px solid rgba(var(--primary-rgb), 0.1)' }}>
+                        <Camera size={24} color="var(--primary)" />
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>Profile Visualization</h3>
+                            <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>External image URL for your agent profile.</p>
+                        </div>
+                    </div>
+
+                    <div className={acct.inputGroup}>
+                        <label className={acct.inputLabel}>Image Terminal URL</label>
+                        <input 
+                            type="text" 
+                            className={acct.styledInput} 
+                            placeholder="https://..."
+                            value={newPhotoURL}
+                            onChange={(e) => setNewPhotoURL(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSavePhoto()}
+                        />
+                    </div>
+
+                    <button 
+                        className="btnSolid" 
+                        style={{ width: '100%', padding: '1rem' }}
+                        onClick={handleSavePhoto}
+                        disabled={isProfileSaving}
+                    >
+                        {isProfileSaving ? 'UPLOADING...' : 'SAVE CONFIGURATION'}
+                    </button>
+                    <p style={{ fontSize: '0.7rem', opacity: 0.6, textAlign: 'center' }}>Direct image URLs only (JPG, PNG, WEBP).</p>
                 </div>
             </Modal>
         </>

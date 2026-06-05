@@ -98,23 +98,64 @@
 }
 
 .profileAvatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  border: 2px solid var(--primary);
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
-.profileAvatarFallback {
+.avatarWrapper {
+  position: relative;
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: rgba(var(--primary-rgb), 0.1);
+  overflow: hidden;
+  cursor: pointer;
   border: 2px solid var(--primary);
+  background: var(--card-bg);
+  flex-shrink: 0;
+}
+
+.avatarOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.55rem;
+  font-weight: 900;
+  text-align: center;
+  padding: 5px;
+  gap: 4px;
+}
+
+.avatarWrapper:hover .avatarOverlay {
+  opacity: 1;
+}
+
+.avatarWrapper:hover .profileAvatar {
+  transform: scale(1.1);
+}
+
+.profileAvatar {
+  transition: transform 0.4s ease;
+}
+
+.profileAvatarFallback {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
 }
 
 .profileMeta {
@@ -536,6 +577,172 @@
 .createIdeaLink:hover {
   background: var(--primary);
   color: white;
+}
+
+/* Edit UI */
+.editIconButton {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--outline-color);
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.editIconButton:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+.nameInput {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--outline-color);
+  color: var(--foreground);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  width: 220px;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.nameInput:focus {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+}
+
+.saveButton {
+  background: var(--primary);
+  border: none;
+  color: #000;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 950;
+  transition: all 0.2s;
+}
+
+.saveButton:hover {
+  transform: scale(1.05);
+}
+
+.cancelButton {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--outline-color);
+  color: #ff6b6b;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background: rgba(255, 50, 50, 0.1);
+  border-color: #ff6b6b;
+}
+
+/* Modal Inputs */
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.styledInput {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--outline-color);
+  color: var(--foreground);
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.styledInput:focus {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+}
+
+/* --- Experienced Platforms --- */
+.experiencedSection {
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-top: 1px solid var(--outline-color);
+}
+
+.experiencedHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.experiencedLogos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.expLogoWrapper {
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--outline-color);
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: help;
+}
+
+.expLogoWrapper:hover {
+  transform: translateY(-3px) scale(1.1);
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.08);
+}
+
+.expLogo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: filter 0.3s;
+}
+
+.expLogoWrapper:hover .expLogo {
+  filter: brightness(1.2);
 }
 
 

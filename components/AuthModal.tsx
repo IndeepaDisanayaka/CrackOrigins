@@ -38,6 +38,14 @@ export default function AuthModal({
       return;
     }
 
+    if (type === 'email-signup') {
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        setErrorMsg('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.');
+        return;
+      }
+    }
+
     setIsLoggingIn(true);
     setErrorMsg('');
     try {

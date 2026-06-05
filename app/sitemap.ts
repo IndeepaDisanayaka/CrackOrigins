@@ -29,7 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const ideaPages = ideas.map((idea: any) => ({
-    url: `${baseUrl}/ideas/${idea._id || idea.id}/${idea.slug}`,
+    url: `${baseUrl}/ideas/${idea.slug}`,
     lastModified: new Date(idea.lastUpdated || idea.time || Date.now()),
     changeFrequency: 'weekly' as const,
     priority: 0.7,

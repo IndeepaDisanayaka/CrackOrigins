@@ -8,7 +8,7 @@ import {
 import Modal from '../Modal';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { useToast } from '../Toast';
-import { publishIdea } from '../../lib/idea-actions';
+import { publishIdea, checkIdeaTitleExists } from '../../lib/idea-actions';
 import { getLicenses } from '@/lib/admin-actions';
 import styles from '../../app/page.module.css';
 
@@ -41,6 +41,7 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
   const [newChar, setNewChar] = useState({ name: '', type: 'Normal' });
   const [newTrack, setNewTrack] = useState('');
   const [isDisclaimerAgreed, setIsDisclaimerAgreed] = useState(false);
+  const [titleStatus, setTitleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
 
   const getWordCount = (str: string) => str.trim() ? str.trim().split(/\s+/).length : 0;
 
@@ -63,6 +64,11 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
 
     if (!formData.title || !formData.description) {
       showToast("Title and description are required.", "error");
+      return;
+    }
+
+    if (titleStatus === 'taken') {
+      showToast("This title already exists. Please choose a different one.", "error");
       return;
     }
 
@@ -96,6 +102,7 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
           title: '', description: '', image: '', tags: [], characters: [],
           environmentType: 'Modern', storyType: 'Action', targetAudience: '', goal: '', endingType: 'Happy', soundtracks: []
         });
+        setTitleStatus('idle');
         setIsPrivate(false);
         onClose();
       } else {
@@ -162,9 +169,36 @@ export default function CreateIdeaModal({ isOpen, onClose }: CreateIdeaModalProp
               placeholder="e.g. The Shadows of Neo-Tokyo"
               className={styles.adminInput}
               value={formData.title}
-              onChange={e => setFormData({ ...formData, title: e.target.value })}
+              onChange={e => {
+                setFormData({ ...formData, title: e.target.value });
+                setTitleStatus('idle');
+              }}
+              onBlur={async (e) => {
+                const val = e.target.value.trim();
+                if (!val) return;
+                setTitleStatus('checking');
+                try {
+                  const res = await checkIdeaTitleExists(val);
+                  setTitleStatus(res.exists ? 'taken' : 'available');
+                } catch {
+                  setTitleStatus('idle');
+                }
+              }}
               required
             />
+            {titleStatus !== 'idle' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                {titleStatus === 'checking' && (
+                  <><div style={{ width: '10px', height: '10px', border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /><span style={{ fontSize: '0.7rem', opacity: 0.7 }}>Checking title...</span></>
+                )}
+                {titleStatus === 'available' && (
+                  <><span style={{ color: '#22c55e', fontSize: '0.75rem', fontWeight: 800 }}>✓ Title is available</span></>
+                )}
+                {titleStatus === 'taken' && (
+                  <><span style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 800 }}>✗ This title already exists — choose another</span></>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', gridColumn: '1 / -1' }}>

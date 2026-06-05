@@ -28,7 +28,8 @@ export async function emailSignup(data: { email: string, password: string, refer
             created: new Date().toISOString(),
             last: new Date().toISOString(),
             referralId: data.referralId,
-            emailVerified: false
+            emailVerified: false,
+            authMethod: 'credentials'
         });
 
         if (!syncRes.success) return syncRes;

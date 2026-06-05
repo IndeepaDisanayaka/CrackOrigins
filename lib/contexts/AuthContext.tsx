@@ -16,6 +16,8 @@ interface AuthUser {
     creationTime: string | null;
     lastSignInTime: string | null;
   };
+  authMethod: 'google' | 'credentials' | 'guest';
+  hasPassword: boolean;
 }
 
 interface AuthContextType {
@@ -49,6 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [country, setCountry] = useState('Unknown');
   const [permissions, setPermissions] = useState<Record<string, string[]>>({});
   const [metadata, setMetadata] = useState<{ creationTime: string | null, lastSignInTime: string | null }>({ creationTime: null, lastSignInTime: null });
+  const [authMethod, setAuthMethod] = useState<'google' | 'credentials' | 'guest'>('guest');
+  const [hasPassword, setHasPassword] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
 
   const isAuthLoading = status === 'loading';
@@ -122,9 +126,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAffiliateLevelDetails(res.affiliateLevelDetails || null);
         setAffiliateCount(res.affiliateCount || 0);
         setMetadata(res.metadata || { creationTime: null, lastSignInTime: null });
+        setAuthMethod(res.authMethod || 'google');
+        setHasPassword(res.hasPassword || false);
         if (res.country && res.country !== 'Unknown') {
           setCountry(res.country);
         }
+
+        // Manually Update User State for immediate UI sync
+        setUser(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            displayName: res.name || prev.displayName,
+            name: res.name || prev.name,
+            photoURL: res.photoURL || prev.photoURL,
+            image: res.photoURL || prev.image,
+            authMethod: res.authMethod || prev.authMethod,
+            hasPassword: res.hasPassword ?? prev.hasPassword
+          };
+        });
       }
 
       if (permRes.success) {
@@ -149,7 +169,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: u.name || null,
         photoURL: u.image || null,
         image: u.image || null,
-        metadata: metadata
+        metadata: metadata,
+        authMethod: authMethod,
+        hasPassword: hasPassword
       });
 
       // Only refresh status once when session is first established

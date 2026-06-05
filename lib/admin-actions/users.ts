@@ -119,6 +119,7 @@ export async function syncUserRecord(uid: string, data: {
     country?: string;
     referralId?: string | null;
     emailVerified?: boolean;
+    authMethod?: 'google' | 'credentials' | 'guest';
 }) {
     try {
         const db = await getMongoDb();
@@ -188,6 +189,7 @@ export async function syncUserRecord(uid: string, data: {
             xp: existing?.xp ?? existing?.discount ?? 0,
             country: (data.country && data.country !== "Unknown") ? data.country : (existing?.country || "Unknown"),
             emailVerified: data.emailVerified ?? false,
+            authMethod: data.authMethod || existing?.authMethod || (data.email ? 'credentials' : 'guest'),
         };
 
         if (referredBy) userPayload.referredBy = referredBy;
@@ -251,6 +253,8 @@ export async function checkAdminStatus(uid: string) {
             success: true, 
             isOwner,
             isAdmin,
+            name: data?.name || null,
+            photoURL: data?.photoURL || null,
             affiliateId: data?.affiliateId || null,
             xp: currentXp,
             reward_level: currentLevel.title || 'starter',
@@ -264,6 +268,8 @@ export async function checkAdminStatus(uid: string) {
             },
             affiliateCount,
             country: data?.country || "Unknown",
+            authMethod: data?.authMethod || (data?.password ? 'credentials' : 'google'),
+            hasPassword: !!data?.password,
             metadata: {
                 creationTime: data?.created ? new Date(data.created).toISOString() : null,
                 lastSignInTime: data?.last ? new Date(data.last).toISOString() : null
@@ -620,22 +626,21 @@ export async function getMyPermissions(uid: string) {
     }
 }
 
-export async function getUserActivity(uid: string, page: number = 1, limit: number = 10) {
+export async function getUserActivity(uid: string, page: number = 1, limit: number = 50) {
     try {
         const db = await getMongoDb();
         const skip = (page - 1) * limit;
         
         // 1. Fetch from offer_investments
-        const investments = await db.collection('offer_investments')
-            .find({ uid })
-            .toArray();
+        const investments = await db.collection('offer_investments').find({ uid }).toArray();
             
         // 2. Fetch from reward_history
-        const rewards = await db.collection('reward_history')
-            .find({ uid })
-            .toArray();
+        const rewards = await db.collection('reward_history').find({ uid }).toArray();
+
+        // 3. Fetch from payments
+        const payments = await db.collection('payments').find({ userId: uid }).toArray();
             
-        // 3. Merge and map to activity format
+        // 4. Merge and map to activity format
         const merged: any[] = [
             ...investments.map((d: any) => ({
                 id: d._id.toString(),
@@ -654,6 +659,13 @@ export async function getUserActivity(uid: string, page: number = 1, limit: numb
                 date: d.timestamp ? new Date(d.timestamp).toISOString() : new Date().toISOString(),
                 title: d.type === 'onetime' ? 'New Recruit Reward' : 'Mission Commission',
                 details: d.type === 'onetime' ? 'Successfully recruited a new agent.' : `Earned commission from a recruit's purchase.`
+            })),
+            ...payments.map((p: any) => ({
+                id: p._id.toString(),
+                type: 'purchase',
+                title: `Game Purchase: ${p.game || 'Module'}`,
+                details: `Amount: $${p.amount || '0'} — Status: ${p.status || 'VERIFIED'}`,
+                date: p.purchaseDate ? new Date(p.purchaseDate).toISOString() : new Date().toISOString()
             }))
         ];
         
@@ -663,28 +675,82 @@ export async function getUserActivity(uid: string, page: number = 1, limit: numb
         const totalCount = merged.length;
         const pagedActivity = merged.slice(skip, skip + limit);
 
-        // Fallback: also read payments from accounts collection (only if combined activity is empty and page is 1)
-        if (pagedActivity.length === 0 && page === 1) {
-            const payments = await db.collection('payments')
-                .find({ userId: uid })
-                .sort({ purchaseDate: -1 })
-                .limit(limit)
-                .toArray();
-            
-            for (const p of payments) {
-                pagedActivity.push({
-                    id: p._id.toString(),
-                    type: 'purchase',
-                    title: `Game Purchase: ${p.game || 'Unknown'}`,
-                    details: `Amount: $${p.amount || '0'} — Status: ${p.status || 'UNKNOWN'}`,
-                    date: p.purchaseDate ? new Date(p.purchaseDate).toISOString() : new Date().toISOString()
-                });
-            }
-        }
-
         return { success: true, activity: pagedActivity, hasMore: (skip + pagedActivity.length) < totalCount, totalCount };
     } catch (err: any) {
         console.error("Error fetching user activity:", err);
+        return { success: false, error: err.message };
+    }
+}
+
+export async function getUserExperiences(uid: string) {
+    console.log("[DEBUG] Fetching experiences for identifier:", uid);
+    try {
+        const db = await getMongoDb();
+        
+        // 0. Find the user document to get all potential internal IDs (UID vs _id mismatch)
+        const user = await db.collection("accounts").findOne({ 
+            $or: [{ uid: uid }, { _id: uid as any }] 
+        });
+
+        const idSearch = [uid];
+        if (user?._id) idSearch.push(user._id.toString());
+
+        // 1. Scan game_activities using all potential account identifiers
+        const activities = await db.collection("game_activities").find({
+            $or: [
+                { accountId: { $in: idSearch } }, 
+                { uid: { $in: idSearch } },
+                { userId: { $in: idSearch } }
+            ]
+        }).toArray();
+
+        console.log(`[DEBUG] Found ${activities.length} activities for search space:`, idSearch);
+        if (activities.length === 0) return { success: true, experiences: [] };
+
+        // 2. Gather all potential identifiers (Slugs, IDs, itchGameIds)
+        const identifiers = new Set<string>();
+        activities.forEach((a: any) => {
+            if (a.productCode) identifiers.add(a.productCode.toString());
+            if (a.gameId) identifiers.add(a.gameId.toString());
+        });
+
+        const idList = Array.from(identifiers);
+
+        // 3. Prepare queries to catch the game in the 'games' collection
+        const objectIds: ObjectId[] = [];
+        const stringQueries: any[] = [
+            { slug: { $in: idList } },
+            { id: { $in: idList } },
+            { itchGameId: { $in: idList } },
+            { _id: { $in: idList } } // Match if _id is stored as a string
+        ];
+
+        idList.forEach(id => {
+            if (ObjectId.isValid(id)) {
+                try { objectIds.push(new ObjectId(id)); } catch {}
+            }
+        });
+
+        if (objectIds.length > 0) {
+            stringQueries.push({ _id: { $in: objectIds } });
+        }
+
+        // 4. Execute search across all identifier vectors
+        const games = await db.collection("games").find({ $or: stringQueries }).toArray();
+        
+        // 5. Transform into high-visibility experience cards
+        const experiences = games.map(g => ({
+            id: g._id.toString(),
+            title: g.title || "Unknown Operative Activity",
+            logo: g.logo || g.image || "/placeholder-game.png"
+        }));
+
+        // Eliminate duplicates (in case different activities pointed to the same game)
+        const uniqueExperiences = Array.from(new Map(experiences.map(item => [item.id, item])).values());
+
+        return { success: true, experiences: uniqueExperiences };
+    } catch (err: any) {
+        console.error("Experienced Platforms fetch error:", err);
         return { success: false, error: err.message };
     }
 }
@@ -898,6 +964,112 @@ export async function deleteSupportChat(adminUid: string, userUid: string) {
         });
 
         return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateUserProfile(uid: string, data: { name?: string, photoURL?: string }) {
+    try {
+        const db = await getMongoDb();
+        const accountsCol = db.collection('accounts');
+        
+        const updateData: any = {};
+        if (data.name) updateData.name = data.name;
+        if (data.photoURL) updateData.photoURL = data.photoURL;
+        updateData.updatedAt = new Date();
+
+        await accountsCol.updateOne(
+            { $or: [{ _id: uid as any }, { uid: uid }] },
+            { $set: updateData }
+        );
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function changeUserPassword(uid: string, data: { oldPassword?: string, newPassword: string, force?: boolean }) {
+    try {
+        const db = await getMongoDb();
+        const accountsCol = db.collection('accounts');
+        const bcrypt = await import('bcryptjs');
+
+        const user = await accountsCol.findOne({ 
+            $or: [{ _id: uid as any }, { uid: uid }] 
+        });
+
+        if (!user) return { success: false, error: "User not found." };
+
+        // If not forcing (e.g. not from email reset), check old password
+        if (!data.force) {
+            if (user.password) {
+                if (!data.oldPassword) return { success: false, error: "Current password is required." };
+                const isMatch = await bcrypt.compare(data.oldPassword, user.password);
+                if (!isMatch) return { success: false, error: "Incorrect current password." };
+            }
+        }
+
+        const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+        await accountsCol.updateOne(
+            { _id: user._id },
+            { 
+                $set: { 
+                    password: hashedPassword, 
+                    authMethod: 'credentials', // Ensure they are marked as credentials users if they have a password
+                    updatedAt: new Date() 
+                } 
+            }
+        );
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function requestPasswordReset(email: string) {
+    try {
+        const db = await getMongoDb();
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await findUserByEmail(normalizedEmail);
+        
+        if (!user) return { success: false, error: "No account found with this email." };
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60000); // 10 minutes
+
+        await db.collection("password_resets").updateOne(
+            { email: normalizedEmail },
+            { $set: { code, expiresAt, uid: user.uid || user._id.toString() } },
+            { upsert: true }
+        );
+
+        const { sendPasswordResetEmail } = await import('../email');
+        await sendPasswordResetEmail(normalizedEmail, code, user.name || "Operative");
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function verifyPasswordResetCode(email: string, code: string) {
+    try {
+        const db = await getMongoDb();
+        const normalizedEmail = email.trim().toLowerCase();
+        const resetRequest = await db.collection("password_resets").findOne({ email: normalizedEmail });
+
+        if (!resetRequest || resetRequest.code !== code) {
+            return { success: false, error: "Invalid verification code." };
+        }
+
+        if (new Date() > resetRequest.expiresAt) {
+            return { success: false, error: "Verification code has expired." };
+        }
+
+        return { success: true, uid: resetRequest.uid };
     } catch (error: any) {
         return { success: false, error: error.message };
     }

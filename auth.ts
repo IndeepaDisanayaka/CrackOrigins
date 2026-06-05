@@ -29,8 +29,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isPasswordCorrect) return null;
 
+        // _id stores the UUID string for credentials users
+        const userId = user.uid || user._id?.toString();
+
+        // Update the 'last active' timestamp on every successful login
+        try {
+          const { getMongoDb } = await import("./lib/mongodb");
+          const db = await getMongoDb();
+          await db.collection("accounts").updateOne(
+            { _id: user._id },
+            { $set: { last: new Date().toISOString() } }
+          );
+        } catch (e) {
+          console.warn("Could not update last login time:", e);
+        }
+
         return {
-          id: user.uid,
+          id: userId,
           email: credentials.email as string,
           name: user.name,
           image: user.photoURL,

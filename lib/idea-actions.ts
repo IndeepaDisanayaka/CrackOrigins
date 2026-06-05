@@ -158,11 +158,11 @@ export async function publishIdea(uid: string, ideaData: {
         }
 
         const baseSlug = await generateSlug(ideaData.title);
-        let slug = baseSlug;
+        const slug = baseSlug;
 
         const existing = await db.collection("ideas").findOne({ slug });
         if (existing) {
-            slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`;
+            return { success: false, error: "An idea with this title already exists. Please choose a different title." };
         }
 
         const newId = new ObjectId().toHexString();
@@ -457,6 +457,54 @@ export const getIdeaById = cache(
         )();
     }
 );
+
+export async function findIdeaBySlug(slug: string) {
+    const db = await getMongoDb();
+    
+    // 1. Fast path: look up by stored slug field
+    let idea = await db.collection<any>("ideas").findOne({ slug });
+    if (idea) return idea;
+
+    // 2. Fallback: match by title for old ideas that have no slug field stored
+    const oldIdeas = await db.collection<any>("ideas").find({ 
+        slug: { $exists: false } 
+    }).toArray();
+
+    for (const doc of oldIdeas) {
+        if (!doc.title) continue;
+        const generated = await generateSlug(doc.title);
+        if (generated === slug) {
+            // Auto-save the slug for future fast lookups
+            await db.collection("ideas").updateOne(
+                { _id: doc._id },
+                { $set: { slug: generated } }
+            );
+            return doc;
+        }
+    }
+
+    return null;
+}
+
+export async function getIdeaBySlug(slug: string) {
+    try {
+        const idea = await findIdeaBySlug(slug);
+        if (!idea) return { success: false, error: "Not found" };
+        return { success: true, idea: JSON.parse(JSON.stringify(idea)) };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function checkIdeaTitleExists(title: string): Promise<{ exists: boolean }> {
+    try {
+        const slug = await generateSlug(title);
+        const idea = await findIdeaBySlug(slug);
+        return { exists: !!idea };
+    } catch {
+        return { exists: false };
+    }
+}
 
 /**
  * Fetch the latest snapshot for an idea (Consolidated content)

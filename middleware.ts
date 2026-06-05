@@ -6,8 +6,13 @@ import type { NextRequest } from 'next/server';
 const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
 
 export function middleware(request: NextRequest) {
-  // Match only external API routes
-  if (request.nextUrl.pathname.startsWith('/api/external')) {
+  try {
+    const pathname = request.nextUrl.pathname;
+    
+    // Explicitly check path to avoid interfering with other routes like /api/auth
+    if (!pathname.startsWith('/api/external')) {
+      return NextResponse.next();
+    }
     
     // 1. Rate Limiting Check (5 requests per minute)
     const ip = (request as any).ip || request.headers.get('x-forwarded-for') || 'anonymous';
@@ -44,12 +49,15 @@ export function middleware(request: NextRequest) {
         { status: 401 }
       );
     }
-  }
 
-  return NextResponse.next();
+    return NextResponse.next();
+  } catch (error) {
+    console.error("Middleware Error: ", error);
+    return NextResponse.next();
+  }
 }
 
 // Ensure middleware only runs on relevant paths
 export const config = {
-  matcher: '/api/external/:path*',
+  matcher: ['/api/external/:path*'],
 };
