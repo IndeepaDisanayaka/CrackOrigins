@@ -37,6 +37,7 @@ import DispatchModal from './admin/DispatchModal';
 import ListGameModal from './admin/ListGameModal';
 import AdminSupport from './admin/AdminSupport';
 import AddLicenseModal from './admin/AddLicenseModal';
+import TrendingTopics from './admin/TrendingTopics';
 import { 
   getAdminDashboardData,
   updateUserOwnerStatus,
@@ -74,7 +75,7 @@ interface AdminPanelProps {
   setIsOpen: (open: boolean) => void;
 }
 
-type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support' | 'withdrawals' | 'account-deletions';
+type Tab = 'overview' | 'users' | 'payments' | 'games' | 'blogs' | 'licenses' | 'auth' | 'support' | 'withdrawals' | 'account-deletions' | 'trending';
 type PaymentView = 'payments' | 'offerPayments';
 
 export default function AdminPanel({
@@ -520,6 +521,7 @@ export default function AdminPanel({
           <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
              {[
                { id: 'overview', icon: <TrendingUp size={18} />, label: 'Overview', visible: true },
+               { id: 'trending', icon: <Search size={18} />, label: 'Trending', visible: true },
                { id: 'users', icon: <Users size={18} />, label: 'Users', visible: hasPerm('account', 'READ') },
                { id: 'payments', icon: <CreditCard size={18} />, label: 'Payments', visible: hasPerm('payments', 'READ') },
                { id: 'games', icon: <Gamepad2 size={18} />, label: 'Games', visible: hasPerm('games', 'READ') },
@@ -638,6 +640,11 @@ export default function AdminPanel({
                     )}
                  </div>
               </div>
+
+              {/* Trending Tab */}
+              {activeTab === 'trending' && (
+                <TrendingTopics userUid={userUid} />
+              )}
 
               {/* Overview Tab */}
               {activeTab === 'overview' && (
