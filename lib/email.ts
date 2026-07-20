@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const RESEND_API_KEY = 're_M3BHu1hm_6D3xMu28uzqTGJeahSwv2Dwz';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 export async function sendAuthEmail(to: string, code: string) {
     try {
