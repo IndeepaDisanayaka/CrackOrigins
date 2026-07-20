@@ -1,6 +1,6 @@
 import { MongoClient, Db } from "mongodb";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://indeepadisanayaka_db_user:WYjCqlDWubo67PJn@crack-origins-cluster.6piprc2.mongodb.net/crack-origins-db?appName=crack-origins-cluster";
+const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
@@ -15,7 +15,7 @@ export async function getMongoDb(): Promise<Db> {
   }
   
   if (!cachedClient) {
-    cachedClient = new MongoClient(MONGODB_URI);
+    cachedClient = new MongoClient(MONGODB_URI as string);
     await cachedClient.connect();
   }
   
