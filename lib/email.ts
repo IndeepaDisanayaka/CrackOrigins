@@ -2,6 +2,10 @@ import axios from 'axios';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
+if (!RESEND_API_KEY) {
+    console.error('[email.ts] RESEND_API_KEY is not set in environment variables!');
+}
+
 export async function sendAuthEmail(to: string, code: string) {
     try {
         const html = `
@@ -51,8 +55,11 @@ export async function sendAuthEmail(to: string, code: string) {
 
         return { success: true, data: response.data };
     } catch (error: any) {
-        console.error('Resend Error:', error.response?.data || error.message);
-        return { success: false, error: error.response?.data?.message || error.message };
+        const resendError = error.response?.data;
+        console.error('[sendAuthEmail] Resend API Error:', JSON.stringify(resendError) || error.message);
+        console.error('[sendAuthEmail] Status:', error.response?.status);
+        console.error('[sendAuthEmail] RESEND_API_KEY set:', !!RESEND_API_KEY);
+        return { success: false, error: resendError?.message || error.message };
     }
 }
 export async function sendDeletionVerificationEmail(to: string, code: string, name: string) {
